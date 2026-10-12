@@ -1,0 +1,155 @@
+{
+  "source": "spaceport.L2.glb",
+  "level": "L2",
+  "parts": 172,
+  "kinds": {
+    "box": 131,
+    "cyl": 31,
+    "pipe": 2,
+    "sphere": 1,
+    "wedge": 7
+  },
+  "arrays": [
+    {
+      "id": "tanks",
+      "n": 3,
+      "kind": "linear",
+      "children": [
+        "cyl",
+        "cyl_"
+      ]
+    },
+    {
+      "id": "slabs_1",
+      "n": 8,
+      "kind": "linear",
+      "children": [
+        "box",
+        "cyl"
+      ]
+    },
+    {
+      "id": "slabs_2",
+      "n": 8,
+      "kind": "linear",
+      "children": [
+        "box",
+        "cyl"
+      ]
+    },
+    {
+      "id": "columns_1",
+      "n": [
+        2,
+        2
+      ],
+      "kind": "grid",
+      "children": [
+        "cyl",
+        "box"
+      ]
+    },
+    {
+      "id": "columns_2",
+      "n": [
+        2,
+        2
+      ],
+      "kind": "grid",
+      "children": [
+        "box"
+      ]
+    },
+    {
+      "id": "columns_3",
+      "n": [
+        2,
+        2
+      ],
+      "kind": "grid",
+      "children": [
+        "box"
+      ]
+    },
+    {
+      "id": "walls",
+      "n": 4,
+      "kind": "rotate",
+      "children": [
+        "wedge"
+      ]
+    },
+    {
+      "id": "props_1",
+      "n": 16,
+      "kind": "linear",
+      "children": [
+        "box"
+      ]
+    },
+    {
+      "id": "props_2",
+      "n": 16,
+      "kind": "linear",
+      "children": [
+        "box"
+      ]
+    },
+    {
+      "id": "boxs_8",
+      "n": 20,
+      "kind": "linear",
+      "children": [
+        "box"
+      ]
+    },
+    {
+      "id": "steps",
+      "n": 24,
+      "kind": "screw",
+      "children": [
+        "box"
+      ]
+    }
+  ],
+  "mirrors": [
+    {
+      "id": "props_2",
+      "of": "props_1",
+      "across": "box3 axis=x",
+      "objects": 16
+    },
+    {
+      "id": "slabs_2",
+      "of": "slabs_1",
+      "across": "box2 axis=x",
+      "objects": 16
+    },
+    {
+      "id": "columns_3",
+      "of": "columns_2",
+      "across": "box2 axis=x",
+      "objects": 4
+    },
+    {
+      "id": "slab_4",
+      "of": "slab_3",
+      "across": "box2 axis=x",
+      "objects": 1
+    }
+  ],
+  "covered": 134,
+  "placement": {
+    "on": 16,
+    "against": 0,
+    "at": 44,
+    "coord": 4,
+    "mirror": 4
+  },
+  "meanFit": 0.868,
+  "dissolved": [
+    "boxs_7"
+  ],
+  "fallback": [],
+  "renamed": 78
+}

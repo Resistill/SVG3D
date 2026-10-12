@@ -1,0 +1,75 @@
+// 由逆向管线从 spaceport_edit.L0.glb 生成（L0）。~fit 是拟合度，~err 是相对误差；mesh 是拟合不了、直接引用源网格的部件
+
+material ground color=#59604f metal=0.05 rough=1
+material concrete color=#b8b4aa metal=0.05 rough=0.78
+material white color=#eceef0 metal=0.05 rough=0.78
+material hazard color=#e0a92e metal=0.05 rough=0.78
+material steel color=#7f8b96 metal=0.6 rough=0.4
+material asphalt color=#3b3d40 metal=0.05 rough=1
+material earth color=#8a7a58 metal=0.05 rough=1
+material color_4a5560 color=#4a5560 metal=0.05 rough=0.78
+
+box ground size=200,1,200 at=0,-1,0 mat=ground ~fit=1 ~src="ground"
+cyl spare r=2.4 h=20 axis=x on=ground[-0.45,1,-0.2] mat=white ~fit=0.9202 ~src="spare"
+mesh hangar_body src="spaceport_edit.L0.glb#hangar.body" size=34,22,26 pivot=-45,0,-20 on=ground[-0.45,1,-0.2] mat=concrete ~fit=0 ~src="hangar.body"
+mesh hangar2_body src="spaceport_edit.L0.glb#hangar2.body" size=34,22,26 pivot=-45,0,42 on=ground[-0.45,1,0.42] mat=concrete ~fit=0 ~src="hangar2.body"
+repeat tanks n=5 step=10,0,0 on=ground[0.1,1,0.55] pin=origin {
+  cyl tank r=3.5 h=9 mat=white ~fit=0.9302
+  sphere cap r=3.5 at=tank[0,0.222222,0] mat=white ~fit=0.9245
+  cyl ring r=3.6 h=0.6 at=tank[0,0.333333,0] mat=hazard ~fit=0.8361
+}
+box pad size=26,2,26 on=ground[0.25,1,0] mat=concrete ~fit=1 ~src="pad"
+box wings_annex size=14,8,12 on=ground[-0.22,1,-0.26] turn=-90 mat=concrete ~fit=1 ~src="wings.annex"
+mirror wings_mirrored_annex of=wings_annex across=hangar_roof axis=x
+box bunker size=14,5,10 on=ground[-0.05,1,0.55] turn=30 mat=concrete ~fit=1 ~src="bunker"
+wedge berm size=7,5,10 on=ground[-0.140933,1,0.6025] turn=30 mat=earth ~fit=1 ~src="berm"
+mesh road src="spaceport_edit.L0.glb#road" size=56.5285,0.08,19.8905 pivot=-19.0281,0,6.8184 on=ground[-0.190281,1,0.068184] mat=asphalt ~fit=0 ~src="road"
+repeat lights n=(2,1,2) step=40,0,40 on=ground[0.05,1,-0.2] pin=origin {
+  cyl pole r=0.4 h=30 mat=steel ~fit=0.9093
+  box lamp size=2.4,1.2,2.4 on=pole mat=white ~fit=1
+}
+drop lights.3
+repeat spiral_treads n=24 step=0,0.2713,0 turn=15.6521 on=ground[-0.179928,1,0.5] pin=origin {
+  box tread size=2,0.12,0.7 at=1.2,0,0 mat=steel ~fit=0.9999
+}
+cyl spiral_core r=0.35 h=6.5 on=spiral_treads.0.tread[-1.200001,1,0] mat=steel ~fit=0.9143 ~src="spiral.core"
+mesh wings_stair1 src="spaceport_edit.L0.glb#wings.stair1" size=2.4,7.75,12 pivot=-22,0.25,-13 at=wings_annex[1.857143,-0.9375,0] mat=steel ~fit=0 ~src="wings.stair1"
+mirror wings_mirrored_stair1 of=wings_stair1 across=hangar_roof axis=x
+mesh feed1 src="spaceport_edit.L0.glb#feed1" size=11.7,1.75,38.507 pivot=15.5,1,32.2492 at=pad[-0.73077,0,2.480709] mat=steel ~fit=0 ~src="feed1"
+mesh feed2 src="spaceport_edit.L0.glb#feed2" size=1.7,1.75,38.5009 pivot=29.5,1,32.2499 at=pad[0.346154,0,2.480761] mat=steel ~fit=0 ~src="feed2"
+mesh spiral_rail src="spaceport_edit.L0.glb#spiral.rail" size=4.3,6.3304,4.2974 pivot=-17.9928,1.0748,50 at=spiral_core[0.000001,-0.706215,0] mat=steel ~fit=0 ~src="spiral.rail"
+cyl rocket_stage1 r=2.4 h=28 on=pad mat=white ~fit=0.9189 ~src="rocket.stage1"
+repeat tower_legs n=(2,1,2) step=6,0,6 on=pad[-0.930769,1,-0.930769] pin=origin {
+  box leg size=0.6,48,0.6 mat=steel ~fit=1
+}
+mirror tower2_legs of=tower_legs across=pad axis=x
+rotate rocket_fins n=3 angle=90 about=pad {
+  wedge fin size=3.5,6,0.4 on=pad[0.319231,1,0] turn=180 mat=hazard ~fit=1
+}
+repeat tower_decks_2 n=4 step=0.0001,14.4,0.0001 at=tower_legs.3.leg[-9.722624,-0.905201,0.000002] pin=origin {
+  cyl brace r=0.15 h=7.2111 axis=x rot=(-0.000003,-0.000009,1,33.690202) mat=steel ~fit=0.163
+}
+mirror tower2_decks_2 of=tower_decks_2 across=pad axis=x
+cyl mast r=0.25 h=7 on=bunker[0.6,1,0] mat=steel ~fit=0.9132 ~src="mast"
+repeat tower_decks n=10 step=0,4.8,0 at=tower_legs.3.leg[-10.000011,-0.816667,-10.000009] pin=origin {
+  box deck size=7.2,0.4,7.2 mat=steel ~fit=1
+}
+mirror tower2_decks of=tower_decks across=pad axis=x
+mesh wings_stair2 src="spaceport_edit.L0.glb#wings.stair2" size=11.0036,14.26,2.02 pivot=-21.5,8.54,-26.01 at=-21.5,8.54,-26.01 mat=steel ~fit=0 ~src="wings.stair2"
+mirror wings_mirrored_stair2 of=wings_stair2 across=hangar_roof axis=x
+repeat tower_decks_4 n=3 step=0.0001,14.4,0.0001 at=tower_decks.1.deck[0.023118,-11.624176,0.833334] pin=origin {
+  cyl brace r=0.15 h=7.2111 axis=x rot=(-0.000005,-0.000017,1,33.690307) mat=steel ~fit=0.1989
+}
+mirror tower2_decks_3 of=tower_decks_4 across=pad axis=x
+sphere radome r=1.6 on=mast mat=white ~fit=0.9244 ~src="radome"
+repeat tower_decks_3 n=3 step=0.0001,14.4,0.0001 at=tower_decks.2.deck[0.023116,-11.624117,0.833333] pin=origin {
+  cyl brace r=0.15 h=7.2111 axis=x rot=(0.289785,-0.957092,-0.000001,179.999669) mat=steel ~fit=0.1879
+}
+mirror tower2_decks_4 of=tower_decks_3 across=pad axis=x
+box hangar_roof size=36,0.8,28 on=hangar_body mat=steel ~fit=1 ~src="hangar.roof"
+box hangar2_roof size=36,0.8,28 on=hangar2_body mat=color_4a5560 ~fit=1 ~src="hangar2.roof"
+cyl rocket_band r=2.45 h=0.8 at=rocket_stage1[0,0.942857,0] mat=hazard ~fit=0.8579 ~src="rocket.band"
+cyl rocket_stage2 r=2 h=20 on=rocket_stage1 mat=white ~fit=0.9181 ~src="rocket.stage2"
+box arm size=1.6,12.2205,0.3 at=rocket_stage2[-2.796,-0.912536,-2.796] rot=(-0.106055,-0.960831,-0.256039,136.595943) mat=steel ~fit=0.9999 ~src="arm"
+mirror arm2 of=arm across=pad axis=x
+mesh rocket_nose src="spaceport_edit.L0.glb#rocket.nose" size=4,7,4 pivot=25,50,0 on=rocket_stage2 mat=white ~fit=0 ~src="rocket.nose"

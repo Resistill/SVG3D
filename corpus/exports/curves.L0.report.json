@@ -1,0 +1,82 @@
+{
+  "source": "curves.L0.glb",
+  "level": "L0",
+  "parts": 62,
+  "kinds": {
+    "box": 23,
+    "cyl": 12,
+    "mesh": 12,
+    "sphere": 11,
+    "wedge": 4
+  },
+  "arrays": [
+    {
+      "id": "houses",
+      "n": [
+        2,
+        2
+      ],
+      "kind": "grid",
+      "children": [
+        "house"
+      ]
+    },
+    {
+      "id": "plaza_benches",
+      "n": 6,
+      "kind": "rotate",
+      "children": [
+        "seat"
+      ]
+    },
+    {
+      "id": "lamps",
+      "n": 11,
+      "kind": "rotate",
+      "children": [
+        "pole"
+      ]
+    },
+    {
+      "id": "lamps_2",
+      "n": 11,
+      "kind": "rotate",
+      "children": [
+        "bulb"
+      ]
+    },
+    {
+      "id": "plaza_benches_2",
+      "n": 6,
+      "kind": "rotate",
+      "children": [
+        "back"
+      ]
+    },
+    {
+      "id": "flags",
+      "n": [
+        2,
+        2
+      ],
+      "kind": "grid",
+      "children": [
+        "flag"
+      ]
+    }
+  ],
+  "mirrors": [],
+  "covered": 42,
+  "placement": {
+    "on": 21,
+    "against": 0,
+    "at": 3,
+    "coord": 4
+  },
+  "meanFit": 0.776,
+  "dissolved": [
+    "wedges"
+  ],
+  "fallback": [],
+  "renamed": 2
+}

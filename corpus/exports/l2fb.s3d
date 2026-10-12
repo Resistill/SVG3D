@@ -1,0 +1,57 @@
+// 由逆向管线从 spaceport.L2.glb 生成（L2）。~fit 是拟合度，~err 是相对误差；mesh 是拟合不了、直接引用源网格的部件
+
+material ground color=#59604f metal=0.05 rough=1
+material concrete color=#b8b4aa metal=0.05 rough=0.78
+material white color=#eceef0 metal=0.05 rough=0.78
+material hazard color=#e0a92e metal=0.05 rough=0.78
+material steel color=#7f8b96 metal=0.6 rough=0.4
+material asphalt color=#3b3d40 metal=0.05 rough=1
+material earth color=#8a7a58 metal=0.05 rough=1
+
+box terrain size=200,1,200 at=0,-1,0 mat=ground ~fit=1 ~src="merged_0#0"
+cyl tank r=2.4 h=20 axis=x on=terrain[-0.45,1,-0.2] mat=white ~fit=0.9194 ~src="merged_2#5"
+mesh volume_1 src="l2fb.parts.glb#merged_1~1" size=58,22,26 pivot=-45,0,-20 on=terrain[-0.45,1,-0.2] mat=concrete ~fit=0 ~src="merged_1#1"
+box platform_1 size=26,2,26 on=terrain[0.25,1,0] mat=concrete ~fit=1 ~src="merged_1#0"
+pipe slab_1 path=[(40.0105,1.3542,51.479); (39.8282,1.358,46.9809); (39.2922,1.4193,42.5121); (38.2651,1.518,38.1322); (36.7566,1.6618,33.8952); (34.8179,1.8461,29.837); (32.6693,2.0478,25.8861); (30.726,2.235,21.831); (29.4332,2.3607,17.528); (28.979,2.414,13.0542)] r=0.347 smooth=true mat=steel ~fit=0.089 ~src="merged_4#120"
+box volume_2 size=14,5,10 on=terrain[-0.05,1,0.55] turn=30 mat=concrete ~fit=1 ~src="merged_1#2"
+mesh volume_3 src="l2fb.parts.glb#merged_2~6" size=7,12.5,7 pivot=20,0,55 on=terrain[0.2,1,0.55] mat=white ~fit=0 ~src="merged_2#6"
+mirror volume_4 of=volume_3 across=platform_1 axis=x
+mesh volume_5 src="l2fb.parts.glb#merged_2~8" size=7,12.5,7 pivot=40,0,55 on=terrain[0.4,1,0.55] mat=white ~fit=0 ~src="merged_2#8"
+wedge volume_6 size=7,5,10 on=terrain offset=-14.09,0,60.25 turn=30.000001 mat=earth ~fit=1 ~src="merged_6#0"
+span stairs from=-16,8,-26 to=-27,22.8,-26.02 steps=20 section=2,0.2 mat=steel ~fit=0.9999 ~src="merged_4#63"
+mirror stairs_2 of=stairs across=tank axis=x
+span stairs_3 from=-68,0,-7 to=-68,8,-19 steps=16 section=2.4,0.25 mat=steel ~fit=1 ~src="merged_4#83"
+mirror stairs_4 of=stairs_3 across=tank axis=x
+pipe beam path=[(20.9865,2.3948,13.0037); (20.9596,2.3594,17.8132); (20.8177,2.1988,22.6184); (20.593,1.9751,27.4181); (20.3586,1.7323,32.2164); (20.1843,1.5475,37.0195); (20.0713,1.4408,41.8268); (20.0185,1.3695,46.6361); (20.0007,1.3555,51.4462)] r=0.3471 smooth=true mat=steel ~fit=0.4541 ~src="merged_4#119"
+repeat columns_1 n=(2,1,2) step=40,0,40 on=terrain[0.05,1,-0.2] pin=origin {
+  cyl column r=0.4 h=30 mat=steel ~fit=0.9093
+  box prop size=2.4,1.2,2.4 on=column mat=white ~fit=1
+}
+mesh platform_2 src="l2fb.parts.glb#merged_5~0" size=56.5285,0.08,19.8905 pivot=-19.0281,0,6.8184 on=terrain offset=-19.03,0,6.82 mat=asphalt ~fit=0 ~src="merged_5#0"
+repeat steps n=24 step=0,0.2713,0 turn=15.65214 on=terrain[-0.17993,1,0.5] pin=origin {
+  box step size=2,0.12,0.7 at=1.2,0,0 mat=steel ~fit=0.9999
+}
+cyl column_1 r=0.35 h=6.5 on=steps.0.step[-1.2,1,0] mat=steel ~fit=0.9118 ~src="merged_4#122"
+mesh volume_7 src="l2fb.parts.glb#merged_4~147" size=4.3,6.3304,4.2974 pivot=-17.9928,1.0748,50 at=column_1[0,-0.7062,0] mat=steel ~fit=0 ~src="merged_4#147"
+mesh column_2 src="l2fb.parts.glb#merged_2~0" size=4.8,49,4.8 pivot=25,2,0 on=platform_1 mat=white ~fit=0 ~src="merged_2#0"
+repeat columns_2 n=(2,1,2) step=6,0,6 on=platform_1 offset=6.1,0,-12.1 pin=origin {
+  box column size=0.6,48,0.6 mat=steel ~fit=1
+}
+mirror columns_3 of=columns_2 across=platform_1 axis=x
+rotate walls n=3 angle=90 about=platform_1 {
+  wedge wall size=3.5,6,0.4 on=platform_1 offset=4.15,0,0 turn=180 mat=hazard ~fit=1
+}
+repeat slabs_1 n=8 step=0,6,0 at=columns_2.3.column offset=-3,-18.4,-3 pin=origin {
+  box slab size=7.2,0.4,7.2 mat=steel ~fit=1
+  cyl member r=0.15 h=7.9398 axis=x at=slab offset=-0.098,-2.913,3 rot=(0.349511,0.936932,0.000002,179.99953) mat=steel ~fit=0.1656
+}
+mirror slabs_2 of=slabs_1 across=platform_1 axis=x
+cyl column_3 r=0.25 h=7 on=volume_2[0.6,1,0] mat=steel ~fit=0.9131 ~src="merged_4#121"
+repeat slabs_3 n=3 step=10,0,0 at=volume_3[0,-0.04,0] pin=origin {
+  cyl slab r=3.6 h=0.6 mat=hazard ~fit=0.8219
+}
+sphere volume_8 r=1.6 on=column_3 mat=white ~fit=0.9253 ~src="merged_2#9"
+box platform_3 size=36,0.8,28 on=volume_1 mat=steel ~fit=1 ~src="merged_4#46"
+cyl slab_2 r=2.45 h=0.8 at=column_2 offset=0,2.7,0 mat=hazard ~fit=0.8826 ~src="merged_3#0"
+box slab_3 size=6.0812,0.3,1.6 at=column_2 offset=-3.35,11.49,-3.35 rot=(0.001644,-0.999991,-0.00397,45.00038) mat=steel ~fit=1 ~src="merged_4#20"
+mirror slab_4 of=slab_3 across=platform_1 axis=x

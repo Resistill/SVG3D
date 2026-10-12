@@ -1,0 +1,7 @@
+target/
+node_modules/
+web/dist/
+work/
+corpus/reference/work/
+*.log
+.DS_Store

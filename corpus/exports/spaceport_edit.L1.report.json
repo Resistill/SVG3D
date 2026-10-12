@@ -1,0 +1,145 @@
+{
+  "source": "spaceport_edit.L1.glb",
+  "level": "L1",
+  "parts": 125,
+  "kinds": {
+    "box": 64,
+    "cyl": 39,
+    "mesh": 11,
+    "sphere": 6,
+    "wedge": 5
+  },
+  "arrays": [
+    {
+      "id": "tanks",
+      "n": 5,
+      "kind": "linear",
+      "children": [
+        "cyl",
+        "sphere",
+        "cyl_"
+      ]
+    },
+    {
+      "id": "slabs_1",
+      "n": 10,
+      "kind": "linear",
+      "children": [
+        "box",
+        "cyl"
+      ]
+    },
+    {
+      "id": "slabs_2",
+      "n": 10,
+      "kind": "linear",
+      "children": [
+        "box",
+        "cyl"
+      ]
+    },
+    {
+      "id": "columns_2",
+      "n": [
+        2,
+        2
+      ],
+      "kind": "grid",
+      "children": [
+        "box"
+      ]
+    },
+    {
+      "id": "columns_3",
+      "n": [
+        2,
+        2
+      ],
+      "kind": "grid",
+      "children": [
+        "box"
+      ]
+    },
+    {
+      "id": "columns_1",
+      "n": [
+        2,
+        2
+      ],
+      "holes": [
+        3
+      ],
+      "kind": "grid",
+      "children": [
+        "cyl",
+        "box"
+      ]
+    },
+    {
+      "id": "walls",
+      "n": 4,
+      "kind": "rotate",
+      "children": [
+        "wedge"
+      ]
+    },
+    {
+      "id": "steps",
+      "n": 24,
+      "kind": "screw",
+      "children": [
+        "box"
+      ]
+    }
+  ],
+  "mirrors": [
+    {
+      "id": "slabs_2",
+      "of": "slabs_1",
+      "across": "cyl1 axis=x",
+      "objects": 20
+    },
+    {
+      "id": "columns_3",
+      "of": "columns_2",
+      "across": "cyl1 axis=x",
+      "objects": 4
+    },
+    {
+      "id": "member_2",
+      "of": "member_1",
+      "across": "cyl1 axis=x",
+      "objects": 1
+    },
+    {
+      "id": "mesh_2",
+      "of": "mesh_1",
+      "across": "box11 axis=x",
+      "objects": 1
+    },
+    {
+      "id": "mesh_4",
+      "of": "mesh_3",
+      "across": "box11 axis=x",
+      "objects": 1
+    },
+    {
+      "id": "volume_4",
+      "of": "volume_3",
+      "across": "box11 axis=x",
+      "objects": 1
+    }
+  ],
+  "covered": 97,
+  "placement": {
+    "on": 21,
+    "against": 0,
+    "at": 7,
+    "coord": 2,
+    "mirror": 6
+  },
+  "meanFit": 0.764,
+  "dissolved": [],
+  "fallback": [],
+  "renamed": 46
+}

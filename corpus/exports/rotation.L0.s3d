@@ -1,0 +1,72 @@
+// 由逆向管线从 rotation.L0.glb 生成（L0）。~fit 是拟合度，~err 是相对误差；mesh 是拟合不了、直接引用源网格的部件
+
+material ground color=#6e7a5c metal=0.05 rough=1
+material white color=#eef0f2 metal=0.05 rough=0.78
+material panel color=#26406a metal=0.3 rough=0.3
+material steel color=#7f8b96 metal=0.6 rough=0.4
+material accent color=#e07a3a metal=0.05 rough=0.78
+material red color=#c8463c metal=0.05 rough=0.78
+
+spline curve1 closed=true path=[(4,6,-4); (18,10,2); (26,16,-4); (22,8,-16); (10,3,-20); (-6,12,-16); (-14,18,-4); (-8,7,6); (2,4,4)]
+box ground size=160,1,160 at=0,-1,0 mat=ground ~fit=1 ~src="ground"
+cyl pisa_core r=4 h=42 at=ground[-0.15,1,0.5] rot=(-0.000014,0,-1,5.00005) mat=white ~fit=0.9184 ~src="pisa.core"
+repeat coaster_legs n=20 along=curve1 {
+  span col from=(0,-0.7,0) drop=ground r=0.22 mat=steel ~fit=0.1867
+}
+repeat solar n=(5,1,4) step=5.5,0,4.5 on=ground offset=29,0,29.25 pin=origin {
+  cyl post r=0.12 h=1.6 mat=steel ~fit=0.9126
+  box panel size=5,0.1,2.8 at=post[0,1,0] rot=(1,0,0,24.999996) mat=panel ~fit=0.9995
+}
+repeat farm n=3 step=26,0,-8 on=ground[0.025,1,-0.5] pin=origin {
+  cone t_tower r=1.3 r2=0.7042 h=32 mat=white ~fit=0.8662
+  box t_nacelle size=6,2.2,2.2 on=t_tower turn=-124.999995 mat=white ~fit=1
+  sphere t_hub r=1.1 at=t_nacelle[1,-1,0] mat=white ~fit=0.9231
+}
+cyl radar_base r=3.5 h=4 on=ground[-0.55,1,-0.45] mat=white ~fit=0.9172 ~src="radar.base"
+rotate pisa_galleries_0_cols n=15 angle=22.5 about=pisa_core axis=(0.087156,0.996195,0) {
+  cyl col r=0.18 h=5.1 at=-15.1615,0.7785,36.7827 rot=(0,0,-1,5) mat=white ~fit=0.909
+}
+mesh coaster_spine src="rotation.L0.glb#coaster.spine" size=40.5576,15.5878,26.8835 pivot=6.0536,2.217,-6.7583 at=6.0536,2.217,-6.7583 mat=steel ~fit=0 ~src="coaster.spine"
+repeat coaster_ties n=110 along=curve1 orient=full {
+  box tie size=1.7,0.12,0.18 at=0,-0.12,0 turn=90.000002 mat=steel ~fit=0.9995
+}
+mesh coaster_railR src="rotation.L0.glb#coaster.railR" size=41.6206,15.3678,27.9849 pivot=6.0594,2.917,-6.7576 at=6.0594,2.917,-6.7576 mat=red ~fit=0 ~src="coaster.railR"
+mesh coaster_railL src="rotation.L0.glb#coaster.railL" size=39.026,15.3678,25.3849 pivot=6.0578,2.917,-6.7575 at=6.0578,2.917,-6.7575 mat=red ~fit=0 ~src="coaster.railL"
+cyl radar_mast r=0.7 h=5 on=radar_base mat=steel ~fit=0.922 ~src="radar.mast"
+repeat pisa_galleries n=7 step=0.4881,5.5787,0 at=pisa_core[0,-0.73333,0] pin=origin {
+  cyl ring r=4.8 h=0.5 rot=(0.000001,0,-1,4.999987) mat=white ~fit=0.7464
+}
+rotate pisa_galleries_1_cols n=15 angle=22.5 about=pisa_core axis=(0.087156,0.996195,0) {
+  cyl col r=0.18 h=5.1 on=pisa_galleries.0.ring[-0.3628,1,0.8758] mat=white ~fit=0.9069
+}
+mesh radar_dish src="rotation.L0.glb#radar.dish" size=9.6732,6.3459,8.2634 pivot=-44.6741,7.861,-37.5206 at=radar_mast[-0.963,0.5444,-2.172] mat=white ~fit=0 ~src="radar.dish"
+cyl radar_feed r=0.1 h=2.8 at=radar_dish[0.1394,-0.641,0.368] rot=(-0.914197,0,0.405271,38.026726) mat=steel ~fit=0.2033 ~src="radar.feed"
+sphere radar_horn r=0.4 at=radar_dish offset=-0.025,-0.228,-0.056 mat=accent ~fit=0.9237 ~src="radar.horn"
+rotate pisa_galleries_2_cols n=15 angle=22.5 about=pisa_core axis=(0.087156,0.996195,0) {
+  cyl col r=0.18 h=5.1 on=pisa_galleries.1.ring[0.6703,1,0.6703] mat=white ~fit=0.9069
+}
+rotate pisa_galleries_3_cols n=15 angle=22.5 about=pisa_core axis=(0.087156,0.996195,0) {
+  cyl col r=0.18 h=5.1 on=pisa_galleries.2.ring[-0.6703,1,-0.6703] mat=white ~fit=0.9112
+}
+rotate farm_2_t_rotor n=2 angle=119.999996 about=farm.2.t_nacelle axis=(0.573577,-0.000001,-0.819152) {
+  box blade size=1.4,13,0.35 at=farm.2.t_nacelle[1,2.0522,11.6386] rot=(0.776609,0.609847,0.158002,150.29739) mat=white ~fit=0.999
+}
+rotate farm_1_t_rotor n=2 angle=120.000002 about=farm.1.t_nacelle axis=(0.573577,0.000001,-0.819152) {
+  box blade size=1.4,13,0.35 at=farm.1.t_nacelle[1,0,0] rot=(-0.34972,-0.48041,0.804302,45.905162) mat=white ~fit=0.9995
+}
+rotate pisa_galleries_4_cols n=15 angle=22.5 about=pisa_core axis=(0.087156,0.996195,0) {
+  cyl col r=0.18 h=5.1 on=pisa_galleries.3.ring[-0.6703,1,-0.6703] mat=white ~fit=0.9081
+}
+rotate farm_0_t_rotor n=2 angle=120.000001 about=farm.0.t_nacelle axis=(0.573577,0,-0.819152) {
+  box blade size=1.4,13,0.35 at=farm.0.t_nacelle[1,0,0] turn=-23.000008 mat=white ~fit=0.9996
+}
+rotate pisa_galleries_5_cols n=15 angle=22.5 about=pisa_core axis=(0.087156,0.996195,0) {
+  cyl col r=0.18 h=5.1 on=pisa_galleries.4.ring[0.3628,1,-0.8758] mat=white ~fit=0.9092
+}
+rotate pisa_galleries_6_cols n=15 angle=22.5 about=pisa_core axis=(0.087156,0.996195,0) {
+  cyl col r=0.18 h=5.1 on=pisa_galleries.5.ring[-0.8758,1,-0.3628] mat=white ~fit=0.9085
+}
+cyl pisa_belfry r=3.2 h=6 on=pisa_core[0,1,0] mat=white ~fit=0.9346 ~src="pisa.belfry"
+box sat_body size=3,2,2 at=-60,58,-72 rot=(0.166289,-0.943076,-0.288021,62.949939) mat=white ~fit=0.9999 ~src="sat.body"
+box sat_wing size=6,0.1,2 at=sat_body[0,-0.05,-4] rot=(0.543844,0.826437,-0.145723,35.927688) mat=panel ~fit=0.9991 ~src="sat.wing"
+box sat_wing2 size=6,0.1,2 against=sat_body[0,0,1] turn=90.00005 mat=panel ~fit=0.9995 ~src="sat.wing2"

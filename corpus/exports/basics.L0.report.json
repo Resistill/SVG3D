@@ -1,0 +1,24 @@
+{
+  "source": "basics.L0.glb",
+  "level": "L0",
+  "parts": 16,
+  "kinds": {
+    "box": 11,
+    "cyl": 1,
+    "mesh": 2,
+    "sphere": 2
+  },
+  "arrays": [],
+  "mirrors": [],
+  "covered": 0,
+  "placement": {
+    "on": 11,
+    "against": 1,
+    "at": 3,
+    "coord": 1
+  },
+  "meanFit": 0.862,
+  "dissolved": [],
+  "fallback": [],
+  "renamed": 0
+}

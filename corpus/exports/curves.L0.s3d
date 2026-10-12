@@ -1,0 +1,48 @@
+// 由逆向管线从 curves.L0.glb 生成（L0）。~fit 是拟合度，~err 是相对误差；mesh 是拟合不了、直接引用源网格的部件
+
+material ground color=#6b7360 metal=0.05 rough=1
+material road color=#3d3f43 metal=0.05 rough=1
+material steel color=#7f8b96 metal=0.6 rough=0.4
+material white color=#eef0f2 metal=0.05 rough=0.78
+material stone color=#cfc8b8 metal=0.05 rough=0.78
+material accent color=#e07a3a metal=0.05 rough=0.78
+material water color=#5d93c4 metal=0.05 rough=0.2
+
+box ground size=150,1,150 at=0,-1,0 mat=ground ~fit=1 ~src="ground"
+box canal size=150,0.05,10 on=ground[-0.75,1,0] turn=-90 mat=water ~fit=1 ~src="canal"
+mesh garage_ramp src="curves.L0.glb#garage.ramp" size=19,13.8979,18.9913 pivot=0,0,0 on=ground mat=stone ~fit=0 ~src="garage.ramp"
+mesh tower src="curves.L0.glb#tower" size=8.4328,17.2,8.4328 pivot=37.5,0,-41.25 on=ground[0.5,1,-0.55] mat=white ~fit=0 ~src="tower"
+mesh tower2 src="curves.L0.glb#tower2" size=8.4328,17.2,8.4328 pivot=-37.5,0,-41.25 on=ground[-0.5,1,-0.55] mat=white ~fit=0 ~src="tower2"
+cyl garage_core r=4 h=14 on=ground mat=stone ~fit=0.9262 ~src="garage.core"
+mesh lane src="curves.L0.glb#lane" size=88,0.1,82.0783 pivot=0,0,-2.934 on=ground[0,1,-0.0391] mat=road ~fit=0 ~src="lane"
+repeat houses n=(2,1,2) step=14,0,116 on=ground offset=-7,0,-58 pin=origin {
+  box house size=5,5,5 mat=stone ~fit=1
+}
+wedge gate2_halves_ramp size=3,5,5 on=ground offset=-11,0,-58 turn=180 mat=stone ~fit=1 ~src="gate2.halves.ramp"
+wedge gate2_halves_mirrored_ramp size=3,5,5 on=ground offset=11,0,-58 mat=stone ~fit=1 ~src="gate2.halves.mirrored.ramp"
+wedge gate_halves_mirrored_ramp size=3,5,5 on=ground offset=-11,0,58 turn=180 mat=stone ~fit=1 ~src="gate.halves.mirrored.ramp"
+wedge gate_halves_ramp size=3,5,5 on=ground offset=11,0,58 mat=stone ~fit=1 ~src="gate.halves.ramp"
+mesh plaza_basin src="curves.L0.glb#plaza.basin" size=10.4,0.9,10.4 pivot=-33.75,0,37.5 on=ground[-0.45,1,0.5] mat=stone ~fit=0 ~src="plaza.basin"
+mesh gate_beam src="curves.L0.glb#gate.beam" size=10.8,5.3967,1 pivot=0,0,58 on=ground offset=0,0,58 mat=accent ~fit=0 ~src="gate.beam"
+mesh gate2_beam src="curves.L0.glb#gate2.beam" size=10.8,5.3967,1 pivot=0,0,-58 on=ground offset=0,0,-58 mat=accent ~fit=0 ~src="gate2.beam"
+rotate plaza_benches n=5 angle=60.000002 about=(-33.75,0,37.5) {
+  box seat size=3.2,0.5,0.9 on=ground[-0.45,1,0.6] mat=accent ~fit=1
+}
+rotate lamps n=10 angle=30 about=ground {
+  cyl pole r=0.18 h=6 on=ground offset=23,0,39.837 mat=steel ~fit=0.908
+}
+mesh arch src="curves.L0.glb#arch" size=16.7,8.3449,3 pivot=-56.25,0.05,0 on=canal turn=90 mat=stone ~fit=0 ~src="arch"
+mesh stepsW src="curves.L0.glb#stepsW" size=9.5,8.2142,3.6 pivot=-70,0.3309,0 at=-70,0.3309,0 mat=stone ~fit=0 ~src="stepsW"
+mesh stepsE src="curves.L0.glb#stepsE" size=9.5,8.2142,3.6 pivot=-42.5,0.3309,0 at=lamps.r8.pole offset=3.5,-2.669,0 mat=stone ~fit=0 ~src="stepsE"
+rotate plaza_benches_2 n=5 angle=60.000002 about=(-33.75,0.5,37.500001) {
+  box back size=3.2,1,0.2 on=plaza_benches.seat[0,1,0.778] mat=accent ~fit=0.9998
+}
+mesh plaza_spout src="curves.L0.glb#plaza.spout" size=2.8,3,2.8 pivot=-33.75,0.9,37.5 on=plaza_basin mat=white ~fit=0 ~src="plaza.spout"
+mesh garage_rail src="curves.L0.glb#garage.rail" size=18.96,13.6595,18.9485 pivot=0,0.9202,0 at=garage_ramp[0,-0.8676,0] mat=accent ~fit=0 ~src="garage.rail"
+repeat flags n=(2,1,2) step=10,0,120 on=houses.0.house[0.8,1,-0.8] pin=origin {
+  box flag size=0.2,7,0.2 mat=accent ~fit=1
+}
+rotate lamps_2 n=10 angle=30 about=ground {
+  sphere bulb r=0.45 on=lamps.pole mat=white ~fit=0.9224
+}
+box deck size=18,0.5,3.6 at=arch[0,0.9162,0] mat=stone ~fit=1 ~src="deck"

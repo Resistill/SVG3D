@@ -1,0 +1,157 @@
+{
+  "source": "rotation.L0.glb",
+  "level": "L0",
+  "parts": 321,
+  "kinds": {
+    "box": 146,
+    "cone": 3,
+    "cyl": 164,
+    "mesh": 4,
+    "sphere": 4
+  },
+  "arrays": [
+    {
+      "id": "farm",
+      "n": 3,
+      "kind": "linear",
+      "children": [
+        "t_tower",
+        "t_nacelle",
+        "t_hub"
+      ]
+    },
+    {
+      "id": "pisa_galleries",
+      "n": 7,
+      "kind": "linear",
+      "children": [
+        "ring"
+      ]
+    },
+    {
+      "id": "solar",
+      "n": [
+        5,
+        4
+      ],
+      "kind": "grid",
+      "children": [
+        "panel",
+        "post"
+      ]
+    },
+    {
+      "id": "farm_2_t_rotor",
+      "n": 3,
+      "kind": "rotate",
+      "children": [
+        "blade"
+      ]
+    },
+    {
+      "id": "farm_1_t_rotor",
+      "n": 3,
+      "kind": "rotate",
+      "children": [
+        "blade"
+      ]
+    },
+    {
+      "id": "farm_0_t_rotor",
+      "n": 3,
+      "kind": "rotate",
+      "children": [
+        "blade"
+      ]
+    },
+    {
+      "id": "pisa_galleries_3_cols",
+      "n": 16,
+      "kind": "rotate",
+      "children": [
+        "col"
+      ]
+    },
+    {
+      "id": "pisa_galleries_6_cols",
+      "n": 16,
+      "kind": "rotate",
+      "children": [
+        "col"
+      ]
+    },
+    {
+      "id": "pisa_galleries_5_cols",
+      "n": 16,
+      "kind": "rotate",
+      "children": [
+        "col"
+      ]
+    },
+    {
+      "id": "pisa_galleries_1_cols",
+      "n": 16,
+      "kind": "rotate",
+      "children": [
+        "col"
+      ]
+    },
+    {
+      "id": "pisa_galleries_0_cols",
+      "n": 16,
+      "kind": "rotate",
+      "children": [
+        "col"
+      ]
+    },
+    {
+      "id": "pisa_galleries_4_cols",
+      "n": 16,
+      "kind": "rotate",
+      "children": [
+        "col"
+      ]
+    },
+    {
+      "id": "pisa_galleries_2_cols",
+      "n": 16,
+      "kind": "rotate",
+      "children": [
+        "col"
+      ]
+    },
+    {
+      "id": "coaster_ties",
+      "n": 110,
+      "kind": "along",
+      "children": [
+        "tie"
+      ]
+    },
+    {
+      "id": "coaster_legs",
+      "n": 20,
+      "kind": "along",
+      "children": [
+        "col"
+      ]
+    }
+  ],
+  "mirrors": [],
+  "covered": 307,
+  "placement": {
+    "on": 11,
+    "against": 1,
+    "at": 9,
+    "coord": 6,
+    "curve": 1
+  },
+  "meanFit": 0.893,
+  "dissolved": [],
+  "fallback": [
+    "coaster_spine",
+    "coaster_railR",
+    "coaster_railL"
+  ],
+  "renamed": 0
+}

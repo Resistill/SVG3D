@@ -1,0 +1,209 @@
+{
+  "source": "spaceport_edit.L0.glb",
+  "level": "L0",
+  "parts": 125,
+  "kinds": {
+    "box": 64,
+    "cyl": 39,
+    "mesh": 11,
+    "sphere": 6,
+    "wedge": 5
+  },
+  "arrays": [
+    {
+      "id": "tanks",
+      "n": 5,
+      "kind": "linear",
+      "children": [
+        "tank",
+        "cap",
+        "ring"
+      ]
+    },
+    {
+      "id": "tower2_decks",
+      "n": 10,
+      "kind": "linear",
+      "children": [
+        "deck"
+      ]
+    },
+    {
+      "id": "tower_decks",
+      "n": 10,
+      "kind": "linear",
+      "children": [
+        "deck"
+      ]
+    },
+    {
+      "id": "tower2_legs",
+      "n": [
+        2,
+        2
+      ],
+      "kind": "grid",
+      "children": [
+        "leg"
+      ]
+    },
+    {
+      "id": "tower_legs",
+      "n": [
+        2,
+        2
+      ],
+      "kind": "grid",
+      "children": [
+        "leg"
+      ]
+    },
+    {
+      "id": "lights",
+      "n": [
+        2,
+        2
+      ],
+      "holes": [
+        3
+      ],
+      "kind": "grid",
+      "children": [
+        "pole",
+        "lamp"
+      ]
+    },
+    {
+      "id": "rocket_fins",
+      "n": 4,
+      "kind": "rotate",
+      "children": [
+        "fin"
+      ]
+    },
+    {
+      "id": "spiral_treads",
+      "n": 24,
+      "kind": "screw",
+      "children": [
+        "tread"
+      ]
+    },
+    {
+      "id": "tower_decks_2",
+      "n": 4,
+      "kind": "linear",
+      "children": [
+        "brace"
+      ]
+    },
+    {
+      "id": "tower2_decks_2",
+      "n": 4,
+      "kind": "linear",
+      "children": [
+        "brace"
+      ]
+    },
+    {
+      "id": "tower_decks_3",
+      "n": 3,
+      "kind": "linear",
+      "children": [
+        "brace"
+      ]
+    },
+    {
+      "id": "tower_decks_4",
+      "n": 3,
+      "kind": "linear",
+      "children": [
+        "brace"
+      ]
+    },
+    {
+      "id": "tower2_decks_3",
+      "n": 3,
+      "kind": "linear",
+      "children": [
+        "brace"
+      ]
+    },
+    {
+      "id": "tower2_decks_4",
+      "n": 3,
+      "kind": "linear",
+      "children": [
+        "brace"
+      ]
+    }
+  ],
+  "mirrors": [
+    {
+      "id": "tower2_decks",
+      "of": "tower_decks",
+      "across": "pad axis=x",
+      "objects": 10
+    },
+    {
+      "id": "tower2_legs",
+      "of": "tower_legs",
+      "across": "pad axis=x",
+      "objects": 4
+    },
+    {
+      "id": "tower2_decks_2",
+      "of": "tower_decks_2",
+      "across": "pad axis=x",
+      "objects": 4
+    },
+    {
+      "id": "tower2_decks_4",
+      "of": "tower_decks_3",
+      "across": "pad axis=x",
+      "objects": 3
+    },
+    {
+      "id": "tower2_decks_3",
+      "of": "tower_decks_4",
+      "across": "pad axis=x",
+      "objects": 3
+    },
+    {
+      "id": "arm2",
+      "of": "arm",
+      "across": "pad axis=x",
+      "objects": 1
+    },
+    {
+      "id": "wings_mirrored_annex",
+      "of": "wings_annex",
+      "across": "hangar_roof axis=x",
+      "objects": 1
+    },
+    {
+      "id": "wings_mirrored_stair1",
+      "of": "wings_stair1",
+      "across": "hangar_roof axis=x",
+      "objects": 1
+    },
+    {
+      "id": "wings_mirrored_stair2",
+      "of": "wings_stair2",
+      "across": "hangar_roof axis=x",
+      "objects": 1
+    }
+  ],
+  "covered": 97,
+  "placement": {
+    "on": 21,
+    "against": 0,
+    "at": 10,
+    "coord": 2,
+    "mirror": 9
+  },
+  "meanFit": 0.765,
+  "dissolved": [],
+  "fallback": [],
+  "renamed": 0
+}

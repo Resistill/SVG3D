@@ -1,0 +1,142 @@
+{
+  "source": "spaceport.L2.glb",
+  "level": "L2",
+  "parts": 172,
+  "kinds": {
+    "box": 58,
+    "cyl": 27,
+    "mesh": 7,
+    "pipe": 2,
+    "span": 4,
+    "sphere": 1,
+    "wedge": 5
+  },
+  "arrays": [
+    {
+      "id": "slabs_1",
+      "n": 8,
+      "kind": "linear",
+      "children": [
+        "box",
+        "cyl"
+      ]
+    },
+    {
+      "id": "slabs_2",
+      "n": 8,
+      "kind": "linear",
+      "children": [
+        "box",
+        "cyl"
+      ]
+    },
+    {
+      "id": "slabs_3",
+      "n": 3,
+      "kind": "linear",
+      "children": [
+        "cyl"
+      ]
+    },
+    {
+      "id": "columns_1",
+      "n": [
+        2,
+        2
+      ],
+      "kind": "grid",
+      "children": [
+        "cyl",
+        "box"
+      ]
+    },
+    {
+      "id": "columns_2",
+      "n": [
+        2,
+        2
+      ],
+      "kind": "grid",
+      "children": [
+        "box"
+      ]
+    },
+    {
+      "id": "columns_3",
+      "n": [
+        2,
+        2
+      ],
+      "kind": "grid",
+      "children": [
+        "box"
+      ]
+    },
+    {
+      "id": "walls",
+      "n": 4,
+      "kind": "rotate",
+      "children": [
+        "wedge"
+      ]
+    },
+    {
+      "id": "steps",
+      "n": 24,
+      "kind": "screw",
+      "children": [
+        "box"
+      ]
+    }
+  ],
+  "mirrors": [
+    {
+      "id": "slabs_2",
+      "of": "slabs_1",
+      "across": "box2 axis=x",
+      "objects": 16
+    },
+    {
+      "id": "columns_3",
+      "of": "columns_2",
+      "across": "box2 axis=x",
+      "objects": 4
+    },
+    {
+      "id": "volume_4",
+      "of": "volume_3",
+      "across": "box2 axis=x",
+      "objects": 1
+    },
+    {
+      "id": "slab_4",
+      "of": "slab_3",
+      "across": "box2 axis=x",
+      "objects": 1
+    },
+    {
+      "id": "stairs_2",
+      "of": "stairs",
+      "across": "cyl1 axis=x",
+      "objects": 1
+    },
+    {
+      "id": "stairs_4",
+      "of": "stairs_3",
+      "across": "cyl1 axis=x",
+      "objects": 1
+    }
+  ],
+  "covered": 79,
+  "placement": {
+    "on": 17,
+    "against": 0,
+    "at": 5,
+    "coord": 5,
+    "mirror": 6
+  },
+  "meanFit": 0.781,
+  "dissolved": [],
+  "fallback": [],
+  "renamed": 37
+}

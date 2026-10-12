@@ -1,0 +1,147 @@
+{
+  "source": "semantics.L0.glb",
+  "level": "L0",
+  "parts": 142,
+  "kinds": {
+    "box": 71,
+    "cyl": 48,
+    "sphere": 16,
+    "wedge": 7
+  },
+  "arrays": [
+    {
+      "id": "trees",
+      "n": 3,
+      "kind": "linear",
+      "children": [
+        "crown",
+        "trunk"
+      ]
+    },
+    {
+      "id": "slab_skin_pl",
+      "n": 40,
+      "kind": "linear",
+      "children": [
+        "plank"
+      ]
+    },
+    {
+      "id": "trees_2",
+      "n": 3,
+      "kind": "linear",
+      "children": [
+        "crown",
+        "trunk"
+      ]
+    },
+    {
+      "id": "trees_3",
+      "n": 3,
+      "kind": "linear",
+      "children": [
+        "crown",
+        "trunk"
+      ]
+    },
+    {
+      "id": "piers",
+      "n": 4,
+      "kind": "linear",
+      "children": [
+        "p"
+      ]
+    },
+    {
+      "id": "trees_4",
+      "n": 3,
+      "kind": "linear",
+      "children": [
+        "crown",
+        "trunk"
+      ]
+    },
+    {
+      "id": "watch_legs",
+      "n": [
+        2,
+        2
+      ],
+      "kind": "grid",
+      "children": [
+        "leg"
+      ]
+    },
+    {
+      "id": "watch2_legs",
+      "n": [
+        2,
+        2
+      ],
+      "kind": "grid",
+      "children": [
+        "leg"
+      ]
+    },
+    {
+      "id": "lamps",
+      "n": 4,
+      "kind": "linear",
+      "children": [
+        "bulb",
+        "pole"
+      ]
+    },
+    {
+      "id": "rails",
+      "n": [
+        12,
+        2
+      ],
+      "kind": "grid",
+      "children": [
+        "post"
+      ]
+    },
+    {
+      "id": "watch2_rail",
+      "n": [
+        2,
+        2
+      ],
+      "kind": "grid",
+      "children": [
+        "post"
+      ]
+    }
+  ],
+  "mirrors": [
+    {
+      "id": "street_h1_half2",
+      "of": "street_h1_half",
+      "across": "street_h1_body axis=x",
+      "objects": 1
+    },
+    {
+      "id": "street_h3_half2",
+      "of": "street_h3_half",
+      "across": "street_h1_body axis=x",
+      "objects": 1
+    }
+  ],
+  "covered": 112,
+  "placement": {
+    "on": 27,
+    "against": 6,
+    "at": 4,
+    "coord": 2,
+    "mirror": 2
+  },
+  "meanFit": 0.963,
+  "dissolved": [
+    "street_h4_skin_win",
+    "street_h4_skin_win_2"
+  ],
+  "fallback": [],
+  "renamed": 0
+}

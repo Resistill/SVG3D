@@ -1,0 +1,81 @@
+// 由逆向管线从 semantics.L0.glb 生成（L0）。~fit 是拟合度，~err 是相对误差；mesh 是拟合不了、直接引用源网格的部件
+
+material ground color=#6b7360 metal=0.05 rough=1
+material water color=#4f7fae metal=0.05 rough=0.15
+material stone color=#9a958c metal=0.05 rough=0.78
+material wood color=#8a5a3c metal=0.05 rough=0.78
+material metal color=#59636d metal=0.6 rough=0.4
+material plain color=#cfcabe metal=0.05 rough=0.78
+material tile color=#a8473a metal=0.05 rough=0.78
+material brick color=#b5654a metal=0.05 rough=0.78
+material glass color=#9cc3e0 metal=0.3 rough=0.2
+material leaf color=#4f7d45 metal=0.05 rough=0.78
+
+box ground size=120,1,90 at=0,-1,0 mat=ground ~fit=1 ~src="ground"
+box street_h4_skin_core size=7,10.6,5.8 on=ground offset=43,0,8 mat=brick ~fit=1 ~src="street.h4.skin.core"
+repeat trees_4 n=3 step=0,0,6.5 on=ground offset=-43.788,0,13.75 pin=origin {
+  cyl trunk r=0.24 h=2.4 mat=wood ~fit=0.914
+  sphere crown r=1.28 on=trunk[0,1,0] mat=leaf ~fit=0.9236
+}
+box street_h1_door size=1.2,2.2,0.2 on=ground offset=29,0,-5.2 mat=plain ~fit=1 ~src="street.h1.door"
+box street_h3_door size=1.2,2.2,0.2 on=ground offset=29,0,10.8 mat=plain ~fit=1 ~src="street.h3.door"
+box street_h2_door size=1.2,2.2,0.2 on=ground offset=43,0,-5.2 mat=plain ~fit=1 ~src="street.h2.door"
+repeat trees n=3 step=0,0,6.5 on=ground offset=-22.788,0,13.75 pin=origin {
+  cyl trunk r=0.348 h=3.48 mat=wood ~fit=0.9157
+  sphere crown r=1.856 on=trunk mat=leaf ~fit=0.9246
+}
+box river size=90,0.05,30 on=ground turn=-90 mat=water ~fit=1 ~src="river"
+box street_h3_body size=7,6,5.6 on=ground offset=29,0,7.9 mat=plain ~fit=1 ~src="street.h3.body"
+box street_h2_body size=7,6,5.6 on=ground offset=43,0,-8.1 mat=plain ~fit=1 ~src="street.h2.body"
+box street_h1_body size=7,3,5.6 on=ground offset=29,0,-8.1 mat=plain ~fit=1 ~src="street.h1.body"
+repeat watch_legs n=(2,1,2) step=3,0,3 on=ground offset=-34.5,0,-21.75 pin=origin {
+  box leg size=0.3,9,0.3 mat=plain ~fit=1
+}
+repeat watch2_legs n=(2,1,2) step=3,0,3 on=ground offset=-19.5,0,-29.4 pin=origin {
+  box leg size=0.3,9,0.3 mat=plain ~fit=1
+}
+repeat trees_3 n=3 step=0,0,6.5 on=ground offset=-36.788,0,13.75 pin=origin {
+  cyl trunk r=0.276 h=2.76 mat=wood ~fit=0.9142
+  sphere crown r=1.472 on=trunk mat=leaf ~fit=0.9243
+}
+repeat trees_2 n=3 step=0,0,6.5 on=ground offset=-29.788,0,13.75 pin=origin {
+  cyl trunk r=0.312 h=3.12 mat=wood ~fit=0.9149
+  sphere crown r=1.664 on=trunk mat=leaf ~fit=0.9223
+}
+repeat piers n=4 step=0,0,-9.3333 on=river offset=-14,0,0 pin=origin {
+  cyl p r=0.9 h=5 mat=stone ~fit=0.9192
+}
+box rampW size=13.2636,0.5,6 at=ground[-0.39645,5.745,0] rot=(0,0,1,25.21262) mat=stone ~fit=1 ~src="rampW"
+box rampE size=13.2636,0.5,6 at=ground[0.39645,5.745,0] rot=(0,0,-1,25.21262) mat=stone ~fit=1 ~src="rampE"
+box crate size=1.5,1.5,1.5 at=-18,2.5,13.5 mat=plain ~fit=1 ~src="crate"
+wedge street_h1_half size=3.5,2.2,5.6 on=street_h1_body[-0.5,1,0] mat=tile ~fit=1 ~src="street.h1.half"
+mirror street_h1_half2 of=street_h1_half across=street_h1_body axis=x
+box street_h4_skin_win_0_pane size=1.1,1.5,0.12 against=street_h4_skin_core[-0.606,-0.189,1] mat=glass ~fit=1 ~src="street.h4.skin.win.0.pane"
+box street_h4_skin_win_1_pane size=1.1,1.5,0.12 against=street_h4_skin_core[0,-0.189,1] mat=glass ~fit=1 ~src="street.h4.skin.win.1.pane"
+box street_h4_skin_win_2_pane size=1.1,1.5,0.12 against=street_h4_skin_core[0.606,-0.189,1] mat=glass ~fit=1 ~src="street.h4.skin.win.2.pane"
+repeat slab_skin_pl n=40 step=0.9,0,0 at=rampW[1.0229,-1.938,0] pin=origin {
+  box plank size=6,0.6,0.82 turn=-90 mat=wood ~fit=1
+}
+repeat lamps n=4 step=0,0,-9.3333 on=slab_skin_pl.4.plank[0.8,1,0.122] pin=origin {
+  cyl pole r=0.12 h=4 mat=metal ~fit=0.9088
+  sphere bulb r=0.35 on=pole mat=metal ~fit=0.9241
+}
+repeat rails n=(12,1,2) step=3.1304,0,5.6 at=slab_skin_pl.0.plank[-0.9333,1,-0.811] pin=origin {
+  cyl post r=0.08 h=1.1 mat=metal ~fit=0.9122
+}
+box street_h4_skin_win_3_pane size=1.1,1.5,0.12 against=street_h4_skin_core[-0.606,0.264,1] mat=glass ~fit=1 ~src="street.h4.skin.win.3.pane"
+box street_h4_skin_win_4_pane size=1.1,1.5,0.12 against=street_h4_skin_core[0,0.264,1] mat=glass ~fit=1 ~src="street.h4.skin.win.4.pane"
+box street_h4_skin_win_5_pane size=1.1,1.5,0.12 against=street_h4_skin_core[0.606,0.264,1] mat=glass ~fit=1 ~src="street.h4.skin.win.5.pane"
+wedge street_h3_half size=3.5,2.2,5.6 on=street_h3_body[-0.5,1,0] mat=tile ~fit=1 ~src="street.h3.half"
+mirror street_h3_half2 of=street_h3_half across=street_h1_body axis=x
+wedge street_h2_half size=3.5,2.2,5.6 on=street_h2_body[-0.5,1,0] mat=tile ~fit=1 ~src="street.h2.half"
+wedge street_h2_half2 size=3.5,2.2,5.6 on=street_h2_body[0.5,1,0] turn=180 mat=tile ~fit=1 ~src="street.h2.half2"
+box street_h3_chimney size=0.8,3,0.8 on=street_h3_body[0.55,1,0.3] mat=plain ~fit=1 ~src="street.h3.chimney"
+box street_h2_chimney size=0.8,3,0.8 on=street_h2_body[0.55,1,0.3] mat=plain ~fit=1 ~src="street.h2.chimney"
+box watch_cabin size=5,2.5,5 on=watch_legs.0.leg[10,1,10] mat=wood ~fit=1 ~src="watch.cabin"
+box watch2_cabin size=4.2,2.5,4.2 on=watch2_legs.0.leg[10,1,10] mat=wood ~fit=1 ~src="watch2.cabin"
+box street_h4_skin_parapet size=7.3,0.6,6.1 on=street_h4_skin_core mat=plain ~fit=1 ~src="street.h4.skin.parapet"
+wedge watch_cap size=5,1.5,5.4 on=watch_cabin mat=tile ~fit=1 ~src="watch.cap"
+repeat watch2_rail n=(2,1,2) step=3.8,0,3.8 on=watch2_cabin offset=-1.9,0,-1.9 pin=origin {
+  cyl post r=0.06 h=1 mat=plain ~fit=0.9119
+}

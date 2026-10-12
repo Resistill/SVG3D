@@ -1,0 +1,143 @@
+{
+  "source": "spaceport.L0.glb",
+  "level": "L0",
+  "parts": 111,
+  "kinds": {
+    "box": 60,
+    "cyl": 32,
+    "mesh": 8,
+    "pipe": 2,
+    "sphere": 4,
+    "wedge": 5
+  },
+  "arrays": [
+    {
+      "id": "tanks",
+      "n": 3,
+      "kind": "linear",
+      "children": [
+        "tank",
+        "cap",
+        "ring"
+      ]
+    },
+    {
+      "id": "tower2_decks",
+      "n": 8,
+      "kind": "linear",
+      "children": [
+        "deck",
+        "brace"
+      ]
+    },
+    {
+      "id": "tower_decks",
+      "n": 8,
+      "kind": "linear",
+      "children": [
+        "deck",
+        "brace"
+      ]
+    },
+    {
+      "id": "lights",
+      "n": [
+        2,
+        2
+      ],
+      "kind": "grid",
+      "children": [
+        "pole",
+        "lamp"
+      ]
+    },
+    {
+      "id": "tower2_legs",
+      "n": [
+        2,
+        2
+      ],
+      "kind": "grid",
+      "children": [
+        "leg"
+      ]
+    },
+    {
+      "id": "tower_legs",
+      "n": [
+        2,
+        2
+      ],
+      "kind": "grid",
+      "children": [
+        "leg"
+      ]
+    },
+    {
+      "id": "rocket_fins",
+      "n": 4,
+      "kind": "rotate",
+      "children": [
+        "fin"
+      ]
+    },
+    {
+      "id": "spiral_treads",
+      "n": 24,
+      "kind": "screw",
+      "children": [
+        "tread"
+      ]
+    }
+  ],
+  "mirrors": [
+    {
+      "id": "tower2_decks",
+      "of": "tower_decks",
+      "across": "pad axis=x",
+      "objects": 16
+    },
+    {
+      "id": "tower2_legs",
+      "of": "tower_legs",
+      "across": "pad axis=x",
+      "objects": 4
+    },
+    {
+      "id": "arm2",
+      "of": "arm",
+      "across": "pad axis=x",
+      "objects": 1
+    },
+    {
+      "id": "wings_mirrored_annex",
+      "of": "wings_annex",
+      "across": "hangar_roof axis=x",
+      "objects": 1
+    },
+    {
+      "id": "wings_mirrored_stair1",
+      "of": "wings_stair1",
+      "across": "hangar_roof axis=x",
+      "objects": 1
+    },
+    {
+      "id": "wings_mirrored_stair2",
+      "of": "wings_stair2",
+      "across": "hangar_roof axis=x",
+      "objects": 1
+    }
+  ],
+  "covered": 85,
+  "placement": {
+    "on": 19,
+    "against": 0,
+    "at": 5,
+    "coord": 4,
+    "mirror": 6
+  },
+  "meanFit": 0.782,
+  "dissolved": [],
+  "fallback": [],
+  "renamed": 0
+}
