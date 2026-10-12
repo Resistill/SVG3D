@@ -1,0 +1,173 @@
+{
+  "errors": {
+    "orig": 0,
+    "recon": 0
+  },
+  "objects": {
+    "orig": 142,
+    "recon": 142,
+    "matched": 142,
+    "meanIoU": 0.999
+  },
+  "kinds": {
+    "fittable": 142,
+    "correct": 142,
+    "accuracy": 1,
+    "complex": 0,
+    "complexAsMesh": 0,
+    "complexDescribed": 0,
+    "confusion": {
+      "box→box": 71,
+      "cyl→cyl": 48,
+      "sphere→sphere": 16,
+      "wedge→wedge": 7
+    }
+  },
+  "facts": {
+    "all": {
+      "truth": 118,
+      "found": 128,
+      "precision": 0.609,
+      "recall": 0.661,
+      "f1": 0.634
+    },
+    "on": {
+      "truth": 104,
+      "found": 110,
+      "precision": 0.618,
+      "recall": 0.654,
+      "f1": 0.636
+    },
+    "against": {
+      "truth": 8,
+      "found": 12,
+      "precision": 0.5,
+      "recall": 0.75,
+      "f1": 0.6
+    },
+    "inside": {
+      "truth": 0,
+      "found": 0,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1
+    },
+    "touching": {
+      "truth": 0,
+      "found": 0,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1
+    },
+    "intersects": {
+      "truth": 6,
+      "found": 6,
+      "precision": 0.667,
+      "recall": 0.667,
+      "f1": 0.667
+    },
+    "onAgainst": {
+      "truth": 112,
+      "found": 122,
+      "precision": 0.607,
+      "recall": 0.661,
+      "f1": 0.632
+    }
+  },
+  "compression": {
+    "array": {
+      "orig": 118,
+      "recovered": 112,
+      "recall": 0.949
+    },
+    "mirror": {
+      "orig": 8,
+      "recovered": 4,
+      "recall": 0.5
+    }
+  },
+  "semantic": {
+    "terrain": {
+      "truth": 1,
+      "found": 1,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1
+    },
+    "slab": {
+      "truth": 2,
+      "found": 3,
+      "precision": 0.667,
+      "recall": 1,
+      "f1": 0.8
+    },
+    "platform": {
+      "truth": 1,
+      "found": 2,
+      "precision": 0.5,
+      "recall": 1,
+      "f1": 0.667
+    },
+    "wall": {
+      "truth": 2,
+      "found": 2,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1
+    },
+    "member": {
+      "truth": 52,
+      "found": 92,
+      "precision": 0.565,
+      "recall": 1,
+      "f1": 0.722
+    },
+    "column": {
+      "truth": 21,
+      "found": 21,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1
+    },
+    "beam": {
+      "truth": 0,
+      "found": 40,
+      "precision": 0,
+      "recall": 1,
+      "f1": 0
+    },
+    "roof": {
+      "truth": 4,
+      "found": 4,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1
+    },
+    "volume": {
+      "truth": 8,
+      "found": 9,
+      "precision": 0.889,
+      "recall": 1,
+      "f1": 0.941
+    },
+    "prop": {
+      "truth": 48,
+      "found": 54,
+      "precision": 0.889,
+      "recall": 1,
+      "f1": 0.941
+    },
+    "all": {
+      "truth": 139,
+      "found": 228,
+      "precision": 0.61,
+      "recall": 1,
+      "f1": 0.757
+    }
+  },
+  "description": {
+    "coordinateRatio": 0.049,
+    "anchorRatio": 0.098,
+    "statementRatio": 0.678
+  }
+}

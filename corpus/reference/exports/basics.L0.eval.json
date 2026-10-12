@@ -1,0 +1,151 @@
+{
+  "errors": {
+    "orig": 0,
+    "recon": 0
+  },
+  "objects": {
+    "orig": 16,
+    "recon": 16,
+    "matched": 16,
+    "meanIoU": 1
+  },
+  "kinds": {
+    "fittable": 14,
+    "correct": 14,
+    "accuracy": 1,
+    "complex": 2,
+    "complexAsMesh": 2,
+    "complexDescribed": 0,
+    "confusion": {
+      "box→box": 11,
+      "cyl→cyl": 1,
+      "sphere→sphere": 2
+    }
+  },
+  "facts": {
+    "all": {
+      "truth": 20,
+      "found": 20,
+      "precision": 0.95,
+      "recall": 0.95,
+      "f1": 0.95
+    },
+    "on": {
+      "truth": 11,
+      "found": 11,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1
+    },
+    "against": {
+      "truth": 6,
+      "found": 6,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1
+    },
+    "inside": {
+      "truth": 1,
+      "found": 0,
+      "precision": 1,
+      "recall": 0,
+      "f1": 0
+    },
+    "touching": {
+      "truth": 2,
+      "found": 2,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1
+    },
+    "intersects": {
+      "truth": 0,
+      "found": 1,
+      "precision": 0,
+      "recall": 1,
+      "f1": 0
+    },
+    "onAgainst": {
+      "truth": 17,
+      "found": 17,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1
+    }
+  },
+  "compression": {
+    "array": {
+      "orig": 0,
+      "recovered": 0,
+      "recall": 0
+    },
+    "mirror": {
+      "orig": 0,
+      "recovered": 0,
+      "recall": 0
+    }
+  },
+  "semantic": {
+    "slab": {
+      "truth": 1,
+      "found": 1,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1
+    },
+    "platform": {
+      "truth": 1,
+      "found": 1,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1
+    },
+    "member": {
+      "truth": 4,
+      "found": 4,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1
+    },
+    "column": {
+      "truth": 2,
+      "found": 2,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1
+    },
+    "beam": {
+      "truth": 1,
+      "found": 1,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1
+    },
+    "volume": {
+      "truth": 1,
+      "found": 1,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1
+    },
+    "prop": {
+      "truth": 5,
+      "found": 5,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1
+    },
+    "all": {
+      "truth": 15,
+      "found": 15,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1
+    }
+  },
+  "description": {
+    "coordinateRatio": 0.063,
+    "anchorRatio": 0.188,
+    "statementRatio": 0.87
+  }
+}

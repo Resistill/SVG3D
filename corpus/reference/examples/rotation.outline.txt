@@ -1,0 +1,24 @@
+ground  box  160×1×160  〔terrain slab〕
+farm  repeat ×3 [t]  73×51×37  18 个实体  · on ground
+sat  group  14×2.9×10  3 个实体
+  body  box  3.5×2.9×4
+  wing  box  6.2×0.8×4.7  · against sat.body.right
+  wing2  mirror 副本（box）  6.2×0.8×4.7  · against sat.body.left
+radar  group  7×9×7  5 个实体  · on ground
+  base  cyl  7×4×7  · on ground  〔volume tank〕
+  mast  cyl  1.4×5×1.4  · on radar.base
+  dish  revolve  10×8.4×9.8
+  feed  span  0.9×2.3×1.7  〔member prop〕
+  horn  sphere  0.8×0.8×0.8  〔prop〕
+solar  repeat ×20 [post, panel]  27×2.3×16  40 个实体  · on ground
+pisa  group  14×49×9.6  121 个实体
+  core  cyl  12×43×8  〔member column volume tank〕
+  galleries  repeat ×7 [ring, cols]  13×40×9.6  119 个实体
+  belfry  cyl  6.9×6.5×6.4  · on pisa.core  〔volume tank〕
+coaster  group  42×18×28  133 个实体  · touching ground
+  track  spline  40×15×26
+  railL  sweep  39×15×25  〔volume〕
+  railR  sweep  42×15×28  〔volume〕
+  spine  sweep  41×16×27  〔volume〕
+  ties  repeat ×110 [tie]  42×15×28  110 个实体  · touching coaster.railR
+  legs  repeat ×20 [col]  40×17×27  20 个实体  · touching ground

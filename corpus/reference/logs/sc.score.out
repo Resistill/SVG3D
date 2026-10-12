@@ -1,0 +1,286 @@
+{
+  "S": 1589738.12,
+  "L_stmt": 843716.5,
+  "unattributed": 6953,
+  "droppedLines": 0,
+  "L_mesh": 0,
+  "R_src": 105426.31,
+  "R_recon": 183423.42,
+  "R_vol": 457171.89,
+  "S_mesh": 5730524,
+  "explain": 0.7226,
+  "byRole": {
+    "decor": {
+      "S": 821810.84,
+      "L_stmt": 335662.5,
+      "L_mesh": 0,
+      "R_src": 67383.37,
+      "R_recon": 100280.15,
+      "R_vol": 318484.83,
+      "S_mesh": 1269790.5,
+      "objects": 44939,
+      "sources": 21442,
+      "explain": 0.3528
+    },
+    "structure": {
+      "S": 495629.29,
+      "L_stmt": 340477.5,
+      "L_mesh": 0,
+      "R_src": 30194.24,
+      "R_recon": 52329.69,
+      "R_vol": 72627.85,
+      "S_mesh": 2855248,
+      "objects": 46641,
+      "sources": 7305,
+      "explain": 0.8264
+    },
+    "terrain": {
+      "S": 112866.24,
+      "L_stmt": 79853.5,
+      "L_mesh": 0,
+      "R_src": 4265.05,
+      "R_recon": 15835.09,
+      "R_vol": 12912.6,
+      "S_mesh": 1049184.5,
+      "objects": 6230,
+      "sources": 409,
+      "explain": 0.8924
+    },
+    "decal": {
+      "S": 93380.52,
+      "L_stmt": 65004,
+      "L_mesh": 0,
+      "R_src": 3507.5,
+      "R_recon": 14866.38,
+      "R_vol": 10002.64,
+      "S_mesh": 504952.5,
+      "objects": 3293,
+      "sources": 1206,
+      "explain": 0.8151
+    },
+    "collision": {
+      "S": 59098.23,
+      "L_stmt": 15766,
+      "L_mesh": 0,
+      "R_src": 76.15,
+      "R_recon": 112.11,
+      "R_vol": 43143.97,
+      "S_mesh": 51348.5,
+      "objects": 1740,
+      "sources": 1735,
+      "explain": -0.1509
+    }
+  },
+  "consts": {
+    "delta": 0.05,
+    "cRes": 4,
+    "cMesh": 10,
+    "dMax": 2,
+    "samples": 600,
+    "unit": 0.28
+  },
+  "worst": [
+    {
+      "path": "Nature_Rock_Large_Cliff_30_4",
+      "cost": 1111.9,
+      "meanErr": 0.85594,
+      "mesh": false
+    },
+    {
+      "path": "Nature_Rock_Cliff_18_5",
+      "cost": 980.54,
+      "meanErr": 1.01381,
+      "mesh": false
+    },
+    {
+      "path": "Nature_Rock_Big_Rock_36_2_4",
+      "cost": 877.95,
+      "meanErr": 1.60247,
+      "mesh": false
+    },
+    {
+      "path": "Building_Bridge_01E",
+      "cost": 876.39,
+      "meanErr": 1.06634,
+      "mesh": false
+    },
+    {
+      "path": "Nature_Rock_Big_Rock_35_7",
+      "cost": 843.45,
+      "meanErr": 1.30097,
+      "mesh": false
+    },
+    {
+      "path": "Nature_Rock_Big_Rock_30_2_6",
+      "cost": 790.01,
+      "meanErr": 0.96842,
+      "mesh": false
+    },
+    {
+      "path": "Nature_Rock_Cliff_13_3",
+      "cost": 789.63,
+      "meanErr": 0.71316,
+      "mesh": false
+    },
+    {
+      "path": "Nature_Rock_Big_Rock_36_2_3",
+      "cost": 781.7,
+      "meanErr": 1.36531,
+      "mesh": false
+    },
+    {
+      "path": "Nature_Rock_Big_Rock_36_4_2",
+      "cost": 779.57,
+      "meanErr": 1.33839,
+      "mesh": false
+    },
+    {
+      "path": "Nature_Rock_Large_Cliff_32",
+      "cost": 769.98,
+      "meanErr": 0.65764,
+      "mesh": false
+    },
+    {
+      "path": "Nature_Rock_Cliff_13_2",
+      "cost": 739.68,
+      "meanErr": 0.62345,
+      "mesh": false
+    },
+    {
+      "path": "Nature_Rock_Cliff_14",
+      "cost": 726.6,
+      "meanErr": 0.76383,
+      "mesh": false
+    },
+    {
+      "path": "Nature_Rock_Large_Cliff_32_7",
+      "cost": 724.17,
+      "meanErr": 0.89241,
+      "mesh": false
+    },
+    {
+      "path": "Nature_Rock_Big_Rock_32_5_3",
+      "cost": 693.29,
+      "meanErr": 0.66614,
+      "mesh": false
+    },
+    {
+      "path": "Nature_Rock_Big_Rock_36_5",
+      "cost": 690.05,
+      "meanErr": 1.07527,
+      "mesh": false
+    },
+    {
+      "path": "Nature_Rock_Big_Rock_36_2_5",
+      "cost": 655.95,
+      "meanErr": 0.8905,
+      "mesh": false
+    },
+    {
+      "path": "Nature_Rock_Big_Rock_32_3_5",
+      "cost": 654.95,
+      "meanErr": 0.8583,
+      "mesh": false
+    },
+    {
+      "path": "Nature_Rock_Big_Rock_32_7",
+      "cost": 650.76,
+      "meanErr": 0.81143,
+      "mesh": false
+    },
+    {
+      "path": "Nature_Rock_Cliff_13_6",
+      "cost": 632.35,
+      "meanErr": 0.74354,
+      "mesh": false
+    },
+    {
+      "path": "Nature_Rock_Big_Rock_35_10",
+      "cost": 628.23,
+      "meanErr": 0.90742,
+      "mesh": false
+    }
+  ],
+  "worstSources": [
+    {
+      "name": "BigMeshGroup/BigMeshGroup_56_-37/SM_Nature_Rock_Big_Rock_36",
+      "tris": 318,
+      "cost": 397.772,
+      "meanErr": 1.49028,
+      "maxErr": 2,
+      "explainedBy": "Nature_Rock_Big_Rock_36_2_4"
+    },
+    {
+      "name": "BigMeshGroup/BigMeshGroup_53_-40/SM_Nature_Rock_Big_Rock_35",
+      "tris": 478,
+      "cost": 362.338,
+      "meanErr": 1.29452,
+      "maxErr": 2,
+      "explainedBy": "Nature_Rock_Big_Rock_35_7"
+    },
+    {
+      "name": "BigMeshGroup/BigMeshGroup_52_-38/SM_Nature_Rock_Big_Rock_36",
+      "tris": 318,
+      "cost": 343.707,
+      "meanErr": 1.32689,
+      "maxErr": 2,
+      "explainedBy": "Nature_Rock_Big_Rock_36_4_2"
+    },
+    {
+      "name": "BigMeshGroup/BigMeshGroup_53_-39/SM_Nature_Rock_Big_Rock_36",
+      "tris": 318,
+      "cost": 339.431,
+      "meanErr": 1.31139,
+      "maxErr": 2,
+      "explainedBy": "Nature_Rock_Big_Rock_36_2_3"
+    },
+    {
+      "name": "BigMeshGroup/BigMeshGroup_58_-30/SM_Nature_Rock_Big_Rock_36",
+      "tris": 318,
+      "cost": 326.088,
+      "meanErr": 0.8905,
+      "maxErr": 2,
+      "explainedBy": "Nature_Rock_Big_Rock_36_2_5"
+    },
+    {
+      "name": "BigMeshGroup/BigMeshGroup_53_-38/SM_Nature_Rock_Big_Rock_36@2",
+      "tris": 318,
+      "cost": 300.494,
+      "meanErr": 0.99026,
+      "maxErr": 2,
+      "explainedBy": "Nature_Rock_Big_Rock_36_5"
+    },
+    {
+      "name": "BigMeshGroup/BigMeshGroup_56_-35/SM_Nature_Rock_Big_Rock_35",
+      "tris": 478,
+      "cost": 288.06,
+      "meanErr": 0.94754,
+      "maxErr": 2,
+      "explainedBy": "Nature_Rock_Big_Rock_35_2_6"
+    },
+    {
+      "name": "BigMeshGroup/BigMeshGroup_57_-35/SM_Nature_Rock_Big_Rock_35",
+      "tris": 478,
+      "cost": 281.92,
+      "meanErr": 0.90742,
+      "maxErr": 2,
+      "explainedBy": "Nature_Rock_Big_Rock_35_10"
+    },
+    {
+      "name": "BigMeshGroup/BigMeshGroup_48_-35/SM_Nature_Rock_Big_Rock_35@2",
+      "tris": 478,
+      "cost": 281.378,
+      "meanErr": 0.90627,
+      "maxErr": 2,
+      "explainedBy": "Nature_Rock_Big_Rock_35_3_2"
+    },
+    {
+      "name": "BigMeshGroup/BigMeshGroup_56_-38/SM_Nature_Rock_Big_Rock_32",
+      "tris": 300,
+      "cost": 280.858,
+      "meanErr": 0.8583,
+      "maxErr": 2,
+      "explainedBy": "Nature_Rock_Big_Rock_32_3_5"
+    }
+  ]
+}

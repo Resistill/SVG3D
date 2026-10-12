@@ -329,7 +329,7 @@ M1 加一个微基准门槛：Rust 版点到三角网格最近点在 H1 的 262 
 | M1 内核 + 编译器 | `s3d-geom`、`s3d-lang`（native + wasm）、事实、语义；真值评测 eval；CLI `compile` | M0 | examples 全部编译；事实在参考输出包的定义容差内一致，不一致逐条列出并解释；同一 corpus 在 Windows 原生、Linux 原生、浏览器 wasm 三处的编译 / 事实输出哈希相同；最近点微基准达标 |
 | M2 评分 + 渲染 | `s3d-score`（含 E_edit、具名约束、增量）、`s3d-render`（无头 PNG、WebGPU 预览）、CPU compare | M1 | 校准序以原型冻结的逆向结果为固定输入在 corpus 上成立；评分输出三处哈希相同；SpaceCenter 预览 60 帧且 overdraw 在预算内；无头渲染与 CPU 采样对拍通过 |
 | M3a 意图的执行 | 意图文件读写、重绑、规则型意图与决定的执行（读取部件阶段） | M2 | 规则样本意图在三个工程上产出与原型 `state/source-roles.json` 可比的角色 |
-| M3 逆向 | 检测器流水线、候选筛选、阵列 / 镜像 / 类型、关系、子集逆向（refine / detect）、稳定命名、分块 | M3a | 在规则样本意图下：spaceport L0/L1/L2 真值指标不低于参考输出包的具体字段；三个实战工程的 compare 不差于 g10；`refine --auto` 后的 S 与 compare 不差于原型；work/sc 上“整体 / 分块不做第二遍 / 分块 + 边缘第二遍”三份报告（S、阵列数、耗时）；决定 7 的 E_edit 权重在此定 |
+| M3 逆向 | 检测器流水线、候选筛选、阵列 / 镜像 / 类型、关系、子集逆向（refine / detect）、稳定命名、分块 | M3a | 在规则样本意图下：spaceport L0/L1/L2 真值指标不低于参考输出包的具体字段；三个实战工程结构档新建的 compare 不差于 `corpus/reference/work/panels-g10`（结构档、不细化）；语义档逆向 + `refine --auto --to=structure` 后的 S 与 compare 不差于 `corpus/reference/work/{dorm,h1}`（两份基准口径不同，见 corpus/reference/README.md）；work/sc 上“整体 / 分块不做第二遍 / 分块 + 边缘第二遍”三份报告（S、阵列数、耗时）；决定 7 的 E_edit 权重在此定 |
 | M4 工程与协作 | 工程、层、意图的翻译与界面、提议、effect、命令表（CLI / MCP / HTTP）、界面 | M3 | 一条意图走完“选 → 说 → 翻译 → 接受 → 重跑仍生效 → checks 报告”；删掉源模型里一个物体再重跑，没有任何意图绑到别的物体；3.2 万部件的 SpaceCenter 带 ≥ 20 条意图重跑，时间不超过无意图重跑的 1.2 倍，每条意图的 status 与单进程结果一致；**E4a**（缩小版 AI 在环，见 M6）跑完并写进 PROGRESS.md |
 | M5 导出与正向 | GLB、Roblox；按意图正向重建一块区域（gen 层） | M4 | 整张 SpaceCenter 导出 Roblox；无源模型时按意图生成一栋楼并通过 checks |
 | M6 AI 在环 | E4 全量 | M5 | 价值命题有数据（设计见下） |

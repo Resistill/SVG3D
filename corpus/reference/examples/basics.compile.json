@@ -1,0 +1,2160 @@
+{
+  "items": [
+    {
+      "kind": "solid",
+      "path": "floor",
+      "tags": [],
+      "geom": {
+        "type": "box",
+        "w": 40,
+        "h": 1,
+        "d": 24
+      },
+      "world": {
+        "R": [
+          [
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            1,
+            0
+          ],
+          [
+            0,
+            0,
+            1
+          ]
+        ],
+        "t": [
+          0,
+          -1,
+          0
+        ]
+      },
+      "material": {
+        "name": "a",
+        "color": "#d9d4c7"
+      }
+    },
+    {
+      "kind": "solid",
+      "path": "table",
+      "tags": [],
+      "geom": {
+        "type": "box",
+        "w": 8,
+        "h": 3,
+        "d": 5
+      },
+      "world": {
+        "R": [
+          [
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            1,
+            0
+          ],
+          [
+            0,
+            0,
+            1
+          ]
+        ],
+        "t": [
+          -10,
+          0,
+          0
+        ]
+      },
+      "material": {
+        "name": "c",
+        "color": "#4f8fc0"
+      }
+    },
+    {
+      "kind": "solid",
+      "path": "cup",
+      "tags": [],
+      "geom": {
+        "type": "cyl",
+        "r1": 0.6,
+        "r2": 0.6,
+        "h": 1.2,
+        "axis": "y"
+      },
+      "world": {
+        "R": [
+          [
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            1,
+            0
+          ],
+          [
+            0,
+            0,
+            1
+          ]
+        ],
+        "t": [
+          -10,
+          3,
+          0
+        ]
+      },
+      "material": {
+        "name": "b",
+        "color": "#e07a3a"
+      }
+    },
+    {
+      "kind": "solid",
+      "path": "ball",
+      "tags": [],
+      "geom": {
+        "type": "sphere",
+        "r": 0.8
+      },
+      "world": {
+        "R": [
+          [
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            1,
+            0
+          ],
+          [
+            0,
+            0,
+            1
+          ]
+        ],
+        "t": [
+          -7.6,
+          3,
+          -1.25
+        ]
+      },
+      "material": {
+        "name": "d",
+        "color": "#7aa35a"
+      }
+    },
+    {
+      "kind": "solid",
+      "path": "shelf",
+      "tags": [],
+      "geom": {
+        "type": "box",
+        "w": 10,
+        "h": 9,
+        "d": 2
+      },
+      "world": {
+        "R": [
+          [
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            1,
+            0
+          ],
+          [
+            0,
+            0,
+            1
+          ]
+        ],
+        "t": [
+          0,
+          0,
+          -11
+        ]
+      },
+      "material": {
+        "name": "c",
+        "color": "#4f8fc0"
+      }
+    },
+    {
+      "kind": "solid",
+      "path": "book1",
+      "tags": [],
+      "geom": {
+        "type": "box",
+        "w": 0.6,
+        "h": 3,
+        "d": 1.6
+      },
+      "world": {
+        "R": [
+          [
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            1,
+            0
+          ],
+          [
+            0,
+            0,
+            1
+          ]
+        ],
+        "t": [
+          -4.7,
+          0,
+          -9.2
+        ]
+      },
+      "material": {
+        "name": "b",
+        "color": "#e07a3a"
+      }
+    },
+    {
+      "kind": "solid",
+      "path": "book2",
+      "tags": [],
+      "geom": {
+        "type": "box",
+        "w": 0.6,
+        "h": 2.6,
+        "d": 1.6
+      },
+      "world": {
+        "R": [
+          [
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            1,
+            0
+          ],
+          [
+            0,
+            0,
+            1
+          ]
+        ],
+        "t": [
+          -4.1000000000000005,
+          0,
+          -9.2
+        ]
+      },
+      "material": {
+        "name": "d",
+        "color": "#7aa35a"
+      }
+    },
+    {
+      "kind": "csg",
+      "op": "subtract",
+      "path": "crate",
+      "tags": [],
+      "children": [
+        {
+          "kind": "solid",
+          "path": "crate.shell",
+          "tags": [],
+          "geom": {
+            "type": "box",
+            "w": 5,
+            "h": 4,
+            "d": 5
+          },
+          "world": {
+            "R": [
+              [
+                1,
+                0,
+                0
+              ],
+              [
+                0,
+                1,
+                0
+              ],
+              [
+                0,
+                0,
+                1
+              ]
+            ],
+            "t": [
+              11,
+              0,
+              4.800000000000001
+            ]
+          },
+          "material": {
+            "name": "a",
+            "color": "#d9d4c7"
+          }
+        },
+        {
+          "kind": "solid",
+          "path": "crate.hollow",
+          "tags": [],
+          "geom": {
+            "type": "box",
+            "w": 4.4,
+            "h": 4,
+            "d": 4.4
+          },
+          "world": {
+            "R": [
+              [
+                1,
+                0,
+                0
+              ],
+              [
+                0,
+                1,
+                0
+              ],
+              [
+                0,
+                0,
+                1
+              ]
+            ],
+            "t": [
+              11,
+              0.3,
+              4.800000000000001
+            ]
+          },
+          "material": {
+            "name": "a",
+            "color": "#d9d4c7"
+          }
+        }
+      ],
+      "material": {
+        "name": "a",
+        "color": "#d9d4c7"
+      }
+    },
+    {
+      "kind": "solid",
+      "path": "orb",
+      "tags": [],
+      "geom": {
+        "type": "sphere",
+        "r": 1.4
+      },
+      "world": {
+        "R": [
+          [
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            1,
+            0
+          ],
+          [
+            0,
+            0,
+            1
+          ]
+        ],
+        "t": [
+          11,
+          0.30000000000000004,
+          4.800000000000001
+        ]
+      },
+      "material": {
+        "name": "b",
+        "color": "#e07a3a"
+      }
+    },
+    {
+      "kind": "solid",
+      "path": "pillarL",
+      "tags": [],
+      "geom": {
+        "type": "box",
+        "w": 1,
+        "h": 7,
+        "d": 1
+      },
+      "world": {
+        "R": [
+          [
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            1,
+            0
+          ],
+          [
+            0,
+            0,
+            1
+          ]
+        ],
+        "t": [
+          6,
+          0,
+          -7.199999999999999
+        ]
+      },
+      "material": {
+        "name": "c",
+        "color": "#4f8fc0"
+      }
+    },
+    {
+      "kind": "solid",
+      "path": "pillarR",
+      "tags": [],
+      "geom": {
+        "type": "box",
+        "w": 1,
+        "h": 7,
+        "d": 1
+      },
+      "world": {
+        "R": [
+          [
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            1,
+            0
+          ],
+          [
+            0,
+            0,
+            1
+          ]
+        ],
+        "t": [
+          17,
+          0,
+          -7.199999999999999
+        ]
+      },
+      "material": {
+        "name": "c",
+        "color": "#4f8fc0"
+      }
+    },
+    {
+      "kind": "solid",
+      "path": "beam",
+      "tags": [],
+      "geom": {
+        "type": "beam",
+        "L": 10,
+        "w": 1,
+        "t": 0.6,
+        "dy": -0.3
+      },
+      "world": {
+        "R": [
+          [
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            1,
+            0
+          ],
+          [
+            0,
+            0,
+            1
+          ]
+        ],
+        "t": [
+          11.5,
+          7,
+          -7.199999999999999
+        ]
+      },
+      "material": {
+        "name": "b",
+        "color": "#e07a3a"
+      }
+    },
+    {
+      "kind": "solid",
+      "path": "ramp",
+      "tags": [],
+      "geom": {
+        "type": "beam",
+        "L": 12.206555615733702,
+        "w": 1.5,
+        "t": 0.2,
+        "dy": 0.1
+      },
+      "world": {
+        "R": [
+          [
+            0.8192319205190406,
+            -0.5734623443633285,
+            0
+          ],
+          [
+            0.5734623443633284,
+            0.8192319205190404,
+            0
+          ],
+          [
+            0,
+            0,
+            1.0000000000000002
+          ]
+        ],
+        "t": [
+          11.5,
+          3.5,
+          -5.199999999999999
+        ]
+      },
+      "material": {
+        "name": "d",
+        "color": "#7aa35a"
+      }
+    },
+    {
+      "kind": "solid",
+      "path": "stairs",
+      "tags": [],
+      "geom": {
+        "type": "steps",
+        "treads": [
+          {
+            "c": [
+              -2.625,
+              -1.225,
+              0
+            ],
+            "s": [
+              0.75,
+              0.2,
+              2
+            ]
+          },
+          {
+            "c": [
+              -1.875,
+              -0.85,
+              0
+            ],
+            "s": [
+              0.75,
+              0.2,
+              2
+            ]
+          },
+          {
+            "c": [
+              -1.125,
+              -0.475,
+              0
+            ],
+            "s": [
+              0.75,
+              0.2,
+              2
+            ]
+          },
+          {
+            "c": [
+              -0.375,
+              -0.1,
+              0
+            ],
+            "s": [
+              0.75,
+              0.2,
+              2
+            ]
+          },
+          {
+            "c": [
+              0.375,
+              0.275,
+              0
+            ],
+            "s": [
+              0.75,
+              0.2,
+              2
+            ]
+          },
+          {
+            "c": [
+              1.125,
+              0.65,
+              0
+            ],
+            "s": [
+              0.75,
+              0.2,
+              2
+            ]
+          },
+          {
+            "c": [
+              1.875,
+              1.025,
+              0
+            ],
+            "s": [
+              0.75,
+              0.2,
+              2
+            ]
+          },
+          {
+            "c": [
+              2.625,
+              1.4,
+              0
+            ],
+            "s": [
+              0.75,
+              0.2,
+              2
+            ]
+          }
+        ]
+      },
+      "world": {
+        "R": [
+          [
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            1,
+            0
+          ],
+          [
+            0,
+            0,
+            1
+          ]
+        ],
+        "t": [
+          -17,
+          1.5,
+          0
+        ]
+      },
+      "material": {
+        "name": "d",
+        "color": "#7aa35a"
+      }
+    },
+    {
+      "kind": "solid",
+      "path": "turned",
+      "tags": [],
+      "geom": {
+        "type": "box",
+        "w": 6,
+        "h": 3,
+        "d": 3
+      },
+      "world": {
+        "R": [
+          [
+            0.8191520442889918,
+            0,
+            0.573576436351046
+          ],
+          [
+            0,
+            1,
+            0
+          ],
+          [
+            -0.573576436351046,
+            0,
+            0.8191520442889918
+          ]
+        ],
+        "t": [
+          -2,
+          0,
+          6.6000000000000005
+        ]
+      },
+      "material": {
+        "name": "c",
+        "color": "#4f8fc0"
+      }
+    },
+    {
+      "kind": "solid",
+      "path": "sticker",
+      "tags": [],
+      "geom": {
+        "type": "box",
+        "w": 1,
+        "h": 1.5,
+        "d": 1
+      },
+      "world": {
+        "R": [
+          [
+            0.8191520442889918,
+            0,
+            0.573576436351046
+          ],
+          [
+            0,
+            1,
+            0
+          ],
+          [
+            -0.573576436351046,
+            0,
+            0.8191520442889918
+          ]
+        ],
+        "t": [
+          0.8670321550114712,
+          0,
+          4.592482472771339
+        ]
+      },
+      "material": {
+        "name": "b",
+        "color": "#e07a3a"
+      }
+    }
+  ],
+  "curves": [],
+  "facts": [
+    {
+      "rel": "on",
+      "a": "table",
+      "b": "floor",
+      "text": "table on floor",
+      "gap": 0,
+      "eps": 0.02,
+      "provider": "contact"
+    },
+    {
+      "rel": "touching",
+      "a": "stairs",
+      "b": "table",
+      "text": "stairs touching table",
+      "gap": 0,
+      "eps": 0.02,
+      "provider": "contact"
+    },
+    {
+      "rel": "on",
+      "a": "cup",
+      "b": "table",
+      "text": "cup on table",
+      "gap": 0,
+      "eps": 0.02,
+      "provider": "contact"
+    },
+    {
+      "rel": "on",
+      "a": "ball",
+      "b": "table",
+      "text": "ball on table",
+      "gap": 0,
+      "eps": 0.02,
+      "provider": "contact"
+    },
+    {
+      "rel": "on",
+      "a": "turned",
+      "b": "floor",
+      "text": "turned on floor",
+      "gap": 0,
+      "eps": 0.02,
+      "provider": "contact"
+    },
+    {
+      "rel": "on",
+      "a": "shelf",
+      "b": "floor",
+      "text": "shelf on floor",
+      "gap": 0,
+      "eps": 0.02,
+      "provider": "contact"
+    },
+    {
+      "rel": "on",
+      "a": "book1",
+      "b": "floor",
+      "text": "book1 on floor",
+      "gap": 0,
+      "eps": 0.02,
+      "provider": "contact"
+    },
+    {
+      "rel": "against",
+      "a": "book1",
+      "b": "shelf",
+      "text": "book1 against shelf.front",
+      "gap": 0,
+      "eps": 0.02,
+      "provider": "contact"
+    },
+    {
+      "rel": "on",
+      "a": "book2",
+      "b": "floor",
+      "text": "book2 on floor",
+      "gap": 0,
+      "eps": 0.02,
+      "provider": "contact"
+    },
+    {
+      "rel": "against",
+      "a": "book2",
+      "b": "shelf",
+      "text": "book2 against shelf.front",
+      "gap": 0,
+      "eps": 0.02,
+      "provider": "contact"
+    },
+    {
+      "rel": "against",
+      "a": "book2",
+      "b": "book1",
+      "text": "book2 against book1.right",
+      "gap": 0,
+      "eps": 0.02,
+      "provider": "contact"
+    },
+    {
+      "rel": "on",
+      "a": "sticker",
+      "b": "floor",
+      "text": "sticker on floor",
+      "gap": 0,
+      "eps": 0.02,
+      "provider": "contact"
+    },
+    {
+      "rel": "against",
+      "a": "sticker",
+      "b": "turned",
+      "text": "sticker against turned.right",
+      "gap": 0,
+      "eps": 0.02,
+      "provider": "contact"
+    },
+    {
+      "rel": "on",
+      "a": "pillarL",
+      "b": "floor",
+      "text": "pillarL on floor",
+      "gap": 0,
+      "eps": 0.02,
+      "provider": "contact"
+    },
+    {
+      "rel": "touching",
+      "a": "ramp",
+      "b": "floor",
+      "text": "ramp touching floor",
+      "gap": 0,
+      "eps": 0.02,
+      "provider": "contact"
+    },
+    {
+      "rel": "against",
+      "a": "beam",
+      "b": "pillarL",
+      "text": "beam against pillarL.right",
+      "gap": 0,
+      "eps": 0.02,
+      "provider": "contact"
+    },
+    {
+      "rel": "on",
+      "a": "crate",
+      "b": "floor",
+      "text": "crate on floor",
+      "gap": 0,
+      "eps": 0.02,
+      "provider": "contact"
+    },
+    {
+      "rel": "inside",
+      "a": "orb",
+      "b": "crate",
+      "text": "orb inside crate",
+      "gap": -3.1,
+      "eps": 0.02,
+      "provider": "contact"
+    },
+    {
+      "rel": "on",
+      "a": "pillarR",
+      "b": "floor",
+      "text": "pillarR on floor",
+      "gap": 0,
+      "eps": 0.02,
+      "provider": "contact"
+    },
+    {
+      "rel": "against",
+      "a": "beam",
+      "b": "pillarR",
+      "text": "beam against pillarR.left",
+      "gap": 0,
+      "eps": 0.02,
+      "provider": "contact"
+    }
+  ],
+  "factsSkipped": false,
+  "factProviders": [
+    "contact"
+  ],
+  "nodes": [
+    {
+      "path": "floor",
+      "kind": "box",
+      "id": "floor",
+      "tags": [],
+      "concepts": [],
+      "line": 8,
+      "file": "examples/basics.s3d",
+      "types": null,
+      "meta": {},
+      "depth": 0,
+      "late": false,
+      "ghost": false,
+      "of": null,
+      "curve": false,
+      "hidden": false,
+      "skin": false,
+      "world": {
+        "R": [
+          [
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            1,
+            0
+          ],
+          [
+            0,
+            0,
+            1
+          ]
+        ],
+        "t": [
+          0,
+          -1,
+          0
+        ]
+      },
+      "box": {
+        "min": [
+          -20,
+          -1,
+          -12
+        ],
+        "max": [
+          20,
+          0,
+          12
+        ]
+      },
+      "tight": {
+        "min": [
+          -20,
+          -1,
+          -12
+        ],
+        "max": [
+          20,
+          0,
+          12
+        ]
+      }
+    },
+    {
+      "path": "table",
+      "kind": "box",
+      "id": "table",
+      "tags": [],
+      "concepts": [],
+      "line": 11,
+      "file": "examples/basics.s3d",
+      "types": null,
+      "meta": {},
+      "depth": 0,
+      "late": false,
+      "ghost": false,
+      "of": null,
+      "curve": false,
+      "hidden": false,
+      "skin": false,
+      "world": {
+        "R": [
+          [
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            1,
+            0
+          ],
+          [
+            0,
+            0,
+            1
+          ]
+        ],
+        "t": [
+          -10,
+          0,
+          0
+        ]
+      },
+      "box": {
+        "min": [
+          -14,
+          0,
+          -2.5
+        ],
+        "max": [
+          -6,
+          3,
+          2.5
+        ]
+      },
+      "tight": {
+        "min": [
+          -14,
+          0,
+          -2.5
+        ],
+        "max": [
+          -6,
+          3,
+          2.5
+        ]
+      }
+    },
+    {
+      "path": "cup",
+      "kind": "cyl",
+      "id": "cup",
+      "tags": [],
+      "concepts": [],
+      "line": 12,
+      "file": "examples/basics.s3d",
+      "types": null,
+      "meta": {},
+      "depth": 0,
+      "late": false,
+      "ghost": false,
+      "of": null,
+      "curve": false,
+      "hidden": false,
+      "skin": false,
+      "world": {
+        "R": [
+          [
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            1,
+            0
+          ],
+          [
+            0,
+            0,
+            1
+          ]
+        ],
+        "t": [
+          -10,
+          3,
+          0
+        ]
+      },
+      "box": {
+        "min": [
+          -10.6,
+          3,
+          -0.6
+        ],
+        "max": [
+          -9.4,
+          4.2,
+          0.6
+        ]
+      },
+      "tight": {
+        "min": [
+          -10.6,
+          3,
+          -0.6
+        ],
+        "max": [
+          -9.4,
+          4.2,
+          0.6
+        ]
+      }
+    },
+    {
+      "path": "ball",
+      "kind": "sphere",
+      "id": "ball",
+      "tags": [],
+      "concepts": [],
+      "line": 13,
+      "file": "examples/basics.s3d",
+      "types": null,
+      "meta": {},
+      "depth": 0,
+      "late": false,
+      "ghost": false,
+      "of": null,
+      "curve": false,
+      "hidden": false,
+      "skin": false,
+      "world": {
+        "R": [
+          [
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            1,
+            0
+          ],
+          [
+            0,
+            0,
+            1
+          ]
+        ],
+        "t": [
+          -7.6,
+          3,
+          -1.25
+        ]
+      },
+      "box": {
+        "min": [
+          -8.4,
+          3,
+          -2.05
+        ],
+        "max": [
+          -6.8,
+          4.6,
+          -0.44999999999999996
+        ]
+      },
+      "tight": {
+        "min": [
+          -8.4,
+          3,
+          -2.05
+        ],
+        "max": [
+          -6.8,
+          4.6,
+          -0.44999999999999996
+        ]
+      }
+    },
+    {
+      "path": "shelf",
+      "kind": "box",
+      "id": "shelf",
+      "tags": [],
+      "concepts": [],
+      "line": 16,
+      "file": "examples/basics.s3d",
+      "types": null,
+      "meta": {},
+      "depth": 0,
+      "late": false,
+      "ghost": false,
+      "of": null,
+      "curve": false,
+      "hidden": false,
+      "skin": false,
+      "world": {
+        "R": [
+          [
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            1,
+            0
+          ],
+          [
+            0,
+            0,
+            1
+          ]
+        ],
+        "t": [
+          0,
+          0,
+          -11
+        ]
+      },
+      "box": {
+        "min": [
+          -5,
+          0,
+          -12
+        ],
+        "max": [
+          5,
+          9,
+          -10
+        ]
+      },
+      "tight": {
+        "min": [
+          -5,
+          0,
+          -12
+        ],
+        "max": [
+          5,
+          9,
+          -10
+        ]
+      }
+    },
+    {
+      "path": "book1",
+      "kind": "box",
+      "id": "book1",
+      "tags": [],
+      "concepts": [],
+      "line": 17,
+      "file": "examples/basics.s3d",
+      "types": null,
+      "meta": {},
+      "depth": 0,
+      "late": false,
+      "ghost": false,
+      "of": null,
+      "curve": false,
+      "hidden": false,
+      "skin": false,
+      "world": {
+        "R": [
+          [
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            1,
+            0
+          ],
+          [
+            0,
+            0,
+            1
+          ]
+        ],
+        "t": [
+          -4.7,
+          0,
+          -9.2
+        ]
+      },
+      "box": {
+        "min": [
+          -5,
+          0,
+          -10
+        ],
+        "max": [
+          -4.4,
+          3,
+          -8.399999999999999
+        ]
+      },
+      "tight": {
+        "min": [
+          -5,
+          0,
+          -10
+        ],
+        "max": [
+          -4.4,
+          3,
+          -8.399999999999999
+        ]
+      }
+    },
+    {
+      "path": "book2",
+      "kind": "box",
+      "id": "book2",
+      "tags": [],
+      "concepts": [],
+      "line": 18,
+      "file": "examples/basics.s3d",
+      "types": null,
+      "meta": {},
+      "depth": 0,
+      "late": false,
+      "ghost": false,
+      "of": null,
+      "curve": false,
+      "hidden": false,
+      "skin": false,
+      "world": {
+        "R": [
+          [
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            1,
+            0
+          ],
+          [
+            0,
+            0,
+            1
+          ]
+        ],
+        "t": [
+          -4.1000000000000005,
+          0,
+          -9.2
+        ]
+      },
+      "box": {
+        "min": [
+          -4.4,
+          0,
+          -10
+        ],
+        "max": [
+          -3.8000000000000007,
+          2.6,
+          -8.399999999999999
+        ]
+      },
+      "tight": {
+        "min": [
+          -4.4,
+          0,
+          -10
+        ],
+        "max": [
+          -3.8000000000000007,
+          2.6,
+          -8.399999999999999
+        ]
+      }
+    },
+    {
+      "path": "crate",
+      "kind": "subtract",
+      "id": "crate",
+      "tags": [],
+      "concepts": [],
+      "line": 21,
+      "file": "examples/basics.s3d",
+      "types": null,
+      "meta": {},
+      "depth": 0,
+      "late": false,
+      "ghost": false,
+      "of": null,
+      "curve": false,
+      "hidden": false,
+      "skin": false,
+      "world": {
+        "R": [
+          [
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            1,
+            0
+          ],
+          [
+            0,
+            0,
+            1
+          ]
+        ],
+        "t": [
+          11,
+          0,
+          4.800000000000001
+        ]
+      },
+      "box": {
+        "min": [
+          8.5,
+          0,
+          2.3000000000000007
+        ],
+        "max": [
+          13.5,
+          4,
+          7.300000000000001
+        ]
+      },
+      "tight": null
+    },
+    {
+      "path": "crate.shell",
+      "kind": "box",
+      "id": "shell",
+      "tags": [],
+      "concepts": [],
+      "line": 22,
+      "file": "examples/basics.s3d",
+      "types": null,
+      "meta": {},
+      "depth": 1,
+      "late": false,
+      "ghost": false,
+      "of": null,
+      "curve": false,
+      "hidden": false,
+      "skin": false,
+      "world": {
+        "R": [
+          [
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            1,
+            0
+          ],
+          [
+            0,
+            0,
+            1
+          ]
+        ],
+        "t": [
+          11,
+          0,
+          4.800000000000001
+        ]
+      },
+      "box": {
+        "min": [
+          8.5,
+          0,
+          2.3000000000000007
+        ],
+        "max": [
+          13.5,
+          4,
+          7.300000000000001
+        ]
+      },
+      "tight": {
+        "min": [
+          8.5,
+          0,
+          2.3000000000000007
+        ],
+        "max": [
+          13.5,
+          4,
+          7.300000000000001
+        ]
+      }
+    },
+    {
+      "path": "crate.hollow",
+      "kind": "box",
+      "id": "hollow",
+      "tags": [],
+      "concepts": [],
+      "line": 23,
+      "file": "examples/basics.s3d",
+      "types": null,
+      "meta": {},
+      "depth": 1,
+      "late": false,
+      "ghost": false,
+      "of": null,
+      "curve": false,
+      "hidden": false,
+      "skin": false,
+      "world": {
+        "R": [
+          [
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            1,
+            0
+          ],
+          [
+            0,
+            0,
+            1
+          ]
+        ],
+        "t": [
+          11,
+          0.3,
+          4.800000000000001
+        ]
+      },
+      "box": {
+        "min": [
+          8.8,
+          0.3,
+          2.6000000000000005
+        ],
+        "max": [
+          13.2,
+          4.3,
+          7.000000000000001
+        ]
+      },
+      "tight": {
+        "min": [
+          8.8,
+          0.3,
+          2.6000000000000005
+        ],
+        "max": [
+          13.2,
+          4.3,
+          7.000000000000001
+        ]
+      }
+    },
+    {
+      "path": "orb",
+      "kind": "sphere",
+      "id": "orb",
+      "tags": [],
+      "concepts": [],
+      "line": 25,
+      "file": "examples/basics.s3d",
+      "types": null,
+      "meta": {},
+      "depth": 0,
+      "late": false,
+      "ghost": false,
+      "of": null,
+      "curve": false,
+      "hidden": false,
+      "skin": false,
+      "world": {
+        "R": [
+          [
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            1,
+            0
+          ],
+          [
+            0,
+            0,
+            1
+          ]
+        ],
+        "t": [
+          11,
+          0.30000000000000004,
+          4.800000000000001
+        ]
+      },
+      "box": {
+        "min": [
+          9.6,
+          0.30000000000000004,
+          3.400000000000001
+        ],
+        "max": [
+          12.4,
+          3.0999999999999996,
+          6.200000000000001
+        ]
+      },
+      "tight": {
+        "min": [
+          9.6,
+          0.30000000000000004,
+          3.400000000000001
+        ],
+        "max": [
+          12.4,
+          3.0999999999999996,
+          6.200000000000001
+        ]
+      }
+    },
+    {
+      "path": "pillarL",
+      "kind": "box",
+      "id": "pillarL",
+      "tags": [],
+      "concepts": [],
+      "line": 28,
+      "file": "examples/basics.s3d",
+      "types": null,
+      "meta": {},
+      "depth": 0,
+      "late": false,
+      "ghost": false,
+      "of": null,
+      "curve": false,
+      "hidden": false,
+      "skin": false,
+      "world": {
+        "R": [
+          [
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            1,
+            0
+          ],
+          [
+            0,
+            0,
+            1
+          ]
+        ],
+        "t": [
+          6,
+          0,
+          -7.199999999999999
+        ]
+      },
+      "box": {
+        "min": [
+          5.5,
+          0,
+          -7.699999999999999
+        ],
+        "max": [
+          6.5,
+          7,
+          -6.699999999999999
+        ]
+      },
+      "tight": {
+        "min": [
+          5.5,
+          0,
+          -7.699999999999999
+        ],
+        "max": [
+          6.5,
+          7,
+          -6.699999999999999
+        ]
+      }
+    },
+    {
+      "path": "pillarR",
+      "kind": "box",
+      "id": "pillarR",
+      "tags": [],
+      "concepts": [],
+      "line": 29,
+      "file": "examples/basics.s3d",
+      "types": null,
+      "meta": {},
+      "depth": 0,
+      "late": false,
+      "ghost": false,
+      "of": null,
+      "curve": false,
+      "hidden": false,
+      "skin": false,
+      "world": {
+        "R": [
+          [
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            1,
+            0
+          ],
+          [
+            0,
+            0,
+            1
+          ]
+        ],
+        "t": [
+          17,
+          0,
+          -7.199999999999999
+        ]
+      },
+      "box": {
+        "min": [
+          16.5,
+          0,
+          -7.699999999999999
+        ],
+        "max": [
+          17.5,
+          7,
+          -6.699999999999999
+        ]
+      },
+      "tight": {
+        "min": [
+          16.5,
+          0,
+          -7.699999999999999
+        ],
+        "max": [
+          17.5,
+          7,
+          -6.699999999999999
+        ]
+      }
+    },
+    {
+      "path": "beam",
+      "kind": "span",
+      "id": "beam",
+      "tags": [],
+      "concepts": [],
+      "line": 30,
+      "file": "examples/basics.s3d",
+      "types": null,
+      "meta": {},
+      "depth": 0,
+      "late": false,
+      "ghost": false,
+      "of": null,
+      "curve": false,
+      "hidden": false,
+      "skin": false,
+      "world": {
+        "R": [
+          [
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            1,
+            0
+          ],
+          [
+            0,
+            0,
+            1
+          ]
+        ],
+        "t": [
+          11.5,
+          7,
+          -7.199999999999999
+        ]
+      },
+      "box": {
+        "min": [
+          6.5,
+          6.4,
+          -7.699999999999999
+        ],
+        "max": [
+          16.5,
+          7,
+          -6.699999999999999
+        ]
+      },
+      "tight": {
+        "min": [
+          6.5,
+          6.4,
+          -7.699999999999999
+        ],
+        "max": [
+          16.5,
+          7,
+          -6.699999999999999
+        ]
+      }
+    },
+    {
+      "path": "ramp",
+      "kind": "span",
+      "id": "ramp",
+      "tags": [],
+      "concepts": [],
+      "line": 31,
+      "file": "examples/basics.s3d",
+      "types": null,
+      "meta": {},
+      "depth": 0,
+      "late": false,
+      "ghost": false,
+      "of": null,
+      "curve": false,
+      "hidden": false,
+      "skin": false,
+      "world": {
+        "R": [
+          [
+            0.8192319205190406,
+            -0.5734623443633285,
+            0
+          ],
+          [
+            0.5734623443633284,
+            0.8192319205190404,
+            0
+          ],
+          [
+            0,
+            0,
+            1.0000000000000002
+          ]
+        ],
+        "t": [
+          11.5,
+          3.5,
+          -5.199999999999999
+        ]
+      },
+      "box": {
+        "min": [
+          6.385307531127334,
+          -4.440892098500626e-16,
+          -5.949999999999999
+        ],
+        "max": [
+          16.5,
+          7.163846384103809,
+          -4.449999999999999
+        ]
+      },
+      "tight": {
+        "min": [
+          6.385307531127334,
+          -4.440892098500626e-16,
+          -5.949999999999999
+        ],
+        "max": [
+          16.5,
+          7.163846384103809,
+          -4.449999999999999
+        ]
+      }
+    },
+    {
+      "path": "stairs",
+      "kind": "span",
+      "id": "stairs",
+      "tags": [],
+      "concepts": [],
+      "line": 32,
+      "file": "examples/basics.s3d",
+      "types": null,
+      "meta": {},
+      "depth": 0,
+      "late": false,
+      "ghost": false,
+      "of": null,
+      "curve": false,
+      "hidden": false,
+      "skin": false,
+      "world": {
+        "R": [
+          [
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            1,
+            0
+          ],
+          [
+            0,
+            0,
+            1
+          ]
+        ],
+        "t": [
+          -17,
+          1.5,
+          0
+        ]
+      },
+      "box": {
+        "min": [
+          -20,
+          0.17499999999999982,
+          -1
+        ],
+        "max": [
+          -14,
+          3,
+          1
+        ]
+      },
+      "tight": {
+        "min": [
+          -20,
+          0.17499999999999982,
+          -1
+        ],
+        "max": [
+          -14,
+          3,
+          1
+        ]
+      }
+    },
+    {
+      "path": "turned",
+      "kind": "box",
+      "id": "turned",
+      "tags": [],
+      "concepts": [],
+      "line": 35,
+      "file": "examples/basics.s3d",
+      "types": null,
+      "meta": {},
+      "depth": 0,
+      "late": false,
+      "ghost": false,
+      "of": null,
+      "curve": false,
+      "hidden": false,
+      "skin": false,
+      "world": {
+        "R": [
+          [
+            0.8191520442889918,
+            0,
+            0.573576436351046
+          ],
+          [
+            0,
+            1,
+            0
+          ],
+          [
+            -0.573576436351046,
+            0,
+            0.8191520442889918
+          ]
+        ],
+        "t": [
+          -2,
+          0,
+          6.6000000000000005
+        ]
+      },
+      "box": {
+        "min": [
+          -5.317820787393544,
+          0,
+          3.650542624513375
+        ],
+        "max": [
+          1.3178207873935444,
+          3,
+          9.549457375486625
+        ]
+      },
+      "tight": {
+        "min": [
+          -5.317820787393544,
+          0,
+          3.650542624513375
+        ],
+        "max": [
+          1.3178207873935444,
+          3,
+          9.549457375486625
+        ]
+      }
+    },
+    {
+      "path": "sticker",
+      "kind": "box",
+      "id": "sticker",
+      "tags": [],
+      "concepts": [],
+      "line": 36,
+      "file": "examples/basics.s3d",
+      "types": null,
+      "meta": {},
+      "depth": 0,
+      "late": false,
+      "ghost": false,
+      "of": null,
+      "curve": false,
+      "hidden": false,
+      "skin": false,
+      "world": {
+        "R": [
+          [
+            0.8191520442889918,
+            0,
+            0.573576436351046
+          ],
+          [
+            0,
+            1,
+            0
+          ],
+          [
+            -0.573576436351046,
+            0,
+            0.8191520442889918
+          ]
+        ],
+        "t": [
+          0.8670321550114712,
+          0,
+          4.592482472771339
+        ]
+      },
+      "box": {
+        "min": [
+          0.17066791469145226,
+          0,
+          3.89611823245132
+        ],
+        "max": [
+          1.5633963953314902,
+          1.5,
+          5.288846713091358
+        ]
+      },
+      "tight": {
+        "min": [
+          0.17066791469145226,
+          0,
+          3.89611823245132
+        ],
+        "max": [
+          1.5633963953314902,
+          1.5,
+          5.288846713091358
+        ]
+      }
+    }
+  ],
+  "concepts": [],
+  "patterns": [],
+  "variants": [],
+  "checks": [],
+  "defs": [],
+  "materials": {
+    "a": {
+      "color": "#d9d4c7"
+    },
+    "b": {
+      "color": "#e07a3a"
+    },
+    "c": {
+      "color": "#4f8fc0"
+    },
+    "d": {
+      "color": "#7aa35a"
+    }
+  },
+  "errors": [],
+  "warnings": []
+}

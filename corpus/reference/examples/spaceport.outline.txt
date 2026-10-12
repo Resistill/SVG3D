@@ -1,0 +1,44 @@
+ground  box  200×1×200  〔terrain slab〕
+pad  box  26×2×26  · on ground  〔slab platform〕
+rocket  group  12×49×12  8 个实体  · on pad
+  stage1  cyl  4.8×28×4.8  · on pad  〔member column volume tank〕
+  band  cyl  4.9×0.8×4.9  〔slab platform〕
+  stage2  cyl  4×14×4  · on rocket.band  〔volume tank〕
+  nose  revolve  4×7×4  · on rocket.stage2  〔volume〕
+  fins  rotate 对称组  12×6×12  4 个实体  · on pad
+    …（4 个下级）
+tower  truss  7.2×48×7.2  20 个实体  · on pad
+  legs  repeat ×4 [leg]  6.6×48×6.6  4 个实体  · on pad
+  decks  repeat ×8 [deck, brace]  7.2×48×7.2  16 个实体
+arm  span  5.4×0.3×5.4  · touching tower.decks.5.deck  〔slab〕
+tower2  mirror 副本（group）  7.2×48×7.2  20 个实体  · on pad
+arm2  mirror 副本（span）  5.4×0.3×5.4  · touching tower2.decks.5.deck  〔slab〕
+lights  repeat ×4 [pole, lamp]  42×31×42  8 个实体  · on ground
+hangar  shed  36×23×28  2 个实体  · on ground
+  body  subtract  34×22×26  · on ground  〔volume〕
+    …（4 个下级）
+  roof  box  36×0.8×28  · on hangar.body  〔slab platform〕
+spare  cyl  20×4.8×4.8  · on ground  〔member beam volume tank〕
+wings  mirror 对称组  58×23×26  6 个实体  · on ground
+  annex  box  12×8×14  · on ground  〔volume〕
+  stair1  span  2.4×7.8×12  · touching wings.annex
+  stair2  span  11×14×2  · touching hangar.roof
+  mirrored  mirror 对称组  12×23×26  3 个实体  · on ground
+    …（3 个下级）
+roadline  spline  51×0×12
+road  sweep  57×0.1×20  · on ground  〔slab platform〕
+tanks  repeat ×3 [tank, cap, ring]  27×13×7.2  9 个实体  · on ground
+feedline1  bezier  1×1×39
+feedline2  bezier  11×1×39
+feed1  sweep  1.7×1.7×39  · touching tanks.0.tank  〔member beam〕
+feed2  sweep  12×1.7×39  〔slab〕
+bunker  box  17×5×16  · on ground  〔volume〕
+berm  wedge  11×5×12  · on ground  〔volume〕
+mast  cyl  0.5×7×0.5  · on bunker  〔member column〕
+radome  sphere  3.2×3.2×3.2  · on mast  〔volume〕
+spiral  group  4.4×7.4×4.5  26 个实体  · on ground
+  core  cyl  0.7×6.5×0.7  · on spiral.treads.0.tread  〔member column〕
+  coil  helix  2.4×6.2×2.4
+  treads  repeat ×24 [tread]  4.4×6.4×4.5  24 个实体  · on ground
+  railline  helix  4.2×6.2×4.2
+  rail  sweep  4.3×6.3×4.3  〔volume〕

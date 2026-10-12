@@ -1,0 +1,29 @@
+ground  box  150×1×150  〔terrain slab〕
+loop  arc  80×0×75
+lane  sweep  88×0.1×82  · on ground  〔terrain slab〕
+lamps  repeat ×11 [pole, bulb]  93×6.9×87  22 个实体  · on ground
+garage  group  19×15×19  3 个实体  · on ground
+  core  cyl  8×14×8  · on ground  〔volume tank〕
+  rampline  helix  14×14×14
+  ramp  sweep  19×14×19  · on ground  〔volume〕
+  railline  helix  19×14×19
+  rail  sweep  19×14×19  〔volume〕
+canal  box  10×0.1×150  · on ground  〔slab platform member beam〕
+archline  arc  16×8×0
+arch  sweep  17×8.3×3
+deck  box  18×0.5×3.6  · touching stepsW  〔slab member beam〕
+stepsW  span  9.5×8.2×3.6  〔volume〕
+stepsE  mirror 副本（span）  9.5×8.2×3.6  〔volume〕
+tower  revolve  8.4×17×8.4  · on ground  〔volume〕
+tower2  mirror 副本（revolve）  8.4×17×8.4  · on ground  〔volume〕
+plaza  group  15×3.9×16  14 个实体  · on ground
+  basin  revolve  10×0.9×10  · on ground  〔slab platform〕
+  spout  revolve  2.8×3×2.8  · on plaza.basin
+  benches  rotate 对称组  15×1.5×16  12 个实体  · on ground
+    …（7 个下级）
+gate  group  25×12×5  7 个实体  · on ground
+  halves  mirror 对称组  25×12×5  6 个实体  · on ground
+    …（4 个下级）
+  gatearch  arc  10×5×0
+  beam  sweep  11×5.4×1  · on ground
+gate2  rotate 副本（group）  25×12×5  7 个实体  · on ground
