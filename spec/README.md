@@ -24,7 +24,7 @@
 | `tools/collect-diffs.py` | 把各章末尾的"与原型的差异"表逐行转引进 09-compat.md 的 9.3.6；改了各章的表后重跑 |
 | `tools/check-refs.py` | 检查全部小节引用是否指向存在的标题（CI 可跑，退出码 1 = 有悬空引用） |
 
-M0 的其他交付物（见 PLAN.md 第 9 节）：逐条对照表（`crosswalk.md`，已写）；兼容性差异清单（第 9 章，已写）；用原型导出的参考输出包（`corpus/reference/`，已搬入）；外部数据候选清单（`docs/external-data-candidates.md`，**待用户确认**）。
+M0 的其他交付物（见 PLAN.md 第 9 节）：逐条对照表（`crosswalk.md`，已写）；兼容性差异清单（第 9 章，已写）；用原型导出的参考输出包（`corpus/reference/`，已搬入）；外部数据候选清单（`docs/external-data-candidates.md`，已确认；C1 推到 M1 末）。
 
 ## 读法
 
