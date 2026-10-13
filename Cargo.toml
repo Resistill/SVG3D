@@ -17,6 +17,8 @@ serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 regex = "1"
 earcutr = "0.5"
+# 三角网格 BVH 与最近点（PLAN 第 2 节依赖表）：f64，开 enhanced-determinism，不开 simd
+parry3d-f64 = { version = "0.31", features = ["enhanced-determinism"] }
 
 [profile.release]
 # 不开任何可能改变浮点结果的优化；确定性优先

@@ -6,6 +6,7 @@ pub mod aabb;
 pub mod convex;
 pub mod curve;
 pub mod math;
+pub mod mesh;
 pub mod poly2;
 pub mod solid;
 pub mod sweep;

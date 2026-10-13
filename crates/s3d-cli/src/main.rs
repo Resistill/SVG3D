@@ -104,6 +104,81 @@ fn main() {
             println!("failures: {}", rep.failures);
             std::process::exit(if rep.failures == 0 { 0 } else { 1 });
         }
+        Some("bench-nearest") if args.len() >= 2 => {
+            // 最近点微基准（PLAN 第 8 节）：s3d bench-nearest <glb> [查询数=2620000] [线程数=8]
+            let bytes = std::fs::read(&args[1]).expect("读不到 GLB");
+            let n: usize = args.get(2).and_then(|x| x.parse().ok()).unwrap_or(2_620_000);
+            let threads: usize = args.get(3).and_then(|x| x.parse().ok()).unwrap_or(8);
+            let t0 = std::time::Instant::now();
+            let mesh = s3d_geom::mesh::load_glb(&bytes).expect("GLB 解析失败");
+            let (lo, hi) = mesh.bbox();
+            let near = s3d_geom::mesh::Nearest::new(&mesh).expect("建 BVH 失败");
+            println!(
+                "mesh: {} 顶点 {} 三角形；读取 + 建 BVH {:.3} s",
+                mesh.verts.len(),
+                mesh.tris.len(),
+                t0.elapsed().as_secs_f64()
+            );
+            // 确定性的查询点：LCG，落在包围盒外扩 10% 的范围里
+            let ext = (hi - lo) * 0.1;
+            let (a, b) = (lo - ext, hi + ext);
+            let pts: Vec<s3d_geom::Vec3> = {
+                let mut st: u64 = 0x9E3779B97F4A7C15;
+                let mut next = || {
+                    st = st
+                        .wrapping_mul(6364136223846793005)
+                        .wrapping_add(1442695040888963407);
+                    ((st >> 11) as f64) / ((1u64 << 53) as f64)
+                };
+                (0..n)
+                    .map(|_| {
+                        let (u, v, w) = (next(), next(), next());
+                        s3d_geom::Vec3::new(
+                            a.x + (b.x - a.x) * u,
+                            a.y + (b.y - a.y) * v,
+                            a.z + (b.z - a.z) * w,
+                        )
+                    })
+                    .collect()
+            };
+            let t1 = std::time::Instant::now();
+            let mut sum1 = 0.0f64;
+            for p in &pts {
+                sum1 += near.query(*p).1;
+            }
+            let single = t1.elapsed().as_secs_f64();
+            // 多线程：静态分块，按块号顺序归约（原则 18）
+            let t2 = std::time::Instant::now();
+            let chunk = n.div_ceil(threads.max(1));
+            let partial: Vec<f64> = std::thread::scope(|sc| {
+                let hs: Vec<_> = pts
+                    .chunks(chunk.max(1))
+                    .map(|c| {
+                        let near = &near;
+                        sc.spawn(move || {
+                            let mut s = 0.0f64;
+                            for p in c {
+                                s += near.query(*p).1;
+                            }
+                            s
+                        })
+                    })
+                    .collect();
+                hs.into_iter().map(|h| h.join().unwrap()).collect()
+            });
+            let multi = t2.elapsed().as_secs_f64();
+            let sum_m: f64 = partial.iter().fold(0.0, |acc, x| acc + x);
+            println!(
+                "{} 次查询：单线程 {:.3} s（{:.2} µs/次）；{} 线程 {:.3} s（{:.2} µs/次）",
+                n,
+                single,
+                single * 1e6 / n as f64,
+                threads,
+                multi,
+                multi * 1e6 / n as f64
+            );
+            println!("校验和：单线程 {:.9e}；多线程按块序归约 {:.9e}", sum1, sum_m);
+        }
         Some("hash") if args.len() >= 2 => {
             // 三处哈希对拍的 native 一侧：与 wasm 走同一个 compile_bundle，打印 `sha256  文件名`
             for file in &args[1..] {
