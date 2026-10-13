@@ -1,0 +1,267 @@
+// 货场（depot）· 合成基线 C1（docs/external-data-candidates.md 2c）
+// 目的：真值原文 + 阵列 / 镜像 / 类型的真值 + 显式的碰撞体与辅助体 + 第三套命名习惯。
+// 命名：snake_case，角色前缀——col_ 碰撞体（隐形挡墙）、trg_ 触发区、mass_ 白模体积、其余按功能词。
+// 单位：米。几乎没有绝对坐标：位置由关系、阵列与模板参数推出。
+
+let yard_w = 160
+let yard_d = 110
+let n_bays = 6
+let bay_w = 2.6
+let stack_h = 3
+let n_sleepers = 60
+
+material gravel   color=#8e8a80 rough=1
+material asphalt  color=#44474a rough=1
+material concrete color=#b9b5ab
+material steel    color=#7d8893 metal=0.6 rough=0.4 default=true
+material rust     color=#8a4a2a rough=0.9
+material cargo_r  color=#b33a2e
+material cargo_b  color=#2e5fa8
+material cargo_g  color=#3b7d3a
+material cargo_y  color=#d9a62b
+material roofing  color=#5a6570 metal=0.3 rough=0.6
+material glass    color=#9cc3e0 metal=0.3 rough=0.2 opacity=0.6
+material ghost    color=#ff00ff opacity=0.15
+material wood     color=#8a5a3c
+
+// ── 场地 ─────────────────────────────────────────
+box ground size=yard_w+40,1,yard_d+40 pin=top mat=gravel ~role="terrain"
+box apron size=yard_w,0.3,yard_d on=ground mat=asphalt ~role="terrain"
+box mass_block_a size=yard_w,0.01,yard_d on=apron mat=ghost ~role="mass" ~note="白模体积：整块场地"
+
+// 场地四周的隐形挡墙（碰撞体），墙上留两个大门口；门口各有一个触发区
+box col_fence_n size=yard_w,4,0.3 against=apron.back align=bottom mat=ghost ~role="collision"
+box col_fence_s size=yard_w,4,0.3 against=apron.front align=bottom mat=ghost ~role="collision"
+box col_fence_w size=0.3,4,yard_d against=apron.left align=bottom mat=ghost ~role="collision"
+box col_fence_e size=0.3,4,yard_d against=apron.right align=bottom mat=ghost ~role="collision"
+box trg_gate_in size=12,5,6 at=apron[-0.6,1,-1] pin=bottom mat=ghost ~role="trigger" ~event="enter"
+box trg_gate_out size=12,5,6 at=apron[0.6,1,1] pin=bottom mat=ghost ~role="trigger" ~event="exit"
+
+// 围栏柱：四边的阵列，门口处抽掉几根（带例外的阵列）
+repeat fence_post_s n=40 step=yard_w/40,0,0 center=true at=apron.bottom-front+(0,0.3,-0.6) pin=origin {
+  cyl post r=0.06 h=2.2
+  box cap size=0.16,0.06,0.16 on=post
+}
+drop fence_post_s.31
+drop fence_post_s.32
+drop fence_post_s.33
+repeat fence_post_n n=40 step=yard_w/40,0,0 center=true at=apron.bottom-back+(0,0.3,0.6) pin=origin {
+  cyl post r=0.06 h=2.2
+  box cap size=0.16,0.06,0.16 on=post
+}
+drop fence_post_n.6
+drop fence_post_n.7
+drop fence_post_n.8
+repeat fence_post_w n=26 step=0,0,yard_d/26 center=true at=apron.bottom-left+(0.6,0.3,0) pin=origin {
+  cyl post r=0.06 h=2.2
+}
+repeat fence_post_e n=26 step=0,0,yard_d/26 center=true at=apron.bottom-right+(-0.6,0.3,0) pin=origin {
+  cyl post r=0.06 h=2.2
+}
+
+// ── 集装箱与堆场 ─────────────────────────────────
+def container(l=6.06, h=2.59, w=2.44) {
+  box shell size=l,h,w
+  repeat rib n=8 step=l/8.4,0,0 center=true at=shell.front+(0,0,0.01) pin=back {
+    box r size=0.12,h-0.3,0.04
+  }
+  box door_frame size=0.1,h-0.1,w-0.1 against=shell.right align=bottom
+}
+
+// 一个堆场：n_bays 列 × 3 层 × 4 排；中间抽掉两个格子（阵列例外），最东一列上层镜像翻转
+def yard_block(cols=n_bays, rows=4, tiers=stack_h, pitch=bay_w) {
+  repeat stack n=(cols,tiers,rows) step=pitch,2.59,6.4 center=true {
+    container c mat=cargo_b
+  }
+  box mass_footprint size=cols*pitch,0.02,rows*6.4 at=stack.bottom pin=bottom mat=ghost ~role="mass"
+}
+yard_block yard_n on=apron[-0.45,1,-0.55]
+yard_block yard_m on=apron[0.05,1,-0.55] rows=3
+yard_block yard_s on=apron[-0.45,1,0.1] tiers=2 cols=5
+drop yard_n.stack.13
+drop yard_n.stack.14
+drop yard_m.stack.4
+over yard_n.stack.0.c mat=cargo_r
+over yard_n.stack.5.c mat=cargo_y
+over yard_m.stack.1.c mat=cargo_g
+over yard_s.stack.2.c mat=cargo_r
+// 两个散落的箱子：一个转了角度，一个倒扣在边上
+container crate_loose turn=18 on=apron[0.3,1,0.35] mat=cargo_g
+container crate_flipped roll=180 pin=top on=apron[0.35,1,0.42] mat=rust
+
+// ── 铁路：两条平行轨道，枕木阵列 + 轨条扫掠 ─────
+def track(len=120, gauge=1.435) {
+  repeat sleeper n=n_sleepers step=len/n_sleepers,0,0 center=true {
+    box tie size=0.24,0.16,2.5 mat=wood
+  }
+  line rail_l path=[(-len/2,0.16,-gauge/2); (len/2,0.16,-gauge/2)]
+  line rail_r path=[(-len/2,0.16,gauge/2); (len/2,0.16,gauge/2)]
+  sweep rail_a path=rail_l profile=rect section=0.07,0.15 pin=bottom
+  sweep rail_b path=rail_r profile=rect section=0.07,0.15 pin=bottom
+}
+track rail_1 on=apron[0.1,1,0.78]
+track rail_2 on=apron[0.1,1,0.9] len=140
+// 缓冲止挡：轨道两端
+box buffer_1w size=1,1.2,2.6 at=rail_1.sleeper.0.tie.top pin=bottom mat=rust
+box buffer_1e size=1,1.2,2.6 at=rail_1.sleeper.59.tie.top pin=bottom mat=rust
+
+// 平板车：模板，多实例停在轨道上
+def flatcar(l=12, w=2.6) {
+  box deck size=l,0.3,w at=0,1,0
+  repeat wheelset n=(4,1,2) step=l/4.5,0,1.4 center=true at=deck.bottom pin=top {
+    cyl wheel r=0.42 h=0.12 axis=z
+  }
+  span axle_a from=wheelset.0.wheel.center to=wheelset.4.wheel.center r=0.08
+  span axle_b from=wheelset.3.wheel.center to=wheelset.7.wheel.center r=0.08
+  box bogie_a size=1.2,0.5,w-0.4 at=deck.bottom+(-l*0.35,-0.5,0) pin=top
+  box bogie_b size=1.2,0.5,w-0.4 at=deck.bottom+(l*0.35,-0.5,0) pin=top
+}
+flatcar car_1 at=rail_1.sleeper.10.tie.top pin=origin
+flatcar car_2 at=rail_1.sleeper.22.tie.top pin=origin
+flatcar car_3 at=rail_1.sleeper.34.tie.top pin=origin l=14
+container cargo_car_1 on=car_1.deck mat=cargo_y
+container cargo_car_2 on=car_2.deck mat=cargo_b
+container cargo_car_3 on=car_3.deck mat=cargo_r
+container cargo_car_3b on=cargo_car_3 mat=cargo_g
+
+// ── 仓库：空心外壳减去门洞；屋顶上采光带阵列；两侧雨棚镜像 ────
+def warehouse(w=40, h=11, d=24, t=0.4, door_w=6) {
+  subtract shell mat=concrete {
+    box outer size=w,h,d
+    box inner size=w-2*t,h-t,d-2*t
+    box door_a size=door_w,h*0.6,t*3 at=outer.front pin=center align=bottom offset=-w*0.25,0,0
+    box door_b size=door_w,h*0.6,t*3 at=outer.front pin=center align=bottom offset=w*0.25,0,0
+  }
+  box roof size=w+1,0.4,d+1 on=shell mat=roofing
+  repeat skylight n=(6,1,2) step=w/6.6,0,d/2.6 center=true on=roof mat=glass {
+    box pane size=3,0.3,2.2
+  }
+  // 两侧的立柱与雨棚：只写右侧，左侧镜像
+  mirror wings across=shell axis=x {
+    box canopy size=4,0.3,d*0.8 against=shell.right align=top mat=roofing
+    repeat pillar n=4 step=0,0,d*0.8/4 center=true at=canopy.bottom-right+(-0.3,0,0) pin=top {
+      cyl p r=0.15 h=h-0.7
+    }
+    span brace_a from=pillar.0.p.top to=canopy.top-left+(0,0,-d*0.3) r=0.06
+    span brace_b from=pillar.3.p.top to=canopy.top-left+(0,0,d*0.3) r=0.06
+  }
+  box trg_door_a size=door_w,4,4 at=shell.outer.bottom-front+(-w*0.25,0,0) pin=bottom mat=ghost ~role="trigger"
+  box trg_door_b size=door_w,4,4 at=shell.outer.bottom-front+(w*0.25,0,0) pin=bottom mat=ghost ~role="trigger"
+}
+warehouse wh_a on=apron[-0.5,1,-0.1] turn=0
+warehouse wh_b on=apron[0.35,1,-0.15] w=48 d=20 h=12
+warehouse wh_c on=apron[0.5,1,0.45] w=30 d=18 h=9 turn=90
+// 仓库旁的装卸平台与台阶
+box dock_a size=12,1.1,4 against=wh_a.shell.front align=bottom mat=concrete
+span dock_steps_a from=dock_a.bottom-left+(-3,0,0) to=dock_a.top-left steps=6 section=2,0.2 mat=concrete
+box dock_b size=14,1.1,4 against=wh_b.shell.front align=bottom mat=concrete
+span dock_steps_b from=dock_b.bottom-right+(3,0,0) to=dock_b.top-right steps=6 section=2,0.2 mat=concrete
+
+// 托盘货架：仓库 A 里面两排
+def rack(bays=8, levels=3, bay=2.7, lv=1.8, d=1.1) {
+  repeat upright n=(bays+1,1,2) step=bay,0,d center=true {
+    box u size=0.08,levels*lv,0.08
+  }
+  repeat beam n=(bays,levels,1) step=bay,lv,0 center=true at=upright.bottom pin=origin offset=0,lv-0.1,0 {
+    box b size=bay-0.1,0.12,d+0.1
+    box pallet size=1.2,0.14,1.0 on=b mat=wood
+    box goods size=1.1,0.9,0.9 on=pallet mat=cargo_y
+  }
+}
+rack rack_a1 inside=wh_a.shell align=bottom,back offset=0,0,2
+rack rack_a2 inside=wh_a.shell align=bottom,front offset=0,0,-2 bays=6
+rack rack_b1 inside=wh_b.shell align=bottom levels=4
+
+// ── 龙门吊：横跨堆场，两个实例 ───────────────────
+def gantry(span=34, h=14, leg_w=1.2) {
+  repeat leg n=(2,1,2) step=span,0,8 center=true {
+    box l size=leg_w,h,leg_w
+  }
+  box girder size=span+leg_w,1.6,10 on=leg
+  box trolley size=3,1.2,4 on=girder gap=-1.2 mat=cargo_y
+  span cable from=trolley.bottom to=trolley.bottom+(0,-6,0) r=0.05
+  box spreader size=6.2,0.5,2.5 at=cable.bottom pin=top mat=cargo_y
+  span brace_1 from=leg.0.l.top-right to=leg.2.l.top-left r=0.12
+  span brace_2 from=leg.1.l.top-left to=leg.3.l.top-right r=0.12
+  box col_leg_zone size=span+leg_w+2,2,12 at=leg.bottom pin=bottom mat=ghost ~role="collision" ~note="禁止驾车穿越吊脚区"
+  box operator_cab size=2,2.2,2 against=girder.front align=top mat=glass
+}
+gantry crane_n on=apron[-0.45,1,-0.55] turn=0
+gantry crane_s on=apron[-0.45,1,0.1] turn=0 h=12
+
+// ── 油罐与管廊：旋转体、球、沿贝塞尔的圆管 ─────────
+group tank_farm on=apron[0.78,1,-0.6] mat=steel {
+  repeat tank n=3 step=9,0,0 center=true {
+    cyl body r=3.2 h=7
+    revolve dome profile=[(3.2,0); (3.1,0.6); (2.6,1.2); (1.6,1.7); (0,1.9)] smooth=true on=body
+    cyl valve r=0.3 h=0.5 on=dome
+  }
+  box bund size=30,0.8,10 at=tank.bottom pin=bottom mat=concrete
+  sphere gas_sphere r=3 on=bund[0.9,1,0.5] offset=0,0,-1
+}
+bezier pipe_line path=[tank_farm.tank.0.body[0,-0.7,-1]; tank_farm.tank.0.body[0,-0.7,-1]+(0,0,-14); wh_b.shell.outer.top-back+(6,-1,0); wh_b.shell.outer.top-back+(6,-1,6)]
+pipe main_pipe path=pipe_line r=0.25
+pipe return_pipe path=[(tank_farm.tank.2.body.x,2,tank_farm.tank.2.body.z-4); (tank_farm.tank.2.body.x,2,tank_farm.tank.2.body.z-12); (tank_farm.tank.2.body.x-10,2,tank_farm.tank.2.body.z-12)] r=0.18
+repeat pipe_support n=5 step=0,0,-2.4 at=tank_farm.tank.2.body.bottom+(0,0,-4) pin=origin {
+  cyl post r=0.1 h=1.9
+}
+
+// ── 灯杆与路标 ──────────────────────────────────
+repeat lamp n=(5,1,2) step=yard_w/5.5,0,yard_d-10 center=true on=apron mat=steel {
+  cyl pole r=0.15 h=12
+  box head size=1.6,0.4,0.6 on=pole offset=0.6,0,0
+}
+drop lamp.4
+repeat bollard n=14 step=0,0,yard_d/16 center=true at=apron.bottom+(yard_w*0.22,0.3,0) pin=origin mat=rust {
+  cyl b r=0.18 h=0.9
+}
+
+// ── 卡车：模板，几辆停在场地里 ───────────────────
+def truck(l=9, cab_l=2.2) {
+  box chassis size=l,0.5,2.4 at=0,0.7,0
+  box cab size=cab_l,2.4,2.4 on=chassis align=left
+  box trailer size=l-cab_l-0.3,2.6,2.4 on=chassis align=right mat=cargo_b
+  repeat wheel n=(3,1,2) step=l/3.2,0,2.2 center=true at=chassis.bottom pin=origin {
+    cyl wh r=0.5 h=0.3 axis=z mat=rust
+  }
+}
+truck truck_1 on=apron[0.15,1,0.6] turn=90
+truck truck_2 on=apron[0.22,1,0.6] turn=90
+truck truck_3 on=apron[0.29,1,0.6] turn=90 l=11
+truck truck_4 on=apron[-0.1,1,-0.95] turn=-12
+over truck_3.trailer mat=cargo_r
+
+// ── 门卫亭与管理楼 ───────────────────────────────
+group gatehouse on=apron[-0.75,1,-1] mat=concrete {
+  box hut size=4,3,3.5
+  wedge hut_roof size=4.4,1.2,3.9 on=hut mat=roofing
+  box window size=1.6,1,0.1 against=hut.front align=top offset=0,-0.6,0 mat=glass
+  cyl barrier_post r=0.15 h=1.1 at=hut.bottom-right+(2,0,0) pin=bottom mat=rust
+  span barrier from=barrier_post.top to=barrier_post.top+(6,0.4,0) r=0.08 mat=cargo_y
+}
+group office on=apron[0.85,1,0.85] mat=concrete {
+  box floor_1 size=16,3.4,10
+  box floor_2 size=16,3.4,10 on=floor_1
+  box parapet size=16.4,0.6,10.4 on=floor_2
+  repeat win n=(6,2,1) step=16/6.5,3.4,0 center=true at=floor_1.front+(0,1.2,0) pin=back mat=glass {
+    box pane size=1.6,1.4,0.1
+  }
+  span stair from=floor_1.bottom-right+(4,0,0) to=floor_1.top-right steps=14 section=1.6,0.2 mat=steel
+  box mass_office size=16.4,7.4,10.4 at=floor_1.bottom pin=bottom mat=ghost ~role="mass"
+}
+
+// ═══ 语义 ═══
+let solids = kind(box, cyl, cone, sphere, wedge, revolve)
+concept ghost_body = all() where role == "collision" or role == "trigger" or role == "mass"
+concept visible = solids - ghost_body
+concept container_box = kind(container)
+concept stacked = container_box & on(container_box)
+concept ground_level = container_box & on(apron)
+concept tall_stack = kind(container) where y > 6
+concept crane = kind(gantry)
+concept lifted = kind(box) & inside(crane_n.col_leg_zone | crane_s.col_leg_zone)
+style ghost_body color=#ff66ff
+check "每个堆场至少两层" count(stacked) >= 2
+check "散箱都落在场地上" crate_loose - on(apron)
+check "挡墙都是碰撞体" col_fence_n | col_fence_s | col_fence_w | col_fence_e where role != "collision"
+check "没有悬空的集装箱" container_box - on(all())

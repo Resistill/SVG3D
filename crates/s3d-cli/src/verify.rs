@@ -542,7 +542,13 @@ pub fn verify(mine: &J, reft: &J) -> Report {
                     rep.fail(format!("  DIFF material {} {} {} vs {}", k, f, a, b));
                 }
             }
-            if v["default"].as_bool().unwrap_or(false) != r["default"].as_bool().unwrap_or(false) {
+            // 原型把 default 原样输出（字面量字符串 "true"），缺失视为 false（N11）
+            let ref_default = match &r["default"] {
+                J::Bool(b) => *b,
+                J::String(s) => s == "true",
+                _ => false,
+            };
+            if v["default"].as_bool().unwrap_or(false) != ref_default {
                 rep.fail(format!("  DIFF material {} default", k));
             }
         }

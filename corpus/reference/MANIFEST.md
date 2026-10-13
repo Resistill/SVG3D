@@ -28,6 +28,7 @@
 |---|---|
 | `examples/<名>.compile.json`（7 个：basics curves rotation semantics spaceport spaceport_blueprint spaceport_edit） | `node bin/s3d.mjs examples/<名>.s3d --json` |
 | `examples/<名>.outline.txt`（同 7 个） | `node bin/s3d.mjs examples/<名>.s3d --outline=2 --semantics` |
+| `examples/depot.compile.json`、`examples/depot.outline.txt`（M1 末补，2026-10-13） | C1 合成基线 `corpus/examples/depot.s3d`（本仓库手写）用原型 `Resistill/SVG3D-Prototype` commit `439abb8`（编译器源码与 14582a3 相同，只多了 work-snapshot）在 Linux / Node v22.22.0 上跑 `node bin/s3d.mjs depot.s3d --json` 与 `--outline=2`；5031 个节点、2577 个条目、7594 条事实，`s3d verify` 对它 0 失败（22 条事实只是扫描序平局换序） |
 | `exports/<名>.compile.json`（10 个：basics.L0 curves.L0 l2fb rotation.L0 semantics.L0 spaceport.L0/L1/L2 spaceport_edit.L0/L1） | `node bin/s3d.mjs out/<名>.s3d --json` |
 | `exports/<名>.eval.json`（9 个：除 l2fb 外每个） | `node bin/eval.mjs examples/<原名>.s3d out/<名>.s3d --json`，原名 = 去掉 `.L<n>`；`spaceport_edit.*` 对 `examples/spaceport_edit.s3d` |
 | `work/{dorm,h1,sc}/score.json` | `node bin/s3d-tool.mjs score --project=work/<dorm/final｜h1/final｜sc/full>` 后复制工程里的 `score.json` |

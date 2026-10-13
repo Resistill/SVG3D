@@ -54,3 +54,12 @@
 - 规范修正：2.2.9 扫掠凸块的面片顶点序是定义的一部分（棱集按先出现去重，沿路径的四条棱只差微小角度；按原型的顶点序才能复现 rotation 的 12 条枕木 `gap`）。
 - 未做、留到后面：hull 条目的 `faces`（语料没有 hull，凸块已有面片但条目先输出空数组）；影子覆盖（4.4.4）在求解侧生效；皮肤里的 mirror / rotate 副本树（4.7 第 6 条；语料的皮肤里没有副本）。
 - 成本：本段全部由主会话手写（约 10 次修改—对拍循环），没有再开子 agent。
+
+### 2026-10-13：M1.5 收口，M1 验收
+
+- **真值评测**：`s3d-score::eval`（原型 `tools/eval.mjs` 的移植），CLI `s3d eval <原文> <逆向>`；9 个参考 `eval.json` 的 objects / kinds / compression / semantic / description 全部一致，`facts.*` 一组按预期不同（逆向侧 N8 的 345 条事实改变，rotation 的 `radar.feed`，rotation.L0 的 meanIoU 1.0 vs 0.99 来自圆柱紧盒按真实几何）。
+- **wasm 与三处哈希**：`s3d-wasm`（裸 C ABI，不依赖 wasm-bindgen，2.4 MB）；`s3d hash` 与 `tools/wasm-hash.mjs` 对同一个文件包算同一份紧凑 JSON 的 SHA-256。Linux 原生与 wasm 的 18 个语料文件哈希逐个相同；Windows 原生由 CI 的 `hash-windows` 任务产出、`three-way` 任务做三方 diff（PLAN 第 9 节 M1 验收项）。
+- **微基准**：`s3d bench-nearest`（parry3d-f64 BVH，enhanced-determinism；GLB 自带最小读取器）。H1 GLB 不在仓库，用 curves.L0.glb 代测：单线程 2.8 µs/次、4 线程 0.58 µs/次，多线程归约逐位等于单线程；门槛（单线程 ≤ 3 s / 262 万次）未达到，已按 PLAN 第 8 节约定记入待修订。
+- **C1 货场**：`corpus/examples/depot.s3d`，5031 节点 / 2577 条目 / 7594 事实，本版与原型逐项一致，原型输出收进参考包（`depot.compile.json`），CI 的 verify 与哈希步骤自动覆盖它。
+- **M1 验收（PLAN 第 9 节）**：examples 全部编译 ✓；事实在参考输出包的容差内一致、不一致逐条列出并解释 ✓（verify 的报告 + 9.5.3 回填）；三处哈希 ✓（CI 任务，Linux 与 wasm 已在本机确认）；最近点微基准 ✗（未达标，待 M2 前修订）。
+- 遗留清单见 `docs/spec-open-items.md` 第 4 节（hull 条目 `faces`、影子覆盖在求解侧生效、皮肤里的副本树、copy 块内修改的展开序）。

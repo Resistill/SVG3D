@@ -1,0 +1,184 @@
+ground  box  200×1×150  〔visible〕
+apron  box  160×0.3×110  · on ground  〔visible〕
+mass_block_a  box  160×0×110  · on apron  〔ghost_body〕
+col_fence_n  box  160×4×0.3  · on ground  〔ghost_body〕
+col_fence_s  box  160×4×0.3  · on ground  〔ghost_body〕
+col_fence_w  box  0.3×4×110  · on ground  〔ghost_body〕
+col_fence_e  box  0.3×4×110  · on ground  〔ghost_body〕
+trg_gate_in  box  12×5×6  · on apron  〔ghost_body〕
+trg_gate_out  box  12×5×6  · on apron  〔ghost_body〕
+fence_post_s  repeat ×37 [post, cap]  156×2.3×0.2  74 个实体  · on apron
+fence_post_n  repeat ×37 [post, cap]  156×2.3×0.2  74 个实体  · on apron
+fence_post_w  repeat ×26 [post]  0.1×2.2×106  26 个实体  · on apron
+fence_post_e  repeat ×26 [post]  0.1×2.2×106  26 个实体  · on apron
+yard_n  yard_block  19×7.8×26  701 个实体  · on apron
+  stack  repeat ×70 [c]  19×7.8×22  700 个实体  · on apron
+  mass_footprint  box  16×0×26  · on apron  〔ghost_body〕
+yard_m  yard_block  19×7.8×19  531 个实体  · on apron
+  stack  repeat ×53 [c]  19×7.8×15  530 个实体  · on apron
+  mass_footprint  box  16×0×19  · on apron  〔ghost_body〕
+yard_s  yard_block  17×5.2×26  401 个实体  · on apron
+  stack  repeat ×40 [c]  17×5.2×22  400 个实体  · on apron
+  mass_footprint  box  13×0×26  · on apron  〔ghost_body〕
+crate_loose  container  6.6×2.6×4.3  10 个实体  · on apron  〔container_box ground_level〕
+  shell  box  6.5×2.6×4.2  · on apron  〔visible〕
+  rib  repeat ×8 [r]  4.9×2.3×1.6  8 个实体  · against crate_loose.shell.front
+  door_frame  box  0.8×2.5×2.3  · on apron  〔visible〕
+crate_flipped  container  6.2×2.6×2.5  10 个实体  · on apron  〔container_box ground_level〕
+  shell  box  6.1×2.6×2.4  · on apron  〔visible〕
+  rib  repeat ×8 [r]  5.2×2.3×0  8 个实体  · against crate_flipped.shell.front
+  door_frame  box  0.1×2.5×2.3  · against crate_flipped.shell.right  〔visible〕
+rail_1  track  120×0.3×2.5  62 个实体  · on apron
+  sleeper  repeat ×60 [tie]  118×0.2×2.5  60 个实体  · on apron
+  rail_l  line  120×0×0
+  rail_r  line  120×0×0
+  rail_a  sweep  120×0.2×0.1  · on rail_1.sleeper.0.tie
+  rail_b  sweep  120×0.2×0.1  · on rail_1.sleeper.0.tie
+rail_2  track  140×0.3×2.5  62 个实体  · on apron
+  sleeper  repeat ×60 [tie]  138×0.2×2.5  60 个实体  · on apron
+  rail_l  line  140×0×0
+  rail_r  line  140×0×0
+  rail_a  sweep  140×0.2×0.1  · on rail_2.sleeper.0.tie
+  rail_b  sweep  140×0.2×0.1  · on rail_2.sleeper.0.tie
+buffer_1w  box  1×1.2×2.6  · on rail_1.sleeper.0.tie  〔visible〕
+buffer_1e  box  1×1.2×2.6  · on rail_1.sleeper.59.tie  〔visible〕
+car_1  flatcar  12×1.3×2.6  13 个实体  · on rail_1.rail_a
+  deck  box  12×0.3×2.6  · on car_1.wheelset.0.wheel  〔visible〕
+  wheelset  repeat ×8 [wheel]  8.8×0.8×1.5  8 个实体  · on rail_1.rail_a
+  axle_a  span  0.2×0.2×1.4  · on car_1.bogie_a
+  axle_b  span  0.2×0.2×1.4  · on car_1.bogie_b
+  bogie_a  box  1.2×0.5×2.2  · on rail_1.sleeper.8.tie  〔visible〕
+  bogie_b  box  1.2×0.5×2.2  · on rail_1.sleeper.12.tie  〔visible〕
+car_2  flatcar  12×1.3×2.6  13 个实体  · on rail_1.rail_a
+  deck  box  12×0.3×2.6  · on car_2.wheelset.0.wheel  〔visible〕
+  wheelset  repeat ×8 [wheel]  8.8×0.8×1.5  8 个实体  · on rail_1.rail_a
+  axle_a  span  0.2×0.2×1.4  · on car_2.bogie_a
+  axle_b  span  0.2×0.2×1.4  · on car_2.bogie_b
+  bogie_a  box  1.2×0.5×2.2  · on rail_1.sleeper.20.tie  〔visible〕
+  bogie_b  box  1.2×0.5×2.2  · on rail_1.sleeper.24.tie  〔visible〕
+car_3  flatcar  14×1.3×2.6  13 个实体  · on rail_1.rail_a
+  deck  box  14×0.3×2.6  · on car_3.wheelset.0.wheel  〔visible〕
+  wheelset  repeat ×8 [wheel]  10×0.8×1.5  8 个实体  · on rail_1.rail_a
+  axle_a  span  0.2×0.2×1.4  · on car_3.bogie_a
+  axle_b  span  0.2×0.2×1.4  · on car_3.bogie_b
+  bogie_a  box  1.2×0.5×2.2  〔visible〕
+  bogie_b  box  1.2×0.5×2.2  〔visible〕
+cargo_car_1  container  6.2×2.6×2.5  10 个实体  · on car_1.deck  〔container_box〕
+  shell  box  6.1×2.6×2.4  · on car_1.deck  〔visible〕
+  rib  repeat ×8 [r]  5.2×2.3×0  8 个实体  · against cargo_car_1.shell.front
+  door_frame  box  0.1×2.5×2.3  · on car_1.deck  〔visible〕
+cargo_car_2  container  6.2×2.6×2.5  10 个实体  · on car_2.deck  〔container_box〕
+  shell  box  6.1×2.6×2.4  · on car_2.deck  〔visible〕
+  rib  repeat ×8 [r]  5.2×2.3×0  8 个实体  · against cargo_car_2.shell.front
+  door_frame  box  0.1×2.5×2.3  · on car_2.deck  〔visible〕
+cargo_car_3  container  6.2×2.6×2.5  10 个实体  · on car_3.deck  〔container_box〕
+  shell  box  6.1×2.6×2.4  · on car_3.deck  〔visible〕
+  rib  repeat ×8 [r]  5.2×2.3×0  8 个实体  · against cargo_car_3.shell.front
+  door_frame  box  0.1×2.5×2.3  · on car_3.deck  〔visible〕
+cargo_car_3b  container  6.2×2.6×2.5  10 个实体  · on cargo_car_3.shell  〔container_box stacked〕
+  shell  box  6.1×2.6×2.4  · on cargo_car_3.shell  〔visible〕
+  rib  repeat ×8 [r]  5.2×2.3×0  8 个实体  · against cargo_car_3b.shell.front
+  door_frame  box  0.1×2.5×2.3  · against cargo_car_3b.shell.right  〔visible〕
+wh_a  warehouse  48×12×27  30 个实体  · on apron
+  shell  subtract  40×11×24  · on apron
+    …（4 个下级）
+  roof  box  41×0.4×25  · on wh_a.wings.mirrored.canopy  〔visible〕
+  skylight  repeat ×12 [pane]  33×0.3×11  12 个实体  · on wh_a.roof
+  wings  mirror 对称组  48×11×19  14 个实体  · against wh_a.shell.left
+    …（5 个下级）
+  trg_door_a  box  6×4×4  · on apron  〔ghost_body〕
+  trg_door_b  box  6×4×4  · on apron  〔ghost_body〕
+wh_b  warehouse  56×13×23  30 个实体  · on apron
+  shell  subtract  48×12×20  · on apron
+    …（4 个下级）
+  roof  box  49×0.4×21  · on wh_b.wings.mirrored.canopy  〔visible〕
+  skylight  repeat ×12 [pane]  39×0.3×9.9  12 个实体  · on wh_b.roof
+  wings  mirror 对称组  56×12×16  14 个实体  · against wh_b.shell.left
+    …（5 个下级）
+  trg_door_a  box  6×4×4  · on apron  〔ghost_body〕
+  trg_door_b  box  6×4×4  · on apron  〔ghost_body〕
+wh_c  warehouse  21×9.7×38  30 个实体  · on apron
+  shell  subtract  18×9×30  · on apron
+    …（4 个下级）
+  roof  box  19×0.4×31  · on wh_c.shell  〔visible〕
+  skylight  repeat ×12 [pane]  9.1×0.3×26  12 个实体  · on wh_c.roof
+  wings  mirror 对称组  14×8.7×38  14 个实体  · against wh_c.shell.right
+    …（5 个下级）
+  trg_door_a  box  4×4×6  · on apron  〔ghost_body〕
+  trg_door_b  box  4×4×6  · on apron  〔ghost_body〕
+dock_a  box  12×1.1×4  · on apron  〔visible lifted〕
+dock_steps_a  span  3×1.1×2  · on apron
+dock_b  box  14×1.1×4  · on apron  〔visible〕
+dock_steps_b  span  3×1.1×2  · on apron
+rack_a1  rack  22×5.5×1.2  90 个实体  · on apron
+  upright  repeat ×18 [u]  22×5.4×1.2  18 个实体  · against rack_a1.beam.0.b.left
+  beam  repeat ×24 [b, pallet, goods]  22×4.8×1.2  72 个实体  · on apron
+rack_a2  rack  16×5.5×1.2  68 个实体  · on apron
+  upright  repeat ×14 [u]  16×5.4×1.2  14 个实体  · against wh_a.trg_door_a.back
+  beam  repeat ×18 [b, pallet, goods]  16×4.8×1.2  54 个实体  · on apron
+rack_b1  rack  22×8.2×1.2  114 个实体  · on apron
+  upright  repeat ×18 [u]  22×7.2×1.2  18 个实体  · against rack_b1.beam.8.b.left
+  beam  repeat ×32 [b, pallet, goods]  22×6.6×1.2  96 个实体  · on apron
+crane_n  gantry  37×16×13  12 个实体  · on apron  〔crane〕
+  leg  repeat ×4 [l]  35×14×9.2  4 个实体  · on apron
+  girder  box  35×1.6×10  · on crane_n.leg.0.l  〔visible〕
+  trolley  box  3×1.2×4  · inside crane_n.girder  〔visible〕
+  cable  span  0.1×6×0.1  · touching crane_n.trolley
+  spreader  box  6.2×0.5×2.5  〔visible〕
+  brace_1  span  1.4×0.2×8
+  brace_2  span  1.4×0.2×8
+  col_leg_zone  box  37×2×12  · on apron  〔ghost_body〕
+  operator_cab  box  2×2.2×2  · against crane_n.girder.front  〔visible〕
+crane_s  gantry  37×14×13  12 个实体  · on apron  〔crane〕
+  leg  repeat ×4 [l]  35×12×9.2  4 个实体  · on apron
+  girder  box  35×1.6×10  · on crane_s.leg.0.l  〔visible〕
+  trolley  box  3×1.2×4  · inside crane_s.girder  〔visible〕
+  cable  span  0.1×6×0.1  · touching crane_s.trolley
+  spreader  box  6.2×0.5×2.5  〔visible〕
+  brace_1  span  1.4×0.2×8
+  brace_2  span  1.4×0.2×8
+  col_leg_zone  box  37×2×12  · on apron  〔ghost_body〕
+  operator_cab  box  2×2.2×2  · against crane_s.girder.front  〔visible〕
+tank_farm  group  32×9.4×10  11 个实体  · on apron
+  tank  repeat ×3 [body, dome, valve]  24×9.4×6.4  9 个实体  · on apron
+  bund  box  30×0.8×10  · on apron  〔visible〕
+  gas_sphere  sphere  6×6×6  · on tank_farm.bund  〔visible〕
+pipe_line  bezier  19×10×27
+main_pipe  pipe  19×10×27  · on tank_farm.bund
+return_pipe  pipe  10×0.4×8.2
+pipe_support  repeat ×5 [post]  0.2×1.9×9.8  5 个实体  · on apron
+lamp  repeat ×9 [pole, head]  118×12×101  18 个实体  · on apron
+bollard  repeat ×14 [b]  0.4×0.9×90  14 个实体  · on apron
+truck_1  truck  2.5×3.1×9  9 个实体  · on apron
+  chassis  box  2.4×0.5×9  · on apron  〔visible〕
+  cab  box  2.4×2.4×2.2  · on truck_1.chassis  〔visible〕
+  trailer  box  2.4×2.6×6.5  · on truck_1.chassis  〔visible〕
+  wheel  repeat ×6 [wh]  2.5×1×6.6  6 个实体  · on apron
+truck_2  truck  2.5×3.1×9  9 个实体  · on apron
+  chassis  box  2.4×0.5×9  · on apron  〔visible〕
+  cab  box  2.4×2.4×2.2  · on truck_2.chassis  〔visible〕
+  trailer  box  2.4×2.6×6.5  · on truck_2.chassis  〔visible〕
+  wheel  repeat ×6 [wh]  2.5×1×6.6  6 个实体  · on apron
+truck_3  truck  2.5×3.1×11  9 个实体  · on apron
+  chassis  box  2.4×0.5×11  · on apron  〔visible〕
+  cab  box  2.4×2.4×2.2  · on truck_3.chassis  〔visible〕
+  trailer  box  2.4×2.6×8.5  · on truck_3.chassis  〔visible〕
+  wheel  repeat ×6 [wh]  2.5×1×7.9  6 个实体  · on apron
+truck_4  truck  9.3×3.1×4.3  9 个实体  · on apron
+  chassis  box  9.3×0.5×4.2  · on apron  〔visible〕
+  cab  box  2.7×2.4×2.8  · on truck_4.chassis  〔visible〕
+  trailer  box  6.9×2.6×3.7  · on truck_4.chassis  〔visible〕
+  wheel  repeat ×6 [wh]  7×1×3.8  6 个实体  · on apron
+gatehouse  group  12×4.2×3.9  5 个实体  · on apron
+  hut  box  4×3×3.5  · on apron  〔visible〕
+  hut_roof  wedge  4.4×1.2×3.9  · on gatehouse.hut  〔visible〕
+  window  box  1.6×1×0.1  · against gatehouse.hut.front  〔visible〕
+  barrier_post  cyl  0.3×1.1×0.3  · on apron  〔visible〕
+  barrier  span  6×0.6×0.2
+office  group  20×7.4×10  17 个实体  · on apron
+  floor_1  box  16×3.4×10  · on apron  〔visible〕
+  floor_2  box  16×3.4×10  · on office.floor_1  〔visible〕
+  parapet  box  16×0.6×10  · on office.floor_2  〔visible〕
+  win  repeat ×12 [pane]  14×4.8×0.1  12 个实体  · against office.floor_1.front
+  stair  span  4×3.4×1.6  · touching office.floor_1
+  mass_office  box  16×7.4×10  · on apron  〔ghost_body〕
