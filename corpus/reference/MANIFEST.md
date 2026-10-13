@@ -28,7 +28,7 @@
 |---|---|
 | `examples/<名>.compile.json`（7 个：basics curves rotation semantics spaceport spaceport_blueprint spaceport_edit） | `node bin/s3d.mjs examples/<名>.s3d --json` |
 | `examples/<名>.outline.txt`（同 7 个） | `node bin/s3d.mjs examples/<名>.s3d --outline=2 --semantics` |
-| `exports/<名>.compile.json`（11 个：basics.L0 curves.L0 l2fb rotation.L0 semantics.L0 spaceport.L0/L1/L2 spaceport_edit.L0/L1） | `node bin/s3d.mjs out/<名>.s3d --json` |
+| `exports/<名>.compile.json`（10 个：basics.L0 curves.L0 l2fb rotation.L0 semantics.L0 spaceport.L0/L1/L2 spaceport_edit.L0/L1） | `node bin/s3d.mjs out/<名>.s3d --json` |
 | `exports/<名>.eval.json`（9 个：除 l2fb 外每个） | `node bin/eval.mjs examples/<原名>.s3d out/<名>.s3d --json`，原名 = 去掉 `.L<n>`；`spaceport_edit.*` 对 `examples/spaceport_edit.s3d` |
 | `work/{dorm,h1,sc}/score.json` | `node bin/s3d-tool.mjs score --project=work/<dorm/final｜h1/final｜sc/full>` 后复制工程里的 `score.json` |
 | `work/*/score.stdout.json` | 同一条 score 命令的 stdout |
