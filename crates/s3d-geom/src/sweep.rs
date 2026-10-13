@@ -197,13 +197,16 @@ pub enum SweepErr {
     Degenerate(usize),
 }
 
+/// 扫掠框架 (p, side, up)
+pub type Frame = (Vec3, Vec3, Vec3);
+
 /// 环点 ρ_{i,k}（按 i 外层、k 内层排列）与框架 (p, side, up)
 pub fn rings(
     pts: &[Vec3],
     closed: bool,
     tangents: Option<&[Vec3]>,
     ring: &[[f64; 2]],
-) -> Result<(Vec<Vec3>, Vec<(Vec3, Vec3, Vec3)>), SweepErr> {
+) -> Result<(Vec<Vec3>, Vec<Frame>), SweepErr> {
     let n = pts.len();
     let segs = if closed { n } else { n.saturating_sub(1) };
     for i in 0..segs {
