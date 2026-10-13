@@ -7,6 +7,7 @@ pub mod elaborate;
 pub mod env;
 pub mod eval;
 pub mod lexer;
+pub mod modify;
 pub mod output;
 pub mod parser;
 pub mod program;

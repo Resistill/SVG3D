@@ -223,6 +223,7 @@ pub enum StmtKind {
     },
     Copy {
         name: String,
+        tags: Vec<(String, u32)>,
         props: Vec<Prop>,
         metas: Vec<Prop>,
         block: Option<Vec<Stmt>>,

@@ -373,7 +373,7 @@ impl<'a> Parser<'a> {
             }
             _ => return perr(line, "copy 需要名字"),
         };
-        let (_tags, props, metas) = self.parse_items(false)?;
+        let (tags, props, metas) = self.parse_items(false)?;
         let block = self.finish(in_block)?;
         if !props.iter().any(|p| p.key == "of") {
             self.error(line, "copy 需要 of=原对象");
@@ -381,6 +381,7 @@ impl<'a> Parser<'a> {
         }
         Ok(Some(StmtKind::Copy {
             name,
+            tags,
             props,
             metas,
             block,

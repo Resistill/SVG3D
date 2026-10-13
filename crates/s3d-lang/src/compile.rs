@@ -80,6 +80,16 @@ pub struct Compiler {
     /// 求解中的"忙"标记（3.6：惰性求值的后置判定）
     pub busy_local: Vec<bool>,
     pub busy_box: Vec<bool>,
+    /// 下一个新建节点的有效属性表（copy / 重建时替换源语句的属性，4.1.3）
+    pub prop_override: Option<IndexMap<String, crate::scene::PropVal>>,
+    /// 阶段 5 以后：copy 语句立即展开（4.3.5 末段）
+    pub immediate_copies: bool,
+    /// copy 的登记序号（占位换算用）
+    pub copy_seq: usize,
+    /// 已插入的 copy：(父节点, 序号)
+    pub copies_inserted: Vec<(NodeId, usize)>,
+    /// 推迟到阶段 6 的修改（4.4.4）
+    pub deferred_mods: Vec<crate::elaborate::Modification>,
 }
 
 impl Compiler {
@@ -101,6 +111,11 @@ impl Compiler {
             modifications: Vec::new(),
             copies: Vec::new(),
             order_idx: Vec::new(),
+            prop_override: None,
+            immediate_copies: false,
+            copy_seq: 0,
+            copies_inserted: Vec::new(),
+            deferred_mods: Vec::new(),
             busy_local: Vec::new(),
             busy_box: Vec::new(),
         }

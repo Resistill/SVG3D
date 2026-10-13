@@ -81,6 +81,11 @@ pub struct Node {
     pub curve: Option<s3d_geom::Curve>,
     /// 源语句（copy、重建用；阵列实例、副本组没有）
     pub src_stmt: Option<Rc<Stmt>>,
+    /// 展开深度（4.1.4）与展开位置（4.1.2）
+    pub depth: u32,
+    pub pos: Vec<u64>,
+    /// 已被 drop / 重建拿掉（不在树里）
+    pub dropped: bool,
 }
 
 impl Node {
@@ -123,6 +128,9 @@ impl Scene {
             geom: None,
             curve: None,
             src_stmt: None,
+            depth: 0,
+            pos: vec![],
+            dropped: false,
         };
         Scene { nodes: vec![root] }
     }
@@ -146,6 +154,30 @@ impl Scene {
         self.nodes[parent].children.push(id);
         self.nodes[parent].created = created + 1;
         id
+    }
+
+    /// 把 n 从父节点的子节点列表里拿掉，整棵子树标记为 dropped（4.5.6）
+    pub fn detach(&mut self, n: NodeId) {
+        let p = self.nodes[n].parent;
+        self.nodes[p].children.retain(|c| *c != n);
+        let mut stack = vec![n];
+        while let Some(x) = stack.pop() {
+            self.nodes[x].dropped = true;
+            stack.extend(self.nodes[x].children.iter().copied());
+        }
+    }
+
+    /// 子树（含自身）的全部节点
+    pub fn subtree_of(&self, n: NodeId) -> Vec<NodeId> {
+        let mut out = Vec::new();
+        let mut stack = vec![n];
+        while let Some(x) = stack.pop() {
+            out.push(x);
+            for c in self.nodes[x].children.iter().rev() {
+                stack.push(*c);
+            }
+        }
+        out
     }
 
     /// 路径（段用 `.` 连接）；根为空串
@@ -217,7 +249,7 @@ impl Scene {
     /// 是否在全局索引里（1.6.5 第 3 步）：具名、非阵列实例、非副本组、非影子、不在皮肤里
     pub fn in_global_index(&self, n: NodeId) -> bool {
         let node = &self.nodes[n];
-        node.is_named() && !self.in_skin(n)
+        node.is_named() && !node.dropped && !self.in_skin(n)
     }
 
     /// 把一组节点按节点顺序排序并去重

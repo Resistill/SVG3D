@@ -27,8 +27,10 @@ pub struct PendingCopy {
     pub stmt: Rc<Stmt>,
     pub frame: FrameId,
     pub parent: NodeId,
-    /// 在父节点子节点列表里占住的位置
+    /// 在父节点子节点列表里占住的位置（登记时的子节点数）
     pub slot: usize,
+    /// 登记序号
+    pub seq: usize,
     pub pos: Vec<u64>,
     pub depth: u32,
 }
@@ -173,6 +175,69 @@ impl Compiler {
                 _ => {}
             }
         }
+        // 外观时机的 over（4.5.1）：模板表齐了再判（use= 的参数键按最终定义检查）
+        for s in &stmts {
+            if let StmtKind::Over { props, .. } = &s.kind {
+                if self.is_appearance_over(s) {
+                    if let Some(use_p) = props.iter().find(|p| p.key == "use") {
+                        let tname = self.literal_name(&use_p.value).unwrap_or_default();
+                        let params = self.template_params(&tname);
+                        let mut bad = None;
+                        for p in props {
+                            if matches!(p.key.as_str(), "use" | "mat" | "color") {
+                                continue;
+                            }
+                            if !params.contains(&p.key) {
+                                bad = Some(p.key.clone());
+                                break;
+                            }
+                        }
+                        if let Some(k) = bad {
+                            self.stmt_error(s.file_index, s.line, format!("模板 {} 没有参数 {}", tname, k));
+                            continue;
+                        }
+                    }
+                    self.semantic_stmts.push(s.clone());
+                }
+            }
+        }
+    }
+
+    /// 一条最外层的 over 是否属于外观时机（4.5.1 的四个条件；调用方保证它在最外层）
+    pub fn is_appearance_over(&self, s: &Stmt) -> bool {
+        match &s.kind {
+            StmtKind::Over {
+                props, retype, block, ..
+            } => {
+                if block.is_some() || retype.is_some() || props.is_empty() {
+                    return false;
+                }
+                let has_use = props.iter().any(|p| p.key == "use");
+                if has_use {
+                    true
+                } else {
+                    props.iter().all(|p| matches!(p.key.as_str(), "mat" | "color"))
+                }
+            }
+            _ => false,
+        }
+    }
+
+    /// 模板（最终定义）的参数名表，沿派生链收集；不是模板时为空
+    pub fn template_params(&self, tname: &str) -> Vec<String> {
+        let mut out: Vec<String> = Vec::new();
+        if let Ok(chain) = self.derivation_chain(tname) {
+            for d in chain.iter().rev() {
+                if let StmtKind::Def { params, .. } = &d.stmt.kind {
+                    for p in params {
+                        if !out.contains(&p.name) {
+                            out.push(p.name.clone());
+                        }
+                    }
+                }
+            }
+        }
+        out
     }
 
     fn check_let_name(&mut self, name: &str, s: &Stmt) -> bool {
@@ -287,7 +352,7 @@ impl Compiler {
     }
 
     /// 展开一个块里的语句（块帧已建好并含 let）
-    fn expand_block(
+    pub(crate) fn expand_block(
         &mut self,
         stmts: &[Stmt],
         parent: NodeId,
@@ -305,7 +370,7 @@ impl Compiler {
     }
 
     /// 新建块帧并登记块内 let（同名报错"重复定义 X"）
-    fn block_frame(
+    pub(crate) fn block_frame(
         &mut self,
         stmts: &[Stmt],
         parent_frame: FrameId,
@@ -317,7 +382,7 @@ impl Compiler {
         f
     }
 
-    fn bind_lets(&mut self, stmts: &[Stmt], f: FrameId, start: NodeId) {
+    pub(crate) fn bind_lets(&mut self, stmts: &[Stmt], f: FrameId, start: NodeId) {
         for s in stmts {
             if let StmtKind::Let { name, value, .. } = &s.kind {
                 if !self.check_let_name(name, s) {
@@ -343,7 +408,7 @@ impl Compiler {
         }
     }
 
-    fn expand_stmt(&mut self, s: &Stmt, parent: NodeId, frame: FrameId, depth: u32, pos: &[u64]) {
+    pub(crate) fn expand_stmt(&mut self, s: &Stmt, parent: NodeId, frame: FrameId, depth: u32, pos: &[u64]) {
         if depth > 32 {
             self.stmt_error(s.file_index, s.line, "展开层数超过 32（模板递归？）");
             return;
@@ -354,25 +419,60 @@ impl Compiler {
             }
             StmtKind::Let { .. } => {}
             StmtKind::Copy { .. } => {
-                // 占位：先在父节点下占一个序号（1.6.1 第 2 条），阶段 4 展开
+                // 占位：先在父节点下占一个序号（1.6.1 第 2 条），阶段 4 展开；
+                // 阶段 5 以后（over 块、重建的模板体里）立即展开（4.3.5 末段）
                 let slot = self.scene.nodes[parent].children.len();
                 self.scene.nodes[parent].created += 1;
-                self.copies.push(PendingCopy {
+                let seq = self.copy_seq;
+                self.copy_seq += 1;
+                let c = PendingCopy {
                     stmt: Rc::new(s.clone()),
                     frame,
                     parent,
                     slot,
+                    seq,
                     pos: pos.to_vec(),
                     depth,
-                });
+                };
+                if self.immediate_copies {
+                    self.expand_copy_now(&c);
+                } else {
+                    self.copies.push(c);
+                }
             }
-            StmtKind::Over { .. } | StmtKind::Drop { .. } => {
-                let scope = parent;
+            StmtKind::Over {
+                props, block, retype, ..
+            } => {
+                if props.is_empty() && block.is_none() && retype.is_none() {
+                    self.stmt_error(s.file_index, s.line, "over 需要属性或块");
+                    return;
+                }
+                // 外观时机的 over（4.5.1）在阶段 2 登记为语义层语句，不进修改序列
+                if parent == ROOT && self.is_appearance_over(s) {
+                    return;
+                }
+                if props.iter().any(|p| p.key == "use") {
+                    self.stmt_error(
+                        s.file_index,
+                        s.line,
+                        "use= 只能写在最外层、不带块与换形、只改外观的 over 里",
+                    );
+                    return;
+                }
                 self.modifications.push(Modification {
                     stmt: Rc::new(s.clone()),
                     frame,
                     start: parent,
-                    scope,
+                    scope: parent,
+                    pos: pos.to_vec(),
+                });
+            }
+            StmtKind::Drop { .. } => {
+                self.modifications.push(Modification {
+                    stmt: Rc::new(s.clone()),
+                    frame,
+                    start: parent,
+                    scope: parent,
                     pos: pos.to_vec(),
                 });
             }
@@ -402,7 +502,7 @@ impl Compiler {
     }
 
     /// 元数据求值（展开时；1.9、8.1）
-    fn eval_metas(&mut self, metas: &[Prop], frame: FrameId, s: &Stmt) -> IndexMap<String, Value> {
+    pub(crate) fn eval_metas(&mut self, metas: &[Prop], frame: FrameId, s: &Stmt) -> IndexMap<String, Value> {
         let mut out = IndexMap::new();
         for m in metas {
             if out.contains_key(&m.key) {
@@ -455,6 +555,10 @@ impl Compiler {
             }
             seen.push(&p.key);
         }
+        let props_table = match self.prop_override.take() {
+            Some(t) => t,
+            None => props_from(props, frame, parent, s.file_index),
+        };
         let node = Node {
             seg: name.unwrap_or("").to_string(),
             name: name.unwrap_or("").to_string(),
@@ -464,7 +568,7 @@ impl Compiler {
             parent,
             children: vec![],
             created: 0,
-            props: props_from(props, frame, parent, s.file_index),
+            props: props_table,
             tags: tag_names,
             meta,
             file_index: s.file_index,
@@ -482,6 +586,9 @@ impl Compiler {
             geom: None,
             curve: None,
             src_stmt: Some(Rc::new(s.clone())),
+            depth: 0,
+            pos: vec![],
+            dropped: false,
         };
         let id = self.scene.add(parent, node);
         if let Some(n) = name {
@@ -497,7 +604,7 @@ impl Compiler {
         id
     }
 
-    fn expand_generic(
+    pub(crate) fn expand_generic(
         &mut self,
         s: &Stmt,
         parent: NodeId,
@@ -505,15 +612,15 @@ impl Compiler {
         depth: u32,
         pos: &[u64],
     ) -> Option<NodeId> {
-        let (kind, name, tags, props, metas, block) = match &s.kind {
+        let (kind, name, tags, props, metas) = match &s.kind {
             StmtKind::Generic {
                 kind,
                 name,
                 tags,
                 props,
                 metas,
-                block,
-            } => (kind, name, tags, props, metas, block),
+                ..
+            } => (kind, name, tags, props, metas),
             _ => unreachable!(),
         };
         if let Some(n) = name {
@@ -523,6 +630,45 @@ impl Compiler {
             }
         }
         let kind_s = kind.as_str();
+        let id = self.expand_generic_inner(
+            s,
+            kind_s,
+            name.as_deref(),
+            tags,
+            props,
+            metas,
+            parent,
+            frame,
+            depth,
+            pos,
+        );
+        if let Some(id) = id {
+            self.scene.nodes[id].depth = depth;
+            self.scene.nodes[id].pos = pos.to_vec();
+        }
+        id
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn expand_generic_inner(
+        &mut self,
+        s: &Stmt,
+        kind_s: &str,
+        name: Option<&str>,
+        tags: &[(String, u32)],
+        props: &[Prop],
+        metas: &[Prop],
+        parent: NodeId,
+        frame: FrameId,
+        depth: u32,
+        pos: &[u64],
+    ) -> Option<NodeId> {
+        let name = name.map(|x| x.to_string());
+        let block: Option<Vec<Stmt>> = match &s.kind {
+            StmtKind::Generic { block, .. } => block.clone(),
+            _ => None,
+        };
+        let block = &block;
         if SOLID_KINDS.contains(&kind_s) || CURVE_KINDS.contains(&kind_s) {
             let id = self.new_node(s, kind_s, name.as_deref(), tags, props, metas, parent, frame);
             self.check_prop_keys(id, kind_s);
@@ -701,10 +847,11 @@ impl Compiler {
         let body_frame = self.env.new_frame(FrameKind::TemplateBody, Some(gf));
         self.scene.nodes[id].frame = body_frame;
         let mut missing = false;
+        let table = self.scene.nodes[id].props.clone();
         let mut unknown_keys: Vec<String> = Vec::new();
-        for p in props {
-            if !P_GROUP_ALL.contains(&p.key.as_str()) && !params.contains_key(&p.key) {
-                unknown_keys.push(p.key.clone());
+        for k in table.keys() {
+            if !P_GROUP_ALL.contains(&k.as_str()) && !params.contains_key(k) {
+                unknown_keys.push(k.clone());
             }
         }
         for k in unknown_keys {
@@ -712,15 +859,17 @@ impl Compiler {
             self.degenerate(id, msg);
             self.scene.nodes[id].props.shift_remove(&k);
         }
+        let _ = props;
         for (pname, (default, dline, dfile)) in &params {
-            let written = props.iter().find(|p| p.key == *pname);
+            // 写明的值在写它的上下文里求值（有效属性表带各自的帧，4.1.3）
+            let written = table.get(pname);
             let binding = match (written, default) {
                 (Some(w), _) => Binding::Lazy {
-                    expr: w.value.clone(),
-                    frame,
-                    start: parent,
+                    expr: w.expr.clone(),
+                    frame: w.frame,
+                    start: w.start,
                     line: w.line,
-                    file_index: s.file_index,
+                    file_index: w.file_index,
                     state: LazyState::Unevaluated,
                 },
                 (None, Some(d)) => Binding::Lazy {
@@ -739,8 +888,7 @@ impl Compiler {
                 }
             };
             self.env.bind(body_frame, pname, binding);
-            // 参数不是节点的属性
-            self.scene.nodes[id].props.shift_remove(pname);
+            // 写明的参数留在有效属性表里（重建与换形要用，4.5.4、4.6.2）；它们不是几何属性，求解不读
         }
         if missing {
             return Some(id);
@@ -764,7 +912,7 @@ impl Compiler {
     }
 
     /// 派生链：最派生在前（4.2.5、4.2.6）
-    fn derivation_chain(&self, tname: &str) -> Result<Vec<TemplateDef>, (u32, u32, String)> {
+    pub(crate) fn derivation_chain(&self, tname: &str) -> Result<Vec<TemplateDef>, (u32, u32, String)> {
         let mut out: Vec<TemplateDef> = Vec::new();
         let mut cur = self.defs.get(tname).cloned();
         let mut seen: Vec<String> = Vec::new();
@@ -903,8 +1051,13 @@ impl Compiler {
                         geom: None,
                         curve: None,
                         src_stmt: None,
+                        depth: 0,
+                        pos: vec![],
+                        dropped: false,
                     };
                     let inst_id = self.scene.add(id, inst);
+                    self.scene.nodes[inst_id].depth = depth;
+                    self.scene.nodes[inst_id].pos = pos.to_vec();
                     let bf = self.block_frame(&body, inst_frame, FrameKind::Block, inst_id);
                     self.scene.nodes[inst_id].frame = bf;
                     self.expand_block(&body, inst_id, bf, depth, pos);
@@ -918,22 +1071,9 @@ impl Compiler {
         self.expand_copies();
         self.apply_modifications();
         self.build_twins();
+        self.apply_deferred_modifications();
         self.check_sibling_names();
         self.rebuild_order();
-    }
-
-    fn expand_copies(&mut self) {
-        let pending: Vec<PendingCopy> = std::mem::take(&mut self.copies);
-        for c in pending {
-            self.stmt_error(c.stmt.file_index, c.stmt.line, "copy 尚未实现");
-        }
-    }
-
-    fn apply_modifications(&mut self) {
-        let mods: Vec<Modification> = std::mem::take(&mut self.modifications);
-        for m in mods {
-            self.stmt_error(m.stmt.file_index, m.stmt.line, "over / drop 尚未实现");
-        }
     }
 
     /// 阶段 6：副本树定稿（4.4.2）。副本根按依赖拓扑序生成：先里面的、再外面的。
@@ -1129,6 +1269,9 @@ impl Compiler {
                         geom: None,
                         curve: None,
                         src_stmt: None,
+                        depth: 0,
+                        pos: vec![],
+                        dropped: false,
                     };
                     let gid = self.scene.add(root, g);
                     for &c in &originals {
@@ -1220,6 +1363,9 @@ impl Compiler {
             geom: None,
             curve: None,
             src_stmt: None,
+            depth: 0,
+            pos: vec![],
+            dropped: false,
         };
         let sid = self.scene.add(p, s);
         let kids = self.scene.nodes[o].children.clone();
