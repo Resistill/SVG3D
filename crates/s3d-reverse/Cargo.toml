@@ -1,0 +1,13 @@
+[package]
+name = "s3d-reverse"
+description = "SVG3D 逆向：部件读取与源侧决定的执行（M3a）；检测器流水线、候选筛选、稳定命名、分块（M3）"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+s3d-geom = { path = "../s3d-geom" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+regex = { workspace = true }

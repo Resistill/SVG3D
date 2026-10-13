@@ -351,6 +351,8 @@ version = "0.1.0"
 dependencies = [
  "s3d-geom",
  "s3d-lang",
+ "s3d-project",
+ "s3d-reverse",
  "s3d-score",
  "s3d-wasm",
  "serde_json",
@@ -372,6 +374,26 @@ name = "s3d-lang"
 version = "0.1.0"
 dependencies = [
  "indexmap",
+ "regex",
+ "s3d-geom",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "s3d-project"
+version = "0.1.0"
+dependencies = [
+ "s3d-geom",
+ "s3d-lang",
+ "s3d-reverse",
+ "serde_json",
+]
+
+[[package]]
+name = "s3d-reverse"
+version = "0.1.0"
+dependencies = [
  "regex",
  "s3d-geom",
  "serde",

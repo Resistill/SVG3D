@@ -1,0 +1,13 @@
+[package]
+name = "s3d-project"
+description = "SVG3D 工程目录：意图的读写、生命周期与重绑（M3a）；层、提议、日志（M4）。只出 native"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+s3d-geom = { path = "../s3d-geom" }
+s3d-lang = { path = "../s3d-lang" }
+s3d-reverse = { path = "../s3d-reverse" }
+serde_json = { workspace = true }

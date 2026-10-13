@@ -91,3 +91,14 @@
 | spaceport.L2 | 134116.5 | 4083.8 | 1817.5 | 723.6 | ✓ |
 
   评分三处哈希 ✓（CI #23 起）；渲染两项（60 帧、无头渲染对拍）与 CPU compare 派便宜模型，M2 的这两项待其完成。
+
+## M3a 意图的执行
+
+### 2026-10-13：意图的数据形状、源侧决定、重绑
+
+- **`s3d-reverse`（出 wasm）**：`intent`（PLAN 4.2 的 JSON 形状，serde，未知字段原样保留；4.2.1 的词汇表校验：不在表里的操作、缺参数、选择器与阶段不配都报错；4.6 的优先级）、`parts`（读取部件阶段执行 drop / role / merge / type / keep-mesh / shape；选择器 sources 或 rule；每个部件每个键取优先级最高的决定；具体对象意图之间的不同值记冲突、规则型之间按 id 压过不算冲突；`drop` 被更高优先级的具体对象决定压过；报告 applied / unsatisfied / dangling / conflicts；`source_roles` 产出与原型 `state/source-roles.json` 同形的表）。
+- **`s3d-project`（只出 native）**：`store`（`intents/NNN.json` 读写、样本集文件读取、校验、id 永不回收、状态变迁 proposed → accepted → retired 带 history）、`rebind`（4.3：路径命中须经指纹或来源交叉验证才算 bound，只命中路径的记 suspicious；路径没命中按指纹（同种类、IoU ≥ 0.5）重绑并改写路径；还找不到的 dangling；来源锚按源部件 id 存在与否；区域锚数区域里的物体；稳定命名将共用 `best_by_fingerprint`）。
+- CLI：`s3d intents <意图文件|工程目录> --glb|--names [--roles-out]`、`s3d roles-diff`、`s3d intent-rebind <工程目录> <场景> [--glb] [--iou] [--write]`。
+- **M3a 验收（规则样本意图产出与原型可比的角色）**：三个工程里只有 sc 的 `state/source-roles.json` 在原型仓库的 work-snapshot 里（dorm / h1 的 state 目录没有它），规则型意图只看部件名，所以在云端直接对 32 157 个名字执行样本的 8 条规则：与原型一致 24 076（74.87%）；**规则命中的 16 771 个部件与原型全部一致**（collision 1735、decal 1205、decor 13752、terrain 76、helper 3，混淆矩阵的这些行没有一个落在对角线外），不一致的 8081 个全是规则没命中、按默认 structure、而原型判成 decor（7690）/ terrain（333）/ helper（57）/ decal（1）的——都是样本 `_note` 自述的近似：原型取"最后一个有归属的词"（`Lighting_Spotlight_01E`、`Resort_Curtain_09b` 末尾是变体字母，`GenerateRoad_Asphalt_Mesh_x86_y60_13648_HD` 末尾是 Mesh / x / y / HD），样本的正则只认"角色词在名字末尾"；另有几何回退（很薄且散成多块 → decal、默认名的大盒子 → helper）规则表达不了。spaceport.L0：ground / road → terrain，4 盏 lamp → decor，其余默认。测试 `crates/s3d-project/tests/sample_intents.rs`（sc 一项在原型 clone 不在时跳过）。
+- **待拍板**：规则选择器是否加一种"词"谓词（`rule.words`：名字按下划线 / 驼峰拆词，取最后一个落在给定词表里的词），把原型的"最后一个有归属的词"写进样本意图。加了预计一致率到 95% 以上（只剩几何回退的部分）；不加就按 PLAN 4.5 的"正则"口径，接受 74.9% 并记为可比。这改的是意图 JSON 的选择器形状，所以要你定。
+- 未做（M3）：物体阶段的决定（hollow / tol / lock / array / mirror）要等逆向主体；`lock` 的"沿用上一次的那一行"在原型里是对文本做的，本版要在发射阶段做。

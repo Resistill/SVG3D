@@ -259,6 +259,178 @@ fn main() {
                 println!("{}  {}", sha256::sha256_hex(out.as_bytes()), stem);
             }
         }
+        Some("intents") if args.len() >= 2 => {
+            // 读取部件阶段执行源侧决定：s3d intents <意图文件或工程目录> (--glb <源模型.glb> | --names <id→角色的 JSON，只取键>)
+            //   [--roles-out <文件>]；打印报告，--roles-out 写出 源部件 id → 角色（原型 state/source-roles.json 的形状）
+            let opt = |name: &str| {
+                args.iter()
+                    .position(|a| a == name)
+                    .and_then(|i| args.get(i + 1))
+                    .cloned()
+            };
+            let src = Path::new(&args[1]);
+            let intents = if src.is_dir() {
+                s3d_project::store::load_all(src)
+            } else {
+                s3d_project::store::load_file(src)
+            }
+            .unwrap_or_else(|e| panic!("{}", e));
+            let problems = s3d_project::store::problems(&intents);
+            let parts: Vec<s3d_geom::mesh::Part> = if let Some(g) = opt("--glb") {
+                let bytes = std::fs::read(&g).expect("读不到 GLB");
+                s3d_geom::mesh::load_parts(&bytes, s3d_geom::mesh::Split::Auto).expect("GLB 读取失败")
+            } else if let Some(n) = opt("--names") {
+                let v: serde_json::Value =
+                    serde_json::from_str(&std::fs::read_to_string(&n).expect("读不到名字表"))
+                        .expect("名字表不是 JSON");
+                let names: Vec<String> = match &v {
+                    serde_json::Value::Object(o) => o.keys().cloned().collect(),
+                    serde_json::Value::Array(a) => {
+                        a.iter().filter_map(|x| x.as_str().map(str::to_string)).collect()
+                    }
+                    _ => Vec::new(),
+                };
+                names
+                    .into_iter()
+                    .map(|n| s3d_geom::mesh::Part {
+                        name: Some(n.clone()),
+                        uid: Some(n),
+                        from: None,
+                        tris: Vec::new(),
+                        material: s3d_geom::mesh::Material {
+                            name: None,
+                            color: "#c9c9c9".into(),
+                            metal: None,
+                            rough: None,
+                        },
+                        mesh: None,
+                        matrix: None,
+                        role: None,
+                        meta: std::collections::BTreeMap::new(),
+                    })
+                    .collect()
+            } else {
+                panic!("要给 --glb 或 --names");
+            };
+            let n_in = parts.len();
+            let (out, report) = s3d_reverse::parts::apply_source_decisions(parts, &intents);
+            let roles = s3d_reverse::parts::source_roles(&out);
+            let mut counts: std::collections::BTreeMap<&str, usize> = std::collections::BTreeMap::new();
+            for r in roles.values() {
+                *counts.entry(r.as_str()).or_insert(0) += 1;
+            }
+            let summary = serde_json::json!({
+                "intents": intents.len(), "active": intents.iter().filter(|i| i.is_active()).count(), "problems": problems,
+                "partsIn": n_in, "partsOut": out.len(), "roles": counts, "report": report.to_json(),
+            });
+            println!("{}", serde_json::to_string_pretty(&summary).unwrap());
+            if let Some(f) = opt("--roles-out") {
+                std::fs::write(&f, serde_json::to_string(&roles).unwrap() + "\n").expect("写不出角色表");
+            }
+        }
+        Some("roles-diff") if args.len() >= 3 => {
+            // 两份 id → 角色 的表对比：s3d roles-diff <ours.json> <theirs.json>；打印一致率与混淆矩阵（ours 行、theirs 列）
+            let load = |p: &str| -> std::collections::BTreeMap<String, String> {
+                serde_json::from_str(&std::fs::read_to_string(p).expect("读不到角色表"))
+                    .expect("角色表不是 JSON 对象")
+            };
+            let a = load(&args[1]);
+            let b = load(&args[2]);
+            let roles = ["structure", "decor", "terrain", "decal", "collision", "helper"];
+            let mut m = vec![vec![0usize; roles.len()]; roles.len()];
+            let (mut same, mut total, mut missing) = (0usize, 0usize, 0usize);
+            let idx = |r: &str| roles.iter().position(|x| *x == r).unwrap_or(0);
+            for (k, ra) in &a {
+                match b.get(k) {
+                    Some(rb) => {
+                        total += 1;
+                        if ra == rb {
+                            same += 1;
+                        }
+                        m[idx(ra)][idx(rb)] += 1;
+                    }
+                    None => missing += 1,
+                }
+            }
+            println!(
+                "共同的部件 {}，一致 {}（{:.2}%），只在第一份里 {}，只在第二份里 {}",
+                total,
+                same,
+                100.0 * same as f64 / total.max(1) as f64,
+                missing,
+                b.len() - total
+            );
+            println!(
+                "{:>10} {}",
+                "ours\\theirs",
+                roles
+                    .iter()
+                    .map(|r| format!("{:>10}", r))
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            );
+            for (i, r) in roles.iter().enumerate() {
+                println!(
+                    "{:>10} {}",
+                    r,
+                    m[i].iter()
+                        .map(|c| format!("{:>10}", c))
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                );
+            }
+        }
+        Some("intent-rebind") if args.len() >= 3 => {
+            // 重绑：s3d intent-rebind <工程目录> <场景.s3d> [--glb <源模型.glb>] [--iou 0.5] [--write]
+            let opt = |name: &str| {
+                args.iter()
+                    .position(|a| a == name)
+                    .and_then(|i| args.get(i + 1))
+                    .cloned()
+            };
+            let dir = Path::new(&args[1]);
+            let file = &args[2];
+            let text = std::fs::read_to_string(file).expect("读不到场景");
+            let display = Path::new(file)
+                .file_name()
+                .map(|s| s.to_string_lossy().to_string())
+                .unwrap_or(file.clone());
+            let c = compile(
+                &text,
+                &abs_path(file),
+                &display,
+                &read,
+                &CompileOptions::default(),
+            );
+            let scene = s3d_project::rebind::SceneIndex::from_compiled(&c);
+            let sources: Vec<String> = match opt("--glb") {
+                Some(g) => {
+                    let bytes = std::fs::read(&g).expect("读不到 GLB");
+                    let parts = s3d_geom::mesh::load_parts(&bytes, s3d_geom::mesh::Split::Auto)
+                        .expect("GLB 读取失败");
+                    parts
+                        .iter()
+                        .enumerate()
+                        .flat_map(|(i, p)| vec![p.label(i), p.name.clone().unwrap_or_default()])
+                        .collect()
+                }
+                None => Vec::new(),
+            };
+            let threshold = opt("--iou").and_then(|v| v.parse().ok()).unwrap_or(0.5);
+            let when = opt("--when").unwrap_or_else(|| "rebind".to_string());
+            let mut intents = s3d_project::store::load_all(dir).unwrap_or_else(|e| panic!("{}", e));
+            let mut rows = Vec::new();
+            for it in intents.iter_mut() {
+                let o = s3d_project::rebind::rebind(it, &scene, &sources, threshold, &when);
+                rows.push(serde_json::json!({ "id": it.id, "bound": it.status.bound, "suspicious": o.suspicious, "dangling": o.dangling, "rebound": o.rebound, "region": o.region_count }));
+            }
+            println!("{}", serde_json::to_string_pretty(&rows).unwrap());
+            if args.iter().any(|a| a == "--write") {
+                for it in &intents {
+                    s3d_project::store::save(dir, it).unwrap_or_else(|e| panic!("{}", e));
+                }
+            }
+        }
         Some("eval") if args.len() >= 3 => {
             // 真值评测：s3d eval <原始.s3d> <逆向.s3d> [--lib <semantics.s3d>]
             let orig = &args[1];

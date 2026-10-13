@@ -20,8 +20,8 @@ jobs:
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: test
         run: cargo test --workspace
-      - name: wasm build（s3d-geom、s3d-lang、s3d-wasm 必须能出 wasm，不开 simd128）
-        run: cargo build --release --target wasm32-unknown-unknown -p s3d-geom -p s3d-lang -p s3d-wasm
+      - name: wasm build（s3d-geom、s3d-lang、s3d-score、s3d-reverse、s3d-wasm 必须能出 wasm，不开 simd128）
+        run: cargo build --release --target wasm32-unknown-unknown -p s3d-geom -p s3d-lang -p s3d-score -p s3d-reverse -p s3d-wasm
       - name: spec cross references
         run: python3 spec/tools/check-refs.py
       - name: verify（17 个参考输出，9.4 的规则）
