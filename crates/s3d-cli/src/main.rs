@@ -112,7 +112,9 @@ fn verify(mine: &serde_json::Value, reft: &serde_json::Value) -> i32 {
                         diffs.push(format!("{} Δ={:.3e}", key, d));
                     }
                 }
-                if n["kind"] != r["kind"] && !(r["kind"].as_str().unwrap_or("").contains('→')) {
+                // 影子 / 副本式节点的 kind 按 9.3.3 预期不同（原型输出 group / "a→b"），不比
+                let ghost = r["ghost"].as_bool().unwrap_or(false) || r["of"].is_string();
+                if n["kind"] != r["kind"] && !ghost && !(r["kind"].as_str().unwrap_or("").contains('→')) {
                     diffs.push(format!("kind {} vs {}", n["kind"], r["kind"]));
                 }
                 if diffs.is_empty() {

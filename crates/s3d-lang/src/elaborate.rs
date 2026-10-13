@@ -424,6 +424,7 @@ impl Compiler {
         out
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn new_node(
         &mut self,
         s: &Stmt,
@@ -479,6 +480,7 @@ impl Compiler {
             wbox: None,
             tight: None,
             geom: None,
+            curve: None,
             src_stmt: Some(Rc::new(s.clone())),
         };
         let id = self.scene.add(parent, node);
@@ -835,7 +837,7 @@ impl Compiler {
                 };
                 let to_int = |x: f64| -> Option<u32> {
                     let r = x.round();
-                    if (x - r).abs() <= 1e-9 && r >= 1.0 && r <= 5000.0 {
+                    if (x - r).abs() <= 1e-9 && (1.0..=5000.0).contains(&r) {
                         Some(r as u32)
                     } else {
                         None
@@ -899,6 +901,7 @@ impl Compiler {
                         wbox: None,
                         tight: None,
                         geom: None,
+                        curve: None,
                         src_stmt: None,
                     };
                     let inst_id = self.scene.add(id, inst);
@@ -933,18 +936,297 @@ impl Compiler {
         }
     }
 
+    /// 阶段 6：副本树定稿（4.4.2）。副本根按依赖拓扑序生成：先里面的、再外面的。
     fn build_twins(&mut self) {
-        let ids: Vec<NodeId> = (1..self.scene.nodes.len())
+        let mut roots: Vec<NodeId> = (1..self.scene.nodes.len())
             .filter(|&n| {
-                matches!(self.scene.nodes[n].role, Role::TwinOf { .. })
-                    || (matches!(self.scene.nodes[n].kind.as_str(), "mirror" | "rotate")
-                        && matches!(self.scene.nodes[n].role, Role::Normal))
+                let node = &self.scene.nodes[n];
+                matches!(node.role, Role::TwinOf { .. })
+                    || (matches!(node.role, Role::Normal)
+                        && matches!(node.kind.as_str(), "mirror" | "rotate"))
             })
             .collect();
-        for n in ids {
-            self.node_error(n, "mirror / rotate 尚未实现");
-            self.scene.nodes[n].degenerate = true;
+        let mut done: Vec<NodeId> = Vec::new();
+        let mut guard = 0;
+        while !roots.is_empty() {
+            guard += 1;
+            let mut progressed = false;
+            let mut i = 0;
+            while i < roots.len() {
+                let r = roots[i];
+                let ready = match self.scene.nodes[r].role.clone() {
+                    Role::TwinOf { .. } => match self.resolve_of(r) {
+                        Ok(a) => {
+                            // 依赖：A 自身是副本根、A 子树里的副本根
+                            let inside = self.subtree(a);
+                            let pending = roots.iter().any(|&x| x != r && (x == a || inside.contains(&x)));
+                            if pending {
+                                None
+                            } else {
+                                Some(Some(a))
+                            }
+                        }
+                        Err(None) => None, // 暂时解析不到（可能指向尚未生成的影子）
+                        Err(Some(_)) => Some(None),
+                    },
+                    _ => {
+                        let inside = self.subtree(r);
+                        let pending = roots.iter().any(|&x| x != r && inside.contains(&x));
+                        if pending {
+                            None
+                        } else {
+                            Some(None)
+                        }
+                    }
+                };
+                match ready {
+                    None => i += 1,
+                    Some(a) => {
+                        self.make_twins(r, a);
+                        done.push(r);
+                        roots.remove(i);
+                        progressed = true;
+                    }
+                }
+            }
+            if !progressed || guard > 10000 {
+                for r in roots.clone() {
+                    let path = self.scene.path(r);
+                    match self.resolve_of(r) {
+                        Err(Some(msg)) => self.degenerate(r, msg),
+                        _ => self.degenerate(r, format!("复制关系形成循环：{}", path)),
+                    }
+                }
+                break;
+            }
         }
+    }
+
+    /// 子树里的全部节点（不含自己）
+    fn subtree(&self, n: NodeId) -> Vec<NodeId> {
+        let mut out = Vec::new();
+        let mut stack: Vec<NodeId> = self.scene.nodes[n].children.clone();
+        while let Some(c) = stack.pop() {
+            out.push(c);
+            stack.extend(self.scene.nodes[c].children.iter().copied());
+        }
+        out
+    }
+
+    /// 解析副本式节点的 of=：Ok(A)；Err(None) = 暂时找不到；Err(Some(msg)) = 确定的错误
+    fn resolve_of(&mut self, r: NodeId) -> Result<NodeId, Option<String>> {
+        let pv = match self.scene.nodes[r].props.get("of").cloned() {
+            Some(pv) => pv,
+            None => return Err(Some(format!("{}：of 需要写一个对象名", self.scene.path(r)))),
+        };
+        if !matches!(
+            pv.expr.kind,
+            crate::ast::ExprKind::Ident(_)
+                | crate::ast::ExprKind::PathRef {
+                    coords: None,
+                    axis: None,
+                    ..
+                }
+        ) {
+            return Err(Some(format!("{}：of 需要写一个对象名", self.scene.path(r))));
+        }
+        let ctx = Ctx {
+            frame: pv.frame,
+            start: pv.start,
+            timing: Timing::Selector,
+        };
+        let saved = self.diags.errors.len();
+        let res = self.eval(&pv.expr, ctx);
+        self.diags.errors.truncate(saved);
+        match res {
+            Ok(Value::Ref(rf)) if rf.anchor.is_none() => {
+                let a = rf.node;
+                if a == r || self.scene.is_ancestor(a, r) {
+                    return Err(Some(format!("{} 不能复制包含自己的对象", self.scene.path(r))));
+                }
+                Ok(a)
+            }
+            Ok(_) => Err(Some(format!("{}：of 需要写一个对象名", self.scene.path(r)))),
+            Err(e) => {
+                if e.0.contains("找不到对象") || e.0.contains("没有子对象") {
+                    Err(None)
+                } else {
+                    Err(Some(e.0))
+                }
+            }
+        }
+    }
+
+    fn make_twins(&mut self, root: NodeId, of: Option<NodeId>) {
+        match of {
+            Some(a) => {
+                // 副本式 R：种类、类型链、标签随 A；子节点是 A 的子节点的影子
+                let (kind, types, tags) = {
+                    let an = &self.scene.nodes[a];
+                    (an.kind.clone(), an.types.clone(), an.tags.clone())
+                };
+                {
+                    let rn = &mut self.scene.nodes[root];
+                    rn.kind = kind;
+                    rn.types = types;
+                    for t in tags {
+                        if !rn.tags.contains(&t) {
+                            rn.tags.push(t);
+                        }
+                    }
+                    rn.role = Role::TwinOf { original: a };
+                }
+                let kids = self.scene.nodes[a].children.clone();
+                for c in kids {
+                    self.shadow(c, root);
+                }
+            }
+            None => {
+                let kind = self.scene.nodes[root].kind.clone();
+                let originals = self.scene.nodes[root].children.clone();
+                let groups = if kind == "mirror" {
+                    1
+                } else {
+                    match self.rotate_n(root) {
+                        Some(n) => n,
+                        None => return,
+                    }
+                };
+                for k in 1..=groups {
+                    let seg = if kind == "mirror" {
+                        "mirrored".to_string()
+                    } else {
+                        format!("r{}", k)
+                    };
+                    let (fi, line, frame) = {
+                        let c = &self.scene.nodes[root];
+                        (c.file_index, c.line, c.frame)
+                    };
+                    let g = Node {
+                        seg: seg.clone(),
+                        name: seg,
+                        kind: kind.clone(),
+                        types: vec![],
+                        role: Role::TwinGroup { k },
+                        parent: root,
+                        children: vec![],
+                        created: 0,
+                        props: IndexMap::new(),
+                        tags: vec![],
+                        meta: IndexMap::new(),
+                        file_index: fi,
+                        line,
+                        frame,
+                        stmt_frame: frame,
+                        degenerate: false,
+                        hidden: false,
+                        late: false,
+                        local: None,
+                        lbox: None,
+                        world: None,
+                        wbox: None,
+                        tight: None,
+                        geom: None,
+                        curve: None,
+                        src_stmt: None,
+                    };
+                    let gid = self.scene.add(root, g);
+                    for &c in &originals {
+                        self.shadow(c, gid);
+                    }
+                }
+            }
+        }
+    }
+
+    /// rotate 容器式的 n（常量，1..360）
+    fn rotate_n(&mut self, c: NodeId) -> Option<u32> {
+        let pv = match self.scene.nodes[c].props.get("n").cloned() {
+            None => return Some(1),
+            Some(pv) => pv,
+        };
+        let ctx = Ctx {
+            frame: pv.frame,
+            start: ROOT,
+            timing: Timing::Expand,
+        };
+        let path = self.scene.path(c);
+        match self.eval(&pv.expr, ctx) {
+            Ok(Value::Num(x)) => {
+                let r = x.round();
+                if (x - r).abs() <= 1e-9 && (1.0..=360.0).contains(&r) {
+                    Some(r as u32)
+                } else {
+                    self.degenerate(c, format!("{}：rotate 的 n 需要 1..360 的整数", path));
+                    None
+                }
+            }
+            Ok(_) => {
+                self.degenerate(c, format!("{}：rotate 的 n 需要 1..360 的整数", path));
+                None
+            }
+            Err(_) => {
+                self.degenerate(c, "rotate 的 n 必须是常量");
+                None
+            }
+        }
+    }
+
+    /// shadow(o, p)（4.4.2）
+    fn shadow(&mut self, o: NodeId, p: NodeId) -> NodeId {
+        let (seg, kind, types, tags, meta, fi, line, frame) = {
+            let on = &self.scene.nodes[o];
+            let seg = if on.name.is_empty() && matches!(on.role, Role::Normal | Role::TwinOf { .. }) {
+                String::new() // 匿名：按 p 的计数器重新编号
+            } else {
+                on.seg.clone()
+            };
+            (
+                seg,
+                on.kind.clone(),
+                on.types.clone(),
+                on.tags.clone(),
+                on.meta.clone(),
+                on.file_index,
+                on.line,
+                on.frame,
+            )
+        };
+        let name = self.scene.nodes[o].name.clone();
+        let s = Node {
+            seg,
+            name,
+            kind,
+            types,
+            role: Role::Shadow { original: o },
+            parent: p,
+            children: vec![],
+            created: 0,
+            props: IndexMap::new(),
+            tags,
+            meta,
+            file_index: fi,
+            line,
+            frame,
+            stmt_frame: frame,
+            degenerate: false,
+            hidden: false,
+            late: false,
+            local: None,
+            lbox: None,
+            world: None,
+            wbox: None,
+            tight: None,
+            geom: None,
+            curve: None,
+            src_stmt: None,
+        };
+        let sid = self.scene.add(p, s);
+        let kids = self.scene.nodes[o].children.clone();
+        for c in kids {
+            self.shadow(c, sid);
+        }
+        sid
     }
 
     /// 同级重名（1.6.6）：后出现的报错并移除

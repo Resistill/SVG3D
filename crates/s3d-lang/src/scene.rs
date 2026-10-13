@@ -77,6 +77,8 @@ pub struct Node {
     pub tight: Option<Aabb>,
     /// 几何参数求值结果（求解阶段填）
     pub geom: Option<s3d_geom::Solid>,
+    /// 曲线的采样结果（求解阶段填）
+    pub curve: Option<s3d_geom::Curve>,
     /// 源语句（copy、重建用；阵列实例、副本组没有）
     pub src_stmt: Option<Rc<Stmt>>,
 }
@@ -119,6 +121,7 @@ impl Scene {
             wbox: Some(Aabb::ZERO),
             tight: None,
             geom: None,
+            curve: None,
             src_stmt: None,
         };
         Scene { nodes: vec![root] }

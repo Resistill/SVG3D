@@ -137,7 +137,9 @@ impl Compiler {
         let kind = self.scene.nodes[n].kind.clone();
         match role {
             Role::Instance { .. } => self.instance_local(n),
-            Role::TwinGroup { .. } | Role::TwinOf { .. } | Role::Shadow { .. } => Ok(Transform::IDENTITY),
+            Role::TwinGroup { k } => self.twin_group_local(n, k),
+            Role::TwinOf { original } => self.twin_of_local(n, original),
+            Role::Shadow { original } => self.local(original),
             Role::Skin => Ok(Transform::IDENTITY),
             Role::Normal => match kind.as_str() {
                 "span" => self.span_local(n),
@@ -428,6 +430,16 @@ impl Compiler {
     fn compute_lbox(&mut self, n: NodeId) -> Result<Aabb, SolveErr> {
         let kind = self.scene.nodes[n].kind.clone();
         let role = self.scene.nodes[n].role.clone();
+        match role {
+            Role::Shadow { original } | Role::TwinOf { original } => {
+                let b = self.lbox(original)?;
+                if let Some(g) = self.scene.nodes[original].geom.clone() {
+                    self.scene.nodes[n].geom = Some(g);
+                }
+                return Ok(b);
+            }
+            _ => {}
+        }
         if matches!(role, Role::Normal) {
             if let Some(s) = self.solid_of(n)? {
                 return Ok(s.local_box());
@@ -442,8 +454,14 @@ impl Compiler {
                         .map(|g| g.local_box())
                         .unwrap_or(Aabb::ZERO));
                 }
-                "sweep" | "pipe" | "line" | "bezier" | "spline" | "arc" | "helix" => {
-                    // 曲线与扫掠：采样尚未实现，先用零盒
+                "line" | "bezier" | "spline" | "arc" | "helix" => {
+                    return Ok(match self.curve_of(n)? {
+                        Some(c) => c.local_box(),
+                        None => Aabb::ZERO,
+                    });
+                }
+                "sweep" | "pipe" => {
+                    // 扫掠几何（2.2.9）尚未实现，先用零盒
                     return Ok(Aabb::ZERO);
                 }
                 "group" => {
@@ -525,6 +543,90 @@ impl Compiler {
         Ok(acc.unwrap_or(Aabb::ZERO))
     }
 
+    // ====== 曲线（2.3）======
+    /// 曲线的采样结果；错误时报错退化
+    pub fn curve_of(&mut self, n: NodeId) -> Result<Option<s3d_geom::Curve>, SolveErr> {
+        if let Some(c) = self.scene.nodes[n].curve.clone() {
+            return Ok(Some(c));
+        }
+        let kind = self.scene.nodes[n].kind.clone();
+        if !crate::ast::CURVE_KINDS.contains(&kind.as_str()) {
+            return Ok(None);
+        }
+        let path = self.scene.path(n);
+        let p = self.scene.nodes[n].parent;
+        let curve = match kind.as_str() {
+            "arc" => {
+                let r = self.prop_num(n, "r", 5.0)?;
+                let (a0, a1) = match self.prop_value(n, "angle")? {
+                    None => (0.0, 360.0),
+                    Some(Value::Num(a)) => (0.0, a),
+                    Some(Value::Vector(v)) if v.len() == 2 => (v[0], v[1]),
+                    Some(_) => return self.fail(n, format!("{} 的 angle 写成 起,止（度）", path)),
+                };
+                let rise = self.prop_num(n, "rise", 0.0)?;
+                let plane = match self.prop_literal(n, "plane") {
+                    None => s3d_geom::curve::ArcPlane::Xz,
+                    Some(pl) => match s3d_geom::curve::ArcPlane::parse(&pl) {
+                        Some(x) => x,
+                        None => return self.fail(n, format!("{} 的 plane 只能是 xz / xy / zy", path)),
+                    },
+                };
+                match s3d_geom::curve::arc(r, a0, a1, rise, plane) {
+                    Ok(c) => c,
+                    Err(m) => return self.fail(n, format!("{}：{}", path, m)),
+                }
+            }
+            "helix" => {
+                let r = self.prop_num(n, "r", 5.0)?;
+                let pitch = self.prop_num(n, "pitch", 3.0)?;
+                let turns = self.prop_num(n, "turns", 1.0)?;
+                match s3d_geom::curve::helix(r, pitch, turns) {
+                    Ok(c) => c,
+                    Err(m) => return self.fail(n, format!("{}：{}", path, m)),
+                }
+            }
+            _ => {
+                // line / bezier / spline：path 的各点在父框架里求值
+                let v = match self.prop_value(n, "path")? {
+                    Some(v) => v,
+                    None => return self.fail(n, format!("{} 缺少 path", path)),
+                };
+                let items = match v {
+                    Value::List(items) => items,
+                    other => vec![other],
+                };
+                let mut pts = Vec::new();
+                for it in &items {
+                    let (q, _) = self.point_in_frame(it, p, n, "path")?;
+                    pts.push(q);
+                }
+                if pts.len() < 2 {
+                    return self.fail(
+                        n,
+                        format!("{} 的 path 至少需要两个点，如 path=[A.top; B.top]", path),
+                    );
+                }
+                match kind.as_str() {
+                    "line" => s3d_geom::curve::line(pts),
+                    "bezier" => s3d_geom::curve::bezier(&pts),
+                    _ => {
+                        let closed = self.prop_bool(n, "closed", false)?;
+                        if closed && pts.len() < 3 {
+                            return self.fail(n, format!("{}：闭合样条至少需要 3 个点", path));
+                        }
+                        s3d_geom::curve::spline(&pts, closed)
+                    }
+                }
+            }
+        };
+        if curve.length() < 1e-9 {
+            return self.fail(n, format!("{}：曲线的长度是 0", path));
+        }
+        self.scene.nodes[n].curve = Some(curve.clone());
+        Ok(Some(curve))
+    }
+
     // ====== 相对变换（3.1.1）======
     /// T_{B→F} 只用两条链上的局部变换计算
     pub fn rel_transform(&mut self, b: NodeId, f: NodeId) -> Result<Transform, SolveErr> {
@@ -557,7 +659,16 @@ impl Compiler {
             Some(Anchor::Origin) => (Vec3::ZERO, Vec3::ZERO, None),
             Some(Anchor::Dir(a)) => (c + h * *a, dominant(*a), None),
             Some(Anchor::Norm(u)) => (c + h * *u, dominant(*u), None),
-            Some(Anchor::CurveT(_)) | Some(Anchor::CurveNamed(_)) => (c, Vec3::ZERO, None),
+            Some(Anchor::CurveT(t)) | Some(Anchor::CurveNamed(t)) => {
+                let t = *t;
+                match self.curve_of(r.node)? {
+                    Some(cv) => {
+                        let (p, tau) = cv.point_at(t);
+                        (p, Vec3::ZERO, Some(tau))
+                    }
+                    None => (c, Vec3::ZERO, None),
+                }
+            }
             Some(Anchor::Surface { .. }) => (c, Vec3::ZERO, None),
         })
     }
@@ -687,9 +798,16 @@ impl Compiler {
             }
             r
         };
-        // 定位点
-        let lb = self.lbox(n)?;
-        let (c, h) = (lb.center(), lb.half());
+        // 定位点：只在需要时读自己的盒（3.6.1：π 是 origin 时 L(n) 不依赖 X(n)）
+        let needs_box = self.scene.nodes[n].props.contains_key("pin")
+            || !rel.pin_origin
+            || self.scene.nodes[n].props.contains_key("align");
+        let (c, h) = if needs_box {
+            let lb = self.lbox(n)?;
+            (lb.center(), lb.half())
+        } else {
+            (Vec3::ZERO, Vec3::ZERO)
+        };
         let pi = match self.scene.nodes[n].props.get("pin").cloned() {
             Some(pv) => match self.literal_name(&pv.expr) {
                 Some(s) if s == "origin" => Vec3::ZERO,
@@ -753,17 +871,18 @@ impl Compiler {
                 Some(v) => Some(v),
                 None => rel.target.clone(),
             };
-            let target =
-                match target {
-                    Some(t) => t,
-                    None => return self.fail(
+            let target = match target {
+                Some(t) => t,
+                None => {
+                    return self.fail(
                         n,
                         format!(
                             "{}：align 需要参照（on / under / against / inside / at=对象 或 alignto=对象）",
                             path
                         ),
-                    ),
-                };
+                    )
+                }
+            };
             for f in faces {
                 let cur = Transform::new(r_n, t);
                 match f.as_str() {
@@ -1139,6 +1258,208 @@ impl Compiler {
         }
     }
 
+    // ====== 副本（3.9）======
+    /// 容器式副本组 G_k 的局部变换 M_k（在容器 C 自己的局部系里，3.9.2）
+    fn twin_group_local(&mut self, g: NodeId, k: u32) -> Result<Transform, SolveErr> {
+        let c = self.scene.nodes[g].parent;
+        let kind = self.scene.nodes[c].kind.clone();
+        if kind == "mirror" {
+            self.mirror_transform(c, c)
+        } else {
+            let groups = self.scene.nodes[c]
+                .children
+                .iter()
+                .filter(|&&x| matches!(self.scene.nodes[x].role, Role::TwinGroup { .. }))
+                .count() as f64;
+            self.rotate_transform(c, c, k as f64, 360.0 / (groups + 1.0))
+        }
+    }
+
+    /// 副本式 R：T_R = M ∘ T_{A→P}（3.9.1），M 在 P 里求
+    fn twin_of_local(&mut self, r: NodeId, a: NodeId) -> Result<Transform, SolveErr> {
+        let p = self.scene.nodes[r].parent;
+        let kind = match self.scene.nodes[r].src_stmt.as_ref().map(|s| &s.kind) {
+            Some(crate::ast::StmtKind::Generic { kind, .. }) => kind.clone(),
+            _ => "mirror".to_string(),
+        };
+        let m = if kind == "mirror" {
+            self.mirror_transform(r, p)?
+        } else {
+            self.rotate_transform(r, p, 1.0, 180.0)?
+        };
+        let tap = self.rel_transform(a, p)?;
+        Ok(m.then_inner(&tap))
+    }
+
+    /// 方向规格（3.9.5）在框架 F 里的单位向量；q 是参照系节点（3.9.3 第四行）
+    fn direction_spec(
+        &mut self,
+        n: NodeId,
+        key: &str,
+        f: NodeId,
+        q: Option<NodeId>,
+        default: Vec3,
+    ) -> Result<Vec3, SolveErr> {
+        let path = self.scene.path(n);
+        let pv = match self.scene.nodes[n].props.get(key).cloned() {
+            None => {
+                let d = match q {
+                    Some(qn) => {
+                        let t = self.rel_transform(qn, f)?;
+                        t.r * default
+                    }
+                    None => default,
+                };
+                return Ok(d);
+            }
+            Some(pv) => pv,
+        };
+        let msg_bad = format!(
+            "{} 的 {} 需要方向：x / y / z、方向词、向量，或锚点如 B.front",
+            path, key
+        );
+        if let Some(lit) = self.literal_name(&pv.expr) {
+            let v = match lit.as_str() {
+                "x" => Some(Vec3::X),
+                "y" => Some(Vec3::Y),
+                "z" => Some(Vec3::Z),
+                w => dir_vector(w).filter(|v| *v != Vec3::ZERO),
+            };
+            if let Some(v) = v {
+                let v = math::unit(v, 0.0).unwrap();
+                return Ok(match q {
+                    Some(qn) => {
+                        let t = self.rel_transform(qn, f)?;
+                        t.r * v
+                    }
+                    None => v,
+                });
+            }
+            // 裸标识符不是轴名 / 方向词：当作对象引用（1.4.2 后备）
+        }
+        let ctx = prop_ctx(&pv, Timing::Geometry);
+        let v = match self.eval(&pv.expr, ctx) {
+            Ok(v) => v,
+            Err(e) => return self.fail(n, format!("{} 的 {}：{}", path, key, e.0)),
+        };
+        let d = match v {
+            Value::Vector(vv) if vv.len() == 3 => Vec3::new(vv[0], vv[1], vv[2]),
+            Value::Ref(r) => match &r.anchor {
+                Some(Anchor::Dir(a)) | Some(Anchor::Norm(a)) if *a != Vec3::ZERO => {
+                    let t = self.rel_transform(r.node, f)?;
+                    t.r * *a
+                }
+                Some(Anchor::CurveT(_)) | Some(Anchor::CurveNamed(_)) => {
+                    let (_, _, tau) = self.anchor_in_frame_s(&r, f)?;
+                    match tau {
+                        Some(t) => t,
+                        None => return self.fail(n, msg_bad),
+                    }
+                }
+                _ => return self.fail(n, msg_bad),
+            },
+            _ => return self.fail(n, msg_bad),
+        };
+        match math::unit(d, 1e-9) {
+            Some(u) => Ok(u),
+            None => self.fail(n, format!("{} 的 {} 不能是零向量", path, key)),
+        }
+    }
+
+    /// 镜像面（3.9.3）→ 反射变换，在框架 F 里
+    fn mirror_transform(&mut self, n: NodeId, f: NodeId) -> Result<Transform, SolveErr> {
+        let path = self.scene.path(n);
+        let has_axis = self.scene.nodes[n].props.contains_key("axis");
+        let (q, m): (Vec3, Vec3) = match self.scene.nodes[n].props.get("across").cloned() {
+            None => {
+                if has_axis {
+                    return self.fail(n, format!("{}：across 是轴名时不能再写 axis", path));
+                }
+                (Vec3::ZERO, Vec3::X)
+            }
+            Some(pv) => {
+                let lit = self.literal_name(&pv.expr);
+                match lit.as_deref() {
+                    Some("x") | Some("y") | Some("z") => {
+                        if has_axis {
+                            return self.fail(n, format!("{}：across 是轴名时不能再写 axis", path));
+                        }
+                        let m = match lit.as_deref() {
+                            Some("x") => Vec3::X,
+                            Some("y") => Vec3::Y,
+                            _ => Vec3::Z,
+                        };
+                        (Vec3::ZERO, m)
+                    }
+                    _ => {
+                        let ctx = prop_ctx(&pv, Timing::Geometry);
+                        let v = match self.eval(&pv.expr, ctx) {
+                            Ok(v) => v,
+                            Err(e) => return self.fail(n, format!("{} 的 across：{}", path, e.0)),
+                        };
+                        match v {
+                            Value::Vector(vv) if vv.len() == 3 => {
+                                let q = Vec3::new(vv[0], vv[1], vv[2]);
+                                let m = self.direction_spec(n, "axis", f, None, Vec3::X)?;
+                                (q, m)
+                            }
+                            Value::Ref(r) => {
+                                let face_anchor = matches!(&r.anchor, Some(Anchor::Dir(a)) | Some(Anchor::Norm(a)) if dominant(*a) != Vec3::ZERO);
+                                let (q, nu, _) = self.anchor_in_frame_s(&r, f)?;
+                                if face_anchor && !has_axis {
+                                    (q, nu)
+                                } else {
+                                    let m = self.direction_spec(n, "axis", f, Some(r.node), Vec3::X)?;
+                                    (q, m)
+                                }
+                            }
+                            Value::Set(s) => {
+                                if s.is_empty() {
+                                    return self
+                                        .fail(n, format!("{} 的 across：集合是空的，不能当参照物", path));
+                                }
+                                let b = self.set_box_world(&s);
+                                let wf = self.require_world(f);
+                                let q = wf.inverse().apply(b.center());
+                                let m = self.direction_spec(n, "axis", f, None, Vec3::X)?;
+                                (q, m)
+                            }
+                            _ => {
+                                return self.fail(
+                                    n,
+                                    "across 写成 x / y / z、点坐标，或对象 / 锚点（如 B、B.right、B.top）"
+                                        .to_string(),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        };
+        let mh = match math::unit(m, 1e-9) {
+            Some(u) => u,
+            None => return self.fail(n, format!("{}：镜像面的法线为零", path)),
+        };
+        Ok(Transform::reflection(q, mh))
+    }
+
+    /// 旋转（3.9.4）：绕过 about、方向 axis 的轴转 k·angle；angle 缺省 default_angle
+    fn rotate_transform(
+        &mut self,
+        n: NodeId,
+        f: NodeId,
+        k: f64,
+        default_angle: f64,
+    ) -> Result<Transform, SolveErr> {
+        let q = match self.prop_value(n, "about")? {
+            None => Vec3::ZERO,
+            Some(v) => self.point_in_frame(&v, f, n, "about")?.0,
+        };
+        let axis = self.direction_spec(n, "axis", f, None, Vec3::Y)?;
+        let angle = self.prop_num(n, "angle", default_angle)?;
+        Ok(Transform::rotation_about(q, axis, k * angle))
+    }
+
     // ====== 阵列实例（3.8；先实现网格阵列）======
     fn instance_local(&mut self, n: NodeId) -> Result<Transform, SolveErr> {
         let (i, j, k, idx) = match self.scene.nodes[n].role {
@@ -1146,12 +1467,79 @@ impl Compiler {
             _ => unreachable!(),
         };
         let rep = self.scene.nodes[n].parent;
+        let turn = self.prop_num(rep, "turn", 0.0)?;
+        let (ni, nj, nk) = self.repeat_dims(rep);
+        if self.scene.nodes[rep].props.contains_key("along") {
+            // 3.8.4：沿曲线
+            let total = (ni * nj * nk) as f64;
+            let cref = match self.prop_value(rep, "along")? {
+                Some(Value::Ref(r)) if r.anchor.is_none() => r.node,
+                _ => {
+                    let msg = format!(
+                        "{} 的 along 需要一条曲线（line / bezier / spline / arc / helix）",
+                        self.scene.path(rep)
+                    );
+                    return self.fail(rep, msg);
+                }
+            };
+            let curve = match self.curve_of(cref)? {
+                Some(c) => c,
+                None => {
+                    let msg = format!(
+                        "{} 的 along 需要一条曲线（line / bezier / spline / arc / helix）",
+                        self.scene.path(rep)
+                    );
+                    return self.fail(rep, msg);
+                }
+            };
+            let sparam = if curve.closed {
+                idx as f64 / total
+            } else if total <= 1.0 {
+                0.0
+            } else {
+                idx as f64 / (total - 1.0)
+            };
+            let (p_local, tau_local) = curve.point_at(sparam);
+            let t_cr = self.rel_transform(cref, rep)?;
+            let p = t_cr.apply(p_local);
+            let tau = t_cr.r * tau_local;
+            let orient = self
+                .prop_literal(rep, "orient")
+                .unwrap_or_else(|| "yaw".to_string());
+            let m = match orient.as_str() {
+                "yaw" => {
+                    let h = math::sqrt(tau.x * tau.x + tau.z * tau.z);
+                    if h > 1e-9 {
+                        math::rot_y_deg(math::deg(math::atan2(-tau.z, tau.x)))
+                    } else {
+                        Mat3::IDENTITY
+                    }
+                }
+                "full" => {
+                    let sigma = tau.cross(Vec3::Y);
+                    let side = match math::unit(sigma, 1e-6) {
+                        Some(u) => u,
+                        None => Vec3::Z,
+                    };
+                    Mat3::from_cols(tau, side.cross(tau), side)
+                }
+                "none" => Mat3::IDENTITY,
+                _ => {
+                    let msg = format!("{} 的 orient 只能是 yaw / full / none", self.scene.path(rep));
+                    return self.fail(rep, msg);
+                }
+            };
+            let r = m * math::rot_y_deg(turn * idx as f64);
+            return Ok(Transform::new(r, p));
+        }
         let step = self.prop_vec3(rep, "step", Vec3::ZERO)?;
         let center = self.prop_bool(rep, "center", false)?;
-        let turn = self.prop_num(rep, "turn", 0.0)?;
-        // 维度：从兄弟数推回 n（3.8.3）；网格 vs 线性由 n 的形态决定，这里按下标公式
-        let (ni, nj, nk) = self.repeat_dims(rep);
-        let grid = !(nj == 1 && nk == 1);
+        // 网格 vs 线性：n 写成一个数时是线性（3.8.1）；按 n 的表达式形态判定
+        let grid = match self.scene.nodes[rep].props.get("n").map(|pv| &pv.expr.kind) {
+            Some(ExprKind::Tuple(_)) => true,
+            Some(ExprKind::Number(_)) => false,
+            _ => !(nj == 1 && nk == 1),
+        };
         let mut pos = if grid {
             Vec3::new(step.x * i as f64, step.y * j as f64, step.z * k as f64)
         } else {
