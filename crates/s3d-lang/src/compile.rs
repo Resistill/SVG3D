@@ -108,6 +108,10 @@ pub struct Compiler {
     pub facts_done: bool,
     /// 当前语义语句待记的"事实未推导"警告（语义层按语句去重后写入）
     pub pending_facts_warning: Option<String>,
+    /// 正在挂皮肤（允许节点名 skin，4.7）
+    pub mounting_skin: bool,
+    /// 语义层状态（第 7 章）
+    pub sem: crate::semantic::Semantics,
     /// 样式动作（7.7、10.3.3）：(选择集, mat, color)，按语句顺序
     pub style_actions: Vec<(Vec<NodeId>, Option<String>, Option<crate::material::ColorVal>)>,
 }
@@ -146,6 +150,8 @@ impl Compiler {
             facts_skipped: !opts.facts,
             facts_done: false,
             pending_facts_warning: None,
+            mounting_skin: false,
+            sem: crate::semantic::Semantics::default(),
             style_actions: Vec::new(),
             busy_local: Vec::new(),
             busy_box: Vec::new(),
@@ -214,6 +220,8 @@ pub fn compile(
     c.expand_all();
     c.finish_tree();
     c.solve_all();
+    c.derive_facts();
+    c.run_semantics();
     c.diags.sort();
     Compiled { compiler: c }
 }

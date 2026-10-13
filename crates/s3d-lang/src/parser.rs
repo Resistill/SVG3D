@@ -636,6 +636,7 @@ impl<'a> Parser<'a> {
             return perr(self.line(), "concept 写成 concept 名字 = 表达式");
         }
         self.bump();
+        let rhs_start = self.toks[self.i.min(self.toks.len() - 1)].start;
         let rhs = if self.is_ident("where") {
             if parent.is_none() {
                 return perr(
@@ -648,6 +649,10 @@ impl<'a> Parser<'a> {
         } else {
             ConceptRhs::Expr(self.parse_tuple()?)
         };
+        let rhs_end = match &rhs {
+            ConceptRhs::Where(e) | ConceptRhs::Expr(e) => e.span.end,
+        };
+        let src = self.src[rhs_start..rhs_end.max(rhs_start)].trim().to_string();
         let (_t, props, metas) = self.parse_items(false)?;
         if let Some(p) = props.first() {
             return perr(p.line, "concept 之后只能写元数据");
@@ -658,6 +663,7 @@ impl<'a> Parser<'a> {
         }
         Ok(Some(StmtKind::Concept {
             name,
+            src,
             parent,
             rhs,
             metas,
@@ -825,6 +831,9 @@ impl<'a> Parser<'a> {
         let what = if variant { "variant" } else { "style" };
         self.only_top(what, in_block, line)?;
         let selector = self.parse_selector(&format!("{} 需要选择器", what))?;
+        let sel_src = self.src[selector.span.start..selector.span.end]
+            .trim()
+            .to_string();
         let (_t, props, metas) = self.parse_items(false)?;
         if !matches!(self.tok(), Tok::Nl | Tok::LBrace | Tok::RBrace) {
             return perr(
@@ -843,6 +852,7 @@ impl<'a> Parser<'a> {
         Ok(Some(if variant {
             StmtKind::Variant {
                 selector,
+                src: sel_src,
                 props,
                 metas,
             }

@@ -59,6 +59,10 @@ fn ov_k(a: &Aabb, b: &Aabb, k: usize) -> f64 {
 }
 
 impl Compiler {
+    pub fn has_bool_ancestor_pub(&self, n: NodeId) -> bool {
+        self.has_bool_ancestor(n)
+    }
+
     fn has_bool_ancestor(&self, n: NodeId) -> bool {
         let mut p = self.scene.nodes[n].parent;
         while p != ROOT {

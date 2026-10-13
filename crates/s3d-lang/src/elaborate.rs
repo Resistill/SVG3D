@@ -625,7 +625,7 @@ impl Compiler {
             _ => unreachable!(),
         };
         if let Some(n) = name {
-            if is_hard_reserved_name(n) {
+            if is_hard_reserved_name(n) && !(self.mounting_skin && n == "skin") {
                 self.stmt_error(s.file_index, s.line, format!("{} 是保留名，不能用作节点名", n));
                 return None;
             }

@@ -226,6 +226,14 @@ impl Compiler {
                 {
                     return self.apply_suffix_value(mv, rest, coords, axis, ctx);
                 }
+                if self.env.frames[f].bindings.contains_key(&first) {
+                    let v = self.binding_value(f, &first)?;
+                    return self.apply_suffix_value(v, rest, coords, axis, ctx);
+                }
+            } else if fk == FrameKind::Semantic && self.env.frames[f].bindings.contains_key(&first) {
+                // 语义名：惰性求值，失败不缓存，循环报错（7.4.3）
+                let v = self.semantic_value(&first)?;
+                return self.apply_suffix_value(v, rest, coords, axis, ctx);
             } else if self.env.frames[f].bindings.contains_key(&first) {
                 let v = self.binding_value(f, &first)?;
                 return self.apply_suffix_value(v, rest, coords, axis, ctx);
@@ -593,7 +601,33 @@ impl Compiler {
                     .collect();
                 self.set_suffix(s, &tail, coords, axis, ctx)
             }
-            Value::Pattern(p) => err(format!("模式 {} 的角色引用尚未实现", p)),
+            Value::Pattern(p) => {
+                // 模式值后面只能跟一个角色名（7.5.7）
+                let tail: Vec<String> = rest
+                    .iter()
+                    .map(|x| match x {
+                        Seg::Ident(i) => i.clone(),
+                        Seg::Digits(d) => d.clone(),
+                        Seg::Star => "*".to_string(),
+                    })
+                    .collect();
+                if tail.len() != 1 || coords.is_some() || axis.is_some() {
+                    let names: Vec<String> = self
+                        .sem
+                        .patterns
+                        .get(&p)
+                        .map(|d| d.roles.iter().map(|(r, _)| r.clone()).collect())
+                        .unwrap_or_default();
+                    return err(format!(
+                        "模式 {} 没有角色 {}（有：{}）",
+                        p,
+                        tail.join("."),
+                        names.join("、")
+                    ));
+                }
+                let s = self.pattern_nodes(&p, Some(&tail[0]))?;
+                Ok(Value::Set(s))
+            }
             other => {
                 let rest_s: Vec<String> = rest
                     .iter()
@@ -707,6 +741,7 @@ impl Compiler {
     pub fn to_set(&mut self, v: Value) -> EResult<Vec<NodeId>> {
         match v {
             Value::Set(s) => Ok(s),
+            Value::Pattern(p) => self.pattern_nodes(&p, None),
             Value::Ref(r) => {
                 if r.anchor.is_some() || r.offset != Vec3::ZERO {
                     return err(format!(
@@ -728,6 +763,14 @@ impl Compiler {
                 other.describe()
             )),
         }
+    }
+
+    pub fn is_setlike_pub(v: &Value) -> bool {
+        Self::is_setlike(v)
+    }
+
+    pub fn where_frame_pub(&mut self, member: NodeId, parent: FrameId) -> FrameId {
+        self.where_frame(member, parent)
     }
 
     fn is_setlike(v: &Value) -> bool {
@@ -957,6 +1000,9 @@ impl Compiler {
                     return err("count() 不能在展开时使用");
                 }
                 let v = self.eval(&args[0], ctx)?;
+                if let Value::Pattern(p) = &v {
+                    return Ok(Value::Num(self.pattern_count(p)? as f64));
+                }
                 if !Self::is_setlike(&v) {
                     return err("count() 需要集合或模式");
                 }

@@ -49,6 +49,10 @@ fn num_json(n: f64) -> J {
     json!(n)
 }
 
+pub fn meta_json_pub(m: &indexmap::IndexMap<String, Value>) -> J {
+    meta_json(m)
+}
+
 fn meta_json(m: &indexmap::IndexMap<String, Value>) -> J {
     let mut out = Map::new();
     for (k, v) in m {
@@ -376,6 +380,7 @@ impl Compiler {
 
 pub fn to_json(c: &mut Compiled) -> J {
     let comp = &mut c.compiler;
+    comp.run_semantics();
     comp.build_material_table();
     let (items, curves) = comp.collect_items();
     let defs = comp.defs_json();
@@ -412,7 +417,7 @@ pub fn to_json(c: &mut Compiled) -> J {
             "of": of,
             "curve": CURVE_KINDS.contains(&n.kind.as_str()),
             "hidden": n.hidden,
-            "skin": matches!(n.role, Role::Skin),
+            "skin": comp.scene.in_skin(id),
             "world": world,
             "box": box_json(n.wbox),
             "tight": if n.degenerate { J::Null } else { box_json(n.tight) },

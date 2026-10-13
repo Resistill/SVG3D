@@ -261,7 +261,9 @@ pub fn verify(mine: &J, reft: &J) -> Report {
             bad = true;
             rep.fail(format!("  DIFF {} kind {} vs {}", path, n["kind"], r["kind"]));
         }
-        for key in ["late", "hidden", "skin", "curve", "tags", "id", "depth"] {
+        for key in [
+            "late", "hidden", "skin", "curve", "tags", "id", "depth", "concepts",
+        ] {
             if n[key] != r[key] {
                 bad = true;
                 rep.fail(format!("  DIFF {} {} {} vs {}", path, key, n[key], r[key]));
@@ -614,7 +616,7 @@ pub fn verify(mine: &J, reft: &J) -> Report {
             f["gap"].as_f64().unwrap_or(f64::NAN),
             r["gap"].as_f64().unwrap_or(f64::NAN),
         );
-        if !((g1 - g2).abs() <= 0.5e-4 + TAU_LEN) {
+        if (g1 - g2).abs() > 0.5e-4 + TAU_LEN || g1.is_nan() || g2.is_nan() {
             bad = true;
             rep.fail(format!("  DIFF fact #{} {} gap {} vs {}", i, f["text"], g1, g2));
         }
@@ -622,7 +624,7 @@ pub fn verify(mine: &J, reft: &J) -> Report {
             f["eps"].as_f64().unwrap_or(f64::NAN),
             r["eps"].as_f64().unwrap_or(f64::NAN),
         );
-        if !((e1 - e2).abs() <= TAU_LEN) {
+        if (e1 - e2).abs() > TAU_LEN || e1.is_nan() || e2.is_nan() {
             bad = true;
             rep.fail(format!("  DIFF fact #{} eps {} vs {}", i, e1, e2));
         }
@@ -639,14 +641,79 @@ pub fn verify(mine: &J, reft: &J) -> Report {
         my_facts_arr.len(),
         ref_facts_arr.len()
     ));
-    // ===== 语义层条数 =====
+    // ===== 语义层（9.4.3；参考侧 N10 / N14：members 按节点顺序重排）=====
+    let node_pos: BTreeMap<&str, usize> = ref_order
+        .iter()
+        .enumerate()
+        .map(|(i, p)| (p.as_str(), i))
+        .collect();
+    let by_node_order = |v: &J| -> Vec<String> {
+        let mut xs: Vec<String> = v
+            .as_array()
+            .map(|a| a.iter().filter_map(|x| x.as_str().map(str::to_string)).collect())
+            .unwrap_or_default();
+        xs.sort_by_key(|p| node_pos.get(p.as_str()).copied().unwrap_or(usize::MAX));
+        xs
+    };
+    let mut sem_ok = 0usize;
+    let mut sem_total = 0usize;
     for k in ["concepts", "patterns", "checks", "variants"] {
-        let a = mine[k].as_array().map(|a| a.len()).unwrap_or(0);
-        let b = reft[k].as_array().map(|a| a.len()).unwrap_or(0);
-        if a != b {
-            rep.lines.push(format!("  {} 条数 mine {} ref {}", k, a, b));
+        let ma = mine[k].as_array().cloned().unwrap_or_default();
+        let ra = reft[k].as_array().cloned().unwrap_or_default();
+        if ma.len() != ra.len() {
+            rep.fail(format!("  {} 条数 {} vs {}", k, ma.len(), ra.len()));
+        }
+        for (i, (a, b)) in ma.iter().zip(ra.iter()).enumerate() {
+            sem_total += 1;
+            let mut bad = false;
+            let label = a["name"]
+                .as_str()
+                .or(a["message"].as_str())
+                .or(a["use"].as_str())
+                .unwrap_or("");
+            let fields: &[&str] = match k {
+                "concepts" => &["name", "parent", "line", "src"],
+                "patterns" => &["name", "line", "roles", "matches"],
+                "checks" => &["line", "message", "ok", "violators"],
+                _ => &["line", "use", "src"],
+            };
+            for f in fields {
+                if a[*f] != b[*f] {
+                    bad = true;
+                    rep.fail(format!(
+                        "  DIFF {} #{} {} {} {} vs {}",
+                        k, i, label, f, a[*f], b[*f]
+                    ));
+                }
+            }
+            if k == "concepts" || k == "variants" {
+                let x: Vec<String> = a["members"]
+                    .as_array()
+                    .map(|v| v.iter().filter_map(|s| s.as_str().map(str::to_string)).collect())
+                    .unwrap_or_default();
+                let y = by_node_order(&b["members"]);
+                if x != y {
+                    bad = true;
+                    rep.fail(format!(
+                        "  DIFF {} #{} {} members {:?} vs {:?}",
+                        k, i, label, x, y
+                    ));
+                }
+            }
+            if a.get("error").is_some() != b.get("error").is_some() {
+                bad = true;
+                rep.fail(format!(
+                    "  DIFF {} #{} {} error {} vs {}",
+                    k, i, label, a["error"], b["error"]
+                ));
+            }
+            if !bad {
+                sem_ok += 1;
+            }
         }
     }
+    rep.lines
+        .push(format!("semantics: {} / {} 条目一致", sem_ok, sem_total));
     // ===== 诊断 =====
     let me = mine["errors"].as_array().map(|a| a.len()).unwrap_or(0);
     let re = reft["errors"].as_array().map(|a| a.len()).unwrap_or(0);

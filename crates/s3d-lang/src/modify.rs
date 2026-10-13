@@ -536,6 +536,10 @@ impl Compiler {
         }
     }
 
+    pub fn apply_modification_pub(&mut self, m: &Modification) {
+        self.apply_modification(m, true);
+    }
+
     fn apply_modification(&mut self, m: &Modification, final_stage: bool) {
         let (fi, line) = (m.stmt.file_index, m.stmt.line);
         let selector: &Expr = match &m.stmt.kind {

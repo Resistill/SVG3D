@@ -197,6 +197,8 @@ pub enum StmtKind {
         name: String,
         parent: Option<String>,
         rhs: ConceptRhs,
+        /// `=` 右边的源码文本（7.4.4 的 src）
+        src: String,
         metas: Vec<Prop>,
     },
     Pattern {
@@ -218,6 +220,8 @@ pub enum StmtKind {
     },
     Variant {
         selector: Expr,
+        /// 选择器的源码文本（7.8.9 的 src）
+        src: String,
         props: Vec<Prop>,
         metas: Vec<Prop>,
     },

@@ -53,6 +53,49 @@ impl Compiler {
         self.compute_tight_all();
     }
 
+    /// 皮肤的局部变换（3.7.6、4.7 第 5 条）：R = I，t = b_N − π_K
+    fn skin_local(&mut self, k: NodeId) -> Result<Transform, SolveErr> {
+        let host = self.scene.nodes[k].parent;
+        let bn = self.scene.nodes[host].lbox.unwrap_or(Aabb::ZERO);
+        let bk = self.lbox(k)?;
+        let b_n = if bn == Aabb::ZERO {
+            Vec3::ZERO
+        } else {
+            bn.bottom_center()
+        };
+        let pi_k = if bk == Aabb::ZERO {
+            Vec3::ZERO
+        } else {
+            bk.bottom_center()
+        };
+        Ok(Transform::translation(b_n - pi_k))
+    }
+
+    /// 阶段二：求解新挂上的子树（皮肤）
+    pub fn solve_subtree(&mut self, root: NodeId) {
+        let n = self.scene.nodes.len();
+        self.busy_local.resize(n, false);
+        self.busy_box.resize(n, false);
+        let order = self.scene.subtree_of(root);
+        for &id in &order {
+            let _ = self.require_world(id);
+            let _ = self.require_lbox(id);
+            let _ = self.require_wbox(id);
+        }
+        for &id in &order {
+            let node = &self.scene.nodes[id];
+            if node.degenerate {
+                continue;
+            }
+            if let (Some(g), Some(w)) = (&node.geom, &node.world) {
+                if crate::ast::SOLID_KINDS.contains(&node.kind.as_str()) {
+                    let t = s3d_geom::tight::tight_box(g, w);
+                    self.scene.nodes[id].tight = Some(t);
+                }
+            }
+        }
+    }
+
     /// 紧包围盒（2.1.8、2.5.4）：实体按真实形状；最外层以内的布尔容器按操作数组合；其他为 None
     fn compute_tight_all(&mut self) {
         let order = self.scene.order();
@@ -227,7 +270,7 @@ impl Compiler {
             Role::TwinGroup { k } => self.twin_group_local(n, k),
             Role::TwinOf { original } => self.twin_of_local(n, original),
             Role::Shadow { original } => self.local(original),
-            Role::Skin => Ok(Transform::IDENTITY),
+            Role::Skin => self.skin_local(n),
             Role::Normal => match kind.as_str() {
                 "span" => self.span_local(n),
                 "sweep" | "pipe" | "line" | "bezier" | "spline" => Ok(Transform::IDENTITY),
