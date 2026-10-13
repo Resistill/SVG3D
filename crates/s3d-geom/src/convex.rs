@@ -149,6 +149,12 @@ pub fn frustum_shape(c0: Vec3, a: Vec3, u0: Vec3, r1: f64, r2: f64, h: f64) -> S
 
 /// 点集的凸包（小规模、确定性的平面枚举）；共面点集返回 None
 pub fn hull_shape(pts: &[Vec3]) -> Option<Shape> {
+    let faces = hull_faces(pts)?;
+    Some(poly_from_faces(pts.to_vec(), &faces))
+}
+
+/// 凸包的面片（2.2.6）：每个面片是输入点序号的列表，从外面看逆时针，按平面枚举的顺序；共面点集返回 None
+pub fn hull_faces(pts: &[Vec3]) -> Option<Vec<Vec<usize>>> {
     let n = pts.len();
     if n < 4 {
         return None;
@@ -215,7 +221,7 @@ pub fn hull_shape(pts: &[Vec3]) -> Option<Shape> {
     if faces.len() < 4 {
         return None;
     }
-    Some(poly_from_faces(pts.to_vec(), &faces))
+    Some(faces)
 }
 
 /// 一组 (x, z) 轮廓沿 y 拉伸的棱柱（plate 的凸块；轮廓须为凸且已规整）
