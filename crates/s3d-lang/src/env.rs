@@ -78,10 +78,7 @@ impl Env {
             if self.frames[frame].bindings.contains_key(name) {
                 return Some(frame);
             }
-            match self.frames[frame].parent {
-                Some(p) => frame = p,
-                None => return None,
-            }
+            frame = self.frames[frame].parent?;
         }
     }
 }

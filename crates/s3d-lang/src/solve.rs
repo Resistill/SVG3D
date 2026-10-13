@@ -769,7 +769,7 @@ impl Compiler {
         // 朝向
         let mut r_base = if rel.inherit { rel.r_base } else { Mat3::IDENTITY };
         if rel.inherit && r_base.determinant() < 0.0 {
-            r_base = r_base * Mat3::from_diagonal(Vec3::new(-1.0, 1.0, 1.0));
+            r_base *= Mat3::from_diagonal(Vec3::new(-1.0, 1.0, 1.0));
         }
         let r_n = if kind == "repeat" {
             r_base
@@ -789,7 +789,7 @@ impl Compiler {
                     Value::Vector(vv) if vv.len() == 4 => {
                         let axis = Vec3::new(vv[0], vv[1], vv[2]);
                         match math::unit(axis, 1e-9) {
-                            Some(u) => r = r * math::rot_axis_deg(u, vv[3]),
+                            Some(u) => r *= math::rot_axis_deg(u, vv[3]),
                             None => return self.fail(n, format!("{} 的 rot 的轴不能是零向量", path)),
                         }
                     }
