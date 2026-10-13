@@ -1,0 +1,2784 @@
+// SVG3D 核心：源码 → 解析 → 展开（模板/阵列）→ 复制关系（镜像/旋转）→ 关系求解 → 几何条目 + 空间事实
+// 纯 JS，无依赖，浏览器与 Node 通用。
+//
+// 坐标约定：单位米，Y 朝上；+X = right/east，+Z = front/south。
+// 每个物体有自己的局部坐标系：绕 Y 轴旋转（turn），以及可能的镜像（只由 mirror 产生）。
+// 基本体的原点在其底面中心，所以“没有任何关系”的物体默认立在父坐标系原点上。
+
+// ───────────────────────── 常量 ─────────────────────────
+
+export const DIRS = {
+  top: [0, 1, 0], up: [0, 1, 0], bottom: [0, -1, 0], down: [0, -1, 0],
+  left: [-1, 0, 0], west: [-1, 0, 0], right: [1, 0, 0], east: [1, 0, 0],
+  front: [0, 0, 1], south: [0, 0, 1], back: [0, 0, -1], north: [0, 0, -1],
+  center: [0, 0, 0],
+};
+const FACES = ['left', 'right', 'front', 'back', 'top', 'bottom'];
+const MEASURES = new Set(['w', 'h', 'd']);
+const CURVE_POINTS = { start: 0, mid: 0.5, end: 1 };
+// 曲面锚点：B.top[u,w]（顶面在包围盒归一化坐标 (u,w) 处的那一点：网格用竖直射线取真实表面，球、圆台、旋转体按形状）、
+// B.side[θ,v]（圆柱、圆台、旋转体的侧面：绕轴的角度，0° 指向局部 +x、俯视逆时针；高度比例 0..1）、B.surface[θ,φ]（球面：方位角、仰角）
+const SURFACES = new Set(['top', 'side', 'surface']);
+const AXES = { x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1] };
+
+const PLACEMENT = new Set(['at', 'pin', 'on', 'under', 'against', 'inside', 'gap', 'offset', 'align', 'alignto',
+  'turn', 'tilt', 'roll', 'rot', 'aim', 'aimwith', 'mat', 'color']);
+const KIND_PROPS = {
+  box: ['size'], wedge: ['size'], plate: ['points', 'h'], hull: ['points'], mesh: ['src', 'size', 'pivot'], cyl: ['r', 'h', 'axis'], cone: ['r', 'r2', 'h', 'axis'], sphere: ['r'],
+  revolve: ['profile', 'angle', 'smooth'],
+  span: ['from', 'to', 'drop', 'dir', 'section', 'r', 'steps'],
+  sweep: ['path', 'profile', 'r', 'section', 'smooth'], pipe: ['path', 'r', 'smooth'],
+  line: ['path'], bezier: ['path'], spline: ['path', 'closed'],
+  arc: ['r', 'angle', 'rise', 'plane'], helix: ['r', 'pitch', 'turns'],
+  group: ['envelope'], union: [], subtract: [], intersect: [],
+  repeat: ['n', 'step', 'turn', 'center', 'along', 'orient'],
+  mirror: ['of', 'across', 'axis'], rotate: ['of', 'about', 'axis', 'angle', 'n'], copy: ['of'],
+};
+const LEAVES = new Set(['box', 'wedge', 'plate', 'hull', 'cyl', 'cone', 'sphere', 'revolve', 'span', 'sweep', 'pipe', 'mesh']);
+const CURVES = new Set(['line', 'bezier', 'spline', 'arc', 'helix']);
+const PATH_CURVES = new Set(['line', 'bezier', 'spline']); // 由父框架中的点定义，自身不再定位
+const LINKS = new Set(['span', 'sweep', 'pipe']);
+const CSG = new Set(['union', 'subtract', 'intersect']);
+const COPIES = new Set(['mirror', 'rotate']);
+const K = (n) => n.asKind ?? n.kind;
+// 决定位置的主关系：覆盖其中一个时，其余的作废
+const REL_KEYS = ['on', 'under', 'against', 'inside', 'at'];
+const APPEARANCE = new Set(['mat', 'color', 'use']);
+// 带作用域的表达式：over / copy 写下的表达式在“写它的地方”求值，而不是在被修改对象的作用域里
+const unwrap = (a) => (a && a.k === 'envd' ? a.ast : a);
+
+// ───────────────────────── 错误 ─────────────────────────
+
+export class S3DError extends Error {
+  constructor(msg, line, node) { super(msg); this.line = line; this.node = node; }
+}
+class Cycle extends Error {
+  constructor(node, key) { super('cycle'); this.node = node; this.key = key; }
+}
+
+// ───────────────────────── 向量与变换 ─────────────────────────
+
+const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+const scl = (a, s) => [a[0] * s, a[1] * s, a[2] * s];
+const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const len = (a) => Math.hypot(a[0], a[1], a[2]);
+const lerp = (a, b, s) => add(a, scl(sub(b, a), s));
+const rad = (d) => (d * Math.PI) / 180;
+const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const unit = (a) => scl(a, 1 / (len(a) || 1));
+
+// ── 3×3 矩阵（行优先）──
+const I3 = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+const mv = (M, v) => M.map((r) => r[0] * v[0] + r[1] * v[1] + r[2] * v[2]);
+const mm = (A, B) => A.map((r) => [0, 1, 2].map((j) => r[0] * B[0][j] + r[1] * B[1][j] + r[2] * B[2][j]));
+const tr = (A) => [0, 1, 2].map((i) => [A[0][i], A[1][i], A[2][i]]);
+const det3 = (A) => dot(A[0], cross(A[1], A[2]));
+const cols = (a, b, c) => [[a[0], b[0], c[0]], [a[1], b[1], c[1]], [a[2], b[2], c[2]]];
+// turn：绕 Y（俯视逆时针，与 three.js 的 rotation.y 一致）
+const Ry = (a) => { const c = Math.cos(a), s = Math.sin(a); return [[c, 0, s], [0, 1, 0], [-s, 0, c]]; };
+// tilt：绕 X，顶部倒向 front(+z)
+const Rx = (a) => { const c = Math.cos(a), s = Math.sin(a); return [[1, 0, 0], [0, c, -s], [0, s, c]]; };
+// roll：顶部倒向 right(+x)
+const Rroll = (a) => { const c = Math.cos(a), s = Math.sin(a); return [[c, s, 0], [-s, c, 0], [0, 0, 1]]; };
+// 绕任意轴（右手）
+const axisAngle = (axis, a) => {
+  const [x, y, z] = unit(axis), c = Math.cos(a), s = Math.sin(a), C = 1 - c;
+  return [[c + x * x * C, x * y * C - z * s, x * z * C + y * s], [y * x * C + z * s, c + y * y * C, y * z * C - x * s], [z * x * C - y * s, z * y * C + x * s, c + z * z * C]];
+};
+// 任取一个与 v 垂直的单位向量
+const perpTo = (v) => unit(cross(v, Math.abs(v[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0]));
+// 使局部 a→d、b→e 的旋转（要求 a⊥b；e 会先被正交化到 d 的垂面上）
+function alignAxes(a, b, d, e) {
+  d = unit(d);
+  e = sub(e, scl(d, dot(e, d)));
+  e = len(e) < 1e-6 ? perpTo(d) : unit(e);
+  return mm(cols(d, e, cross(d, e)), tr(cols(a, b, cross(a, b))));
+}
+const isAxisAligned = (M) => M.every((r) => r.every((x) => Math.abs(x) < 1e-6 || Math.abs(Math.abs(x) - 1) < 1e-6));
+
+// 变换 = 正交矩阵 R（det=-1 即镜像）+ 平移 t：p ↦ R·p + t。对复合与求逆封闭。
+const IDENT = { R: I3, t: [0, 0, 0] };
+const T3 = (R, t = [0, 0, 0]) => ({ R, t });
+const apply = (T, p) => add(mv(T.R, p), T.t);
+const applyDir = (T, d) => mv(T.R, d);
+const compose = (A, B) => ({ R: mm(A.R, B.R), t: apply(A, B.t) });
+const invT = (A) => { const Rt = tr(A.R); return { R: Rt, t: scl(mv(Rt, A.t), -1) }; };
+// 关于平面（过点 q、单位法线 n）的反射
+const reflectAcross = (q, n) => {
+  const M = [0, 1, 2].map((i) => [0, 1, 2].map((j) => (i === j ? 1 : 0) - 2 * n[i] * n[j]));
+  return { R: M, t: scl(n, 2 * dot(q, n)) };
+};
+// 绕过点 q、方向为 axis 的轴旋转
+const rotateAbout = (q, axis, a) => { const M = axisAngle(axis, a); return { R: M, t: sub(q, mv(M, q)) }; };
+
+const ZERO_BOX = { min: [0, 0, 0], max: [0, 0, 0] };
+function boxCorners(b) {
+  const out = [];
+  for (const x of [b.min[0], b.max[0]]) for (const y of [b.min[1], b.max[1]]) for (const z of [b.min[2], b.max[2]]) out.push([x, y, z]);
+  return out;
+}
+function boundsOf(points) {
+  const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity];
+  for (const p of points) for (let k = 0; k < 3; k++) { min[k] = Math.min(min[k], p[k]); max[k] = Math.max(max[k], p[k]); }
+  return points.length ? { min, max } : { min: [0, 0, 0], max: [0, 0, 0] };
+}
+const transformBox = (T, b) => boundsOf(boxCorners(b).map((p) => apply(T, p)));
+
+// 锚点向量的主方向，作为该锚点的法线（棱/角优先取竖直方向）
+function dominant(a) {
+  const ax = [Math.abs(a[0]), Math.abs(a[1]), Math.abs(a[2])];
+  const m = Math.max(...ax);
+  if (m < 1e-9) return [0, 0, 0];
+  if (ax[1] === m) return [0, Math.sign(a[1]), 0];
+  if (ax[0] === m) return [Math.sign(a[0]), 0, 0];
+  return [0, 0, Math.sign(a[2])];
+}
+
+export function dirWord(word) {
+  let v = [0, 0, 0];
+  for (const p of word.split('-')) {
+    if (!(p in DIRS)) return null;
+    v = add(v, DIRS[p]);
+  }
+  return v;
+}
+
+// ───────────────────────── 曲线工具 ─────────────────────────
+
+function bezierPts(ctrl, n = 64) {
+  const out = [];
+  for (let i = 0; i <= n; i++) {
+    let pts = ctrl, s = i / n;
+    while (pts.length > 1) pts = pts.slice(1).map((p, k) => lerp(pts[k], p, s));
+    out.push(pts[0]);
+  }
+  return out;
+}
+// 均匀 Catmull-Rom，经过每个控制点
+function catmullRom(ctrl, closed, per = 12) {
+  const n = ctrl.length;
+  if (n < 3 && !closed) return ctrl;
+  const get = (i) => (closed ? ctrl[(i + n) % n] : ctrl[Math.max(0, Math.min(n - 1, i))]);
+  const out = [], segs = closed ? n : n - 1;
+  for (let i = 0; i < segs; i++) {
+    const p0 = get(i - 1), p1 = get(i), p2 = get(i + 1), p3 = get(i + 2);
+    for (let j = 0; j < per; j++) {
+      const t = j / per, t2 = t * t, t3 = t2 * t;
+      out.push(p1.map((_, k) => 0.5 * (2 * p1[k] + (-p0[k] + p2[k]) * t + (2 * p0[k] - 5 * p1[k] + 4 * p2[k] - p3[k]) * t2 + (-p0[k] + 3 * p1[k] - 3 * p2[k] + p3[k]) * t3)));
+    }
+  }
+  if (!closed) out.push(ctrl[n - 1]);
+  return out;
+}
+// 扫掠的截面框架：side 保持水平、up 尽量朝上（道路、栏杆不会侧翻）
+function sweepFrames(pts, closed, tans = null) {
+  const n = pts.length;
+  let prev = [0, 0, 1];
+  return pts.map((p, i) => {
+    const a = pts[closed ? (i - 1 + n) % n : Math.max(0, i - 1)], b = pts[closed ? (i + 1) % n : Math.min(n - 1, i + 1)];
+    const T = tans ? tans[i] : unit(sub(b, a));
+    let side = cross(T, [0, 1, 0]);
+    side = len(side) < 1e-4 ? prev : unit(side);
+    prev = side;
+    return { p, side, up: unit(cross(side, T)) };
+  });
+}
+// 多边形统一成逆时针（保证扫掠出的面朝外）
+function ccw(poly) {
+  let a = 0;
+  for (let i = 0; i < poly.length; i++) { const p = poly[i], q = poly[(i + 1) % poly.length]; a += p[0] * q[1] - q[0] * p[1]; }
+  return a < 0 ? [...poly].reverse() : poly;
+}
+function sweepProfile(profile, r, w, t, pin) {
+  if (profile === 'circle') return Array.from({ length: 20 }, (_, k) => [r * Math.cos((k / 20) * 2 * Math.PI), r * Math.sin((k / 20) * 2 * Math.PI)]);
+  const dv = pin === 'bottom' ? t / 2 : pin === 'top' ? -t / 2 : 0;
+  return [[w / 2, -t / 2 + dv], [w / 2, t / 2 + dv], [-w / 2, t / 2 + dv], [-w / 2, -t / 2 + dv]];
+}
+
+// 折线拐角倒圆（管线、道路的自然弯头）
+function roundCorners(ctrl, radius) {
+  if (ctrl.length < 3 || radius <= 0) return ctrl;
+  const out = [ctrl[0]];
+  for (let i = 1; i < ctrl.length - 1; i++) {
+    const a = ctrl[i - 1], b = ctrl[i], c = ctrl[i + 1];
+    const la = len(sub(a, b)), lc = len(sub(c, b));
+    const d = Math.min(radius, la * 0.45, lc * 0.45);
+    if (d < 1e-6) { out.push(b); continue; }
+    const p1 = add(b, scl(sub(a, b), d / la)), p2 = add(b, scl(sub(c, b), d / lc));
+    out.push(...bezierPts([p1, b, p2], 8));
+  }
+  out.push(ctrl[ctrl.length - 1]);
+  return out;
+}
+// fn：可选的解析式（圆弧、螺旋的弧长与角度成正比，可以精确取点）
+function measureCurve(pts, closed, fn = null) {
+  const seq = closed ? [...pts, pts[0]] : pts;
+  const cum = [0];
+  for (let i = 1; i < seq.length; i++) cum.push(cum[i - 1] + len(sub(seq[i], seq[i - 1])));
+  return { pts, seq, cum, total: cum[cum.length - 1], closed, fn };
+}
+// 按弧长取参数 t ∈ [0,1] 处的点与切线
+function curveAt(c, t) {
+  if (c.closed) t = ((t % 1) + 1) % 1; else t = Math.max(0, Math.min(1, t));
+  if (c.fn) return c.fn(t);
+  const L = t * c.total, { seq, cum } = c;
+  let lo = 0, hi = cum.length - 1;
+  while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (cum[mid] <= L) lo = mid; else hi = mid; }
+  const segLen = cum[hi] - cum[lo] || 1;
+  const d = sub(seq[hi], seq[lo]), l = len(d) || 1;
+  return { p: lerp(seq[lo], seq[hi], (L - cum[lo]) / segLen), tan: scl(d, 1 / l) };
+}
+
+// ───────────────────────── 词法：语句级 ─────────────────────────
+// 语句 = 一行中的若干“词”；括号内的空白与换行不切分。
+
+function lexStatements(src) {
+  const toks = [];
+  let cur = '', curLine = 1, line = 1, depth = 0, inQ = false;
+  const push = () => { if (cur) { toks.push({ t: 'word', v: cur, line: curLine }); cur = ''; } };
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i];
+    if (c === '"' && c !== '\n') inQ = !inQ;
+    if (inQ && c !== '\n') { if (!cur) curLine = line; cur += c; continue; }
+    if (c === '/' && src[i + 1] === '/') { while (i < src.length && src[i] !== '\n') i++; i--; continue; }
+    if (c === '\n') {
+      if (depth === 0) { push(); toks.push({ t: 'nl', line }); } else cur += ' ';
+      line++; continue;
+    }
+    if (depth === 0 && (c === ' ' || c === '\t' || c === '\r')) { push(); continue; }
+    if (depth === 0 && (c === '{' || c === '}' || c === ';')) { push(); toks.push({ t: c === ';' ? 'nl' : c, line }); continue; }
+    if (c === '(' || c === '[') depth++;
+    if (c === ')' || c === ']') depth = Math.max(0, depth - 1);
+    if (!cur) curLine = line;
+    cur += c;
+  }
+  push();
+  toks.push({ t: 'nl', line });
+  return toks;
+}
+
+// ───────────────────────── 词法与语法：表达式 ─────────────────────────
+
+const ID_START = /[\p{L}_]/u, ID_CHAR = /[\p{L}\p{N}_]/u;
+
+function exprTokens(s, line) {
+  const out = [];
+  let i = 0;
+  const readIdent = () => { let j = i; while (j < s.length && ID_CHAR.test(s[j])) j++; const w = s.slice(i, j); i = j; return w; };
+  // 把 top-left-front 这类方向组合词合成一个段
+  const mergeDirs = (seg) => {
+    while (s[i] === '-' && ID_START.test(s[i + 1] || '')) {
+      let j = i + 1; while (j < s.length && ID_CHAR.test(s[j])) j++;
+      const w = s.slice(i + 1, j);
+      if (!(w in DIRS) || !(seg.split('-')[0] in DIRS)) break;
+      seg += '-' + w; i = j;
+    }
+    return seg;
+  };
+  while (i < s.length) {
+    const c = s[i];
+    if (/\s/.test(c)) { i++; continue; }
+    if (/[0-9]/.test(c) || (c === '.' && /[0-9]/.test(s[i + 1] || ''))) {
+      const m = /^(\d+\.?\d*|\.\d+)(e[+-]?\d+)?/i.exec(s.slice(i));
+      out.push({ t: 'num', v: parseFloat(m[0]) }); i += m[0].length; continue;
+    }
+    if (c === '#') {
+      // #名字：在需要集合的地方是“带这个标签的对象”，在需要颜色的地方是十六进制颜色
+      const m = /^#[\p{L}\p{N}_]+/u.exec(s.slice(i));
+      if (m) { out.push({ t: 'hash', v: m[0].slice(1) }); i += m[0].length; continue; }
+    }
+    if (c === '"' || c === "'") {
+      const j = s.indexOf(c, i + 1);
+      if (j < 0) throw new S3DError('字符串缺少结束引号', line);
+      out.push({ t: 'str', v: s.slice(i + 1, j) }); i = j + 1; continue;
+    }
+    if (ID_START.test(c)) {
+      const segs = [mergeDirs(readIdent())];
+      while (s[i] === '.' && (ID_CHAR.test(s[i + 1] || '') || s[i + 1] === '*')) {
+        i++;
+        if (s[i] === '*') { segs.push('*'); i++; } else segs.push(mergeDirs(readIdent()));
+      }
+      out.push({ t: 'path', segs, glued: s[i] === '[', call: s[i] === '(' });
+      continue;
+    }
+    const two = s.slice(i, i + 2);
+    if (['>=', '<=', '==', '!='].includes(two)) { out.push({ t: two }); i += 2; continue; }
+    if ('+-*/(),;[]<>|&'.includes(c)) { out.push({ t: c }); i++; continue; }
+    throw new S3DError(`无法识别的字符 “${c}”`, line);
+  }
+  return out;
+}
+
+export function parseValue(str, line) {
+  const toks = exprTokens(str, line);
+  let p = 0;
+  const err = (m) => new S3DError(`${m}：${str}`, line);
+  const eat = (t) => (toks[p] && toks[p].t === t ? (p++, true) : false);
+  const expect = (t) => { if (!eat(t)) throw err(`缺少 “${t}”`); };
+  const KW = new Set(['where', 'and', 'or', 'not']);
+  const isKw = (w) => toks[p] && toks[p].t === 'path' && toks[p].segs.length === 1 && toks[p].segs[0] === w && !toks[p].glued && !toks[p].call;
+  const tuple = () => {
+    const items = [item()];
+    while (eat(',')) items.push(item());
+    return items.length === 1 ? items[0] : { k: 'vec', items };
+  };
+  // 优先级（低→高）：where < or/| < and/& < not < 比较 < 加减 < 乘除 < 一元 < 基本项
+  const item = () => {
+    let a = orE();
+    if (isKw('where')) { p++; a = { k: 'where', a, pred: orE() }; }
+    return a;
+  };
+  const orE = () => {
+    let a = andE();
+    while (eat('|') || (isKw('or') && ++p)) a = { k: 'or', a, b: andE() };
+    return a;
+  };
+  const andE = () => {
+    let a = notE();
+    while (eat('&') || (isKw('and') && ++p)) a = { k: 'and', a, b: notE() };
+    return a;
+  };
+  const notE = () => (isKw('not') && ++p ? { k: 'not', a: notE() } : cmpE());
+  const cmpE = () => {
+    const a = expr();
+    for (const op of ['>=', '<=', '==', '!=', '>', '<']) if (eat(op)) return { k: 'cmp', op, a, b: expr() };
+    return a;
+  };
+  const expr = () => {
+    let a = term();
+    for (;;) {
+      if (eat('+')) a = { k: 'bin', op: '+', a, b: term() };
+      else if (eat('-')) a = { k: 'bin', op: '-', a, b: term() };
+      else return a;
+    }
+  };
+  const term = () => {
+    let a = unary();
+    for (;;) {
+      if (eat('*')) a = { k: 'bin', op: '*', a, b: unary() };
+      else if (eat('/')) a = { k: 'bin', op: '/', a, b: unary() };
+      else return a;
+    }
+  };
+  const unary = () => (eat('-') ? { k: 'neg', a: unary() } : eat('+') ? unary() : primary());
+  const primary = () => {
+    const t = toks[p++];
+    if (!t) throw err('表达式不完整');
+    if (t.t === 'num') return { k: 'num', v: t.v };
+    if (t.t === 'str') return { k: 'str', v: t.v };
+    if (t.t === 'hash') return { k: 'hash', v: t.v };
+    if (t.t === 'path') {
+      if (t.segs.length === 1 && KW.has(t.segs[0])) throw err(`关键字 ${t.segs[0]} 用错了位置`);
+      if (t.call) {
+        if (t.segs.length !== 1) throw err('函数名不能带路径');
+        p++;
+        const args = [];
+        if (!eat(')')) { args.push(item()); while (eat(',')) args.push(item()); expect(')'); }
+        return { k: 'call', name: t.segs[0], args };
+      }
+      const node = { k: 'path', segs: t.segs };
+      if (t.glued) { p++; node.coords = tuple(); expect(']'); }
+      return node;
+    }
+    if (t.t === '(') { const v = tuple(); expect(')'); return v; }
+    if (t.t === '[') {
+      const items = [tuple()];
+      while (eat(';')) items.push(tuple());
+      expect(']');
+      return { k: 'list', items };
+    }
+    throw err(`意外的 “${t.t}”`);
+  };
+  const v = tuple();
+  if (p < toks.length) throw err('多余的内容');
+  return v;
+}
+
+// 顶层逗号切分（用于 def 参数表）
+function splitTop(s, sep) {
+  const out = [];
+  let depth = 0, cur = '';
+  for (const c of s) {
+    if (c === '(' || c === '[') depth++;
+    if (c === ')' || c === ']') depth--;
+    if (c === sep && depth === 0) { out.push(cur); cur = ''; } else cur += c;
+  }
+  if (cur.trim()) out.push(cur);
+  return out.map((x) => x.trim()).filter(Boolean);
+}
+
+function splitProp(word) {
+  let depth = 0;
+  for (let i = 0; i < word.length; i++) {
+    const c = word[i];
+    if (c === '(' || c === '[') depth++;
+    else if (c === ')' || c === ']') depth--;
+    else if (c === '=' && depth === 0) return [word.slice(0, i), word.slice(i + 1)];
+  }
+  return null;
+}
+
+// ───────────────────────── 语法：语句树 ─────────────────────────
+
+function parseProgram(src, errors) {
+  const toks = lexStatements(src);
+  let p = 0;
+  const block = (closing) => {
+    const stmts = [];
+    while (p < toks.length) {
+      const t = toks[p];
+      if (t.t === 'nl') { p++; continue; }
+      if (t.t === '}') {
+        p++;
+        if (closing) return stmts;
+        errors.push(new S3DError('多余的 “}”', t.line));
+        continue;
+      }
+      if (t.t === '{') { errors.push(new S3DError('“{” 前缺少语句', t.line)); p++; continue; }
+      const words = [];
+      while (p < toks.length && toks[p].t === 'word') words.push(toks[p++]);
+      // pattern 的块里是约束，不是语句：按行原样收集
+      if (words[0] && words[0].v === 'pattern' && toks[p] && toks[p].t === '{') {
+        p++;
+        const lines = [];
+        let cur = [];
+        const flush = () => { if (cur.length) lines.push({ text: cur.map((w) => w.v).join(' '), line: cur[0].line }); cur = []; };
+        while (p < toks.length && toks[p].t !== '}') { const t = toks[p++]; if (t.t === 'nl') flush(); else if (t.t === 'word') cur.push(t); }
+        flush();
+        if (toks[p] && toks[p].t === '}') p++; else errors.push(new S3DError('pattern 缺少 “}”', words[0].line));
+        try { stmts.push(makePattern(words, lines)); } catch (e) { errors.push(e); }
+        continue;
+      }
+      let children = [];
+      if (toks[p] && toks[p].t === '{') { p++; children = block(true); }
+      try { stmts.push(makeStmt(words, children)); } catch (e) { errors.push(e); }
+    }
+    if (closing) errors.push(new S3DError('缺少 “}”', toks[toks.length - 1].line));
+    return stmts;
+  };
+  return block(false);
+}
+
+function makeStmt(words, children) {
+  const line = words[0].line;
+  const kind = words[0].v;
+  if (kind === 'def') {
+    // def 名字(参数=默认值, …) : 基类型(覆盖基类型的默认值, …) { … }
+    const sig = words.slice(1).map((w) => w.v).join('');
+    const [left, right] = splitTop(sig, ':');
+    const head = /^([\p{L}_][\p{L}\p{N}_]*)(?:\((.*)\))?$/u;
+    const m = head.exec(left ?? '');
+    const mb = right ? head.exec(right) : null;
+    if (!m || (right && !mb) || splitTop(sig, ':').length > 2) throw new S3DError('def 语法应为 def 名字(参数=默认值, …) { … }，派生写作 def 名字 : 基类型(参数=新默认值) { … }', line);
+    const plist = (txt) => {
+      const out = new Map();
+      for (const part of splitTop(txt || '', ',')) {
+        const kv = splitProp(part);
+        if (kv) out.set(kv[0].trim(), parseValue(kv[1], line));
+        else out.set(part, null);
+      }
+      return out;
+    };
+    return { kind: 'def', name: m[1], params: plist(m[2]), base: mb ? mb[1] : null, overrides: mb ? plist(mb[2]) : new Map(), body: children, line };
+  }
+  if (kind === 'import') {
+    const m = words.length === 2 && /^"([^"]+)"$/.exec(words[1].v);
+    if (!m || children.length) throw new S3DError('import 写成：import "文件.s3d"', line);
+    return { kind, path: m[1], line };
+  }
+  if (kind === 'if' || kind === 'else') throw new S3DError('if / else 已移出语言：结构上的差别请用派生类型表达，例如 def 带烟囱的房子 : 房子 { box chimney … }', line);
+  if (kind === 'over' || kind === 'drop') {
+    // over 选择器… [: 类型] [key=value …] [{ … }]；drop 选择器…
+    // over farm.1.t : rusty_turbine 把这个实例换成另一个（通常是派生的）类型，其余不变
+    const selWords = [], props = new Map();
+    let retype = null;
+    const ws = words.slice(1);
+    const ci = kind === 'over' ? ws.findIndex((w) => w.v === ':') : -1;
+    if (ci >= 0) {
+      if (ci === 0 || !ws[ci + 1] || !/^[\p{L}_][\p{L}\p{N}_]*$/u.test(ws[ci + 1].v)) throw new S3DError('换类型写成：over 对象 : 类型', line);
+      retype = ws[ci + 1].v;
+      ws.splice(ci, 2);
+    }
+    for (const w of ws) {
+      const kv = kind === 'over' && !selWords.length ? null : kind === 'over' ? splitProp(w.v) : null;
+      if (kv && /^[\p{L}_][\p{L}\p{N}_]*$/u.test(kv[0])) props.set(kv[0], parseValue(kv[1], w.line));
+      else if (props.size) throw new S3DError(`${kind}：属性写完之后不能再出现选择器 “${w.v}”`, w.line);
+      else selWords.push(w.v);
+    }
+    if (!selWords.length) throw new S3DError(`${kind} 需要选择器，例如 ${kind} hangar.door、${kind} #wall`, line);
+    if (kind === 'drop' && children.length) throw new S3DError('drop 不能带 { }', line);
+    const src = selWords.join(' ');
+    return { kind, sel: parseValue(src, line), src, props, children, line, retype };
+  }
+  if (kind === 'variant') {
+    // variant 集合 use=模板 参数=…：把集合里每个对象的外观换成这个模板，外包络不变
+    if (words.length < 3) throw new S3DError('variant 写成：variant 集合 use=模板 参数=…', line);
+    const params = new Map();
+    let use = null;
+    for (const w of words.slice(2)) {
+      const kv = splitProp(w.v);
+      if (!kv) throw new S3DError(`variant 只接受 key=value，看不懂 “${w.v}”`, w.line);
+      if (kv[0] === 'use') use = kv[1]; else params.set(kv[0], parseValue(kv[1], w.line));
+    }
+    if (!use) throw new S3DError('variant 需要 use=模板名', line);
+    return { kind, sel: parseValue(words[1].v, line), src: words[1].v, use, params, line };
+  }
+  if (kind === 'let' || kind === 'concept') {
+    const text = words.slice(1).map((w) => w.v).join(' ');
+    const m = /^([\p{L}_][\p{L}\p{N}_]*)\s*(?::\s*([\p{L}_][\p{L}\p{N}_]*)\s*)?=\s*([\s\S]+)$/u.exec(text);
+    if (!m || (m[2] && kind === 'let')) throw new S3DError(`${kind} 写成：${kind} 名字 = 表达式${kind === 'concept' ? '，或 concept 名字 : 上位概念 = 条件' : ''}`, line);
+    if (children.length) throw new S3DError(`${kind} 不能带 { }`, line);
+    let ast;
+    if (m[2]) {
+      // 下位概念：concept 双开门 : 门 = where w > 1.6 ≡ 门 where w > 1.6；否则 ≡ 上位 & 表达式
+      const base = { k: 'path', segs: [m[2]] };
+      const w = /^where\s+([\s\S]+)$/.exec(m[3]);
+      ast = w ? { k: 'where', a: base, pred: parseValue(w[1], line) } : { k: 'and', a: base, b: parseValue(m[3], line) };
+    } else ast = parseValue(m[3], line);
+    return { kind, name: m[1], parent: m[2] ?? null, ast, src: m[3], line };
+  }
+  if (kind === 'check') {
+    let text = words.slice(1).map((w) => w.v).join(' ');
+    const q = /^"([^"]*)"\s*/.exec(text);
+    const msg = q ? q[1] : null;
+    if (q) text = text.slice(q[0].length);
+    if (!text.trim()) throw new S3DError('check 写成：check "说明" 表达式（集合为空或条件为真即通过）', line);
+    return { kind, msg, ast: parseValue(text, line), src: text, line };
+  }
+  if (kind === 'style') {
+    if (words.length < 3) throw new S3DError('style 写成：style 集合 mat=… / color=…', line);
+    const props = new Map();
+    for (const w of words.slice(2)) {
+      const kv = splitProp(w.v);
+      if (!kv) throw new S3DError(`style 只接受 key=value，看不懂 “${w.v}”`, w.line);
+      props.set(kv[0], parseValue(kv[1], w.line));
+    }
+    return { kind, sel: parseValue(words[1].v, line), src: words[1].v, props, line };
+  }
+  const st = { kind, id: null, props: new Map(), tags: [], meta: new Map(), children, line };
+  for (const w of words.slice(1)) {
+    if (w.v.startsWith('~')) {
+      // 元数据：~fit=0.93 ~src="node_12"。不参与几何，可以在 where 里读
+      const mv = splitProp(w.v.slice(1));
+      if (!mv || !/^[\p{L}_][\p{L}\p{N}_]*$/u.test(mv[0])) throw new S3DError(`元数据写成 ~名字=值，看不懂 “${w.v}”`, w.line);
+      st.meta.set(mv[0], parseValue(mv[1], w.line));
+      continue;
+    }
+    const kv = splitProp(w.v);
+    if (kv) {
+      if (!/^[\p{L}_][\p{L}\p{N}_]*$/u.test(kv[0])) throw new S3DError(`属性名不合法：${kv[0]}`, w.line);
+      st.props.set(kv[0], parseValue(kv[1], w.line));
+    } else if (w.v.startsWith('#')) st.tags.push(w.v.slice(1));
+    else if (!st.id) {
+      if (!/^[\p{L}_][\p{L}\p{N}_]*$/u.test(w.v)) throw new S3DError(`名字不合法：${w.v}`, w.line);
+      st.id = w.v;
+    } else throw new S3DError(`无法理解 “${w.v}”（属性要写成 key=value）`, w.line);
+  }
+  return st;
+}
+
+// import 把另一个文件的语句按顺序放在这里（后写的覆盖先写的，所以修改层 import 基础描述）
+const dirOf = (f) => (f && f.includes('/') ? f.slice(0, f.lastIndexOf('/') + 1) : '');
+function joinPath(base, rel) {
+  if (rel.startsWith('/')) return rel;
+  const parts = (dirOf(base) + rel).split('/'), out = [];
+  // 开头多出来的 .. 要保留（工程目录里的层 import 仓库里的语义库：../../lib/semantics.s3d）
+  for (const x of parts) { if (x === '..') { if (out.length && out.at(-1) !== '..') out.pop(); else out.push('..'); } else if (x !== '.' && x !== '') out.push(x); }
+  return (base && base.startsWith('/') ? '/' : '') + out.join('/');
+}
+function loadProgram(src, opts, errors, stack = []) {
+  const stmts = parseProgram(src, errors);
+  const out = [];
+  // 每条语句（包括 def 体、块里的子语句）都记下来自哪个文件：报错定位、分数按行归因都要用
+  const mark = (st) => { st.file = opts.file ?? null; for (const c of st.children ?? []) mark(c); for (const c of st.body ?? []) mark(c); };
+  for (const s of stmts) {
+    mark(s);
+    if (s.kind !== 'import') { out.push(s); continue; }
+    const path = joinPath(opts.file, s.path);
+    if (stack.includes(path)) { errors.push(new S3DError(`import 形成了循环：${[...stack, path].join(' → ')}`, s.line)); continue; }
+    let text;
+    try { text = opts.resolve ? opts.resolve(path) : null; } catch { text = null; }
+    if (typeof text !== 'string') { errors.push(new S3DError(`import 找不到文件 ${path}`, s.line)); continue; }
+    const sub = [];
+    const subStmts = loadProgram(text, { ...opts, file: path }, sub, [...stack, path]);
+    for (const e of sub) { e.file ??= path; errors.push(e); }
+    for (const x of subStmts) out.push(x); // 不用展开：导入的文件可能有几万条语句
+  }
+  return out;
+}
+
+// pattern 名字(角色, 集合角色*, …) { 角色 in 集合 / 甲 关系 乙 / 布尔表达式 }
+function makePattern(words, lines) {
+  const line = words[0].line;
+  const sig = words.slice(1).map((w) => w.v).join('');
+  const m = /^([\p{L}_][\p{L}\p{N}_]*)\((.*)\)$/u.exec(sig);
+  if (!m) throw new S3DError('pattern 写成：pattern 名字(角色, 集合角色*, …) { 约束 }', line);
+  const roles = splitTop(m[2], ',').map((r) => {
+    const mm = /^([\p{L}_][\p{L}\p{N}_]*)(\*)?$/u.exec(r);
+    if (!mm) throw new S3DError(`角色名不合法：${r}`, line);
+    return { name: mm[1], set: !!mm[2] };
+  });
+  if (!roles.length) throw new S3DError('pattern 至少要有一个角色', line);
+  const names = new Set(roles.map((r) => r.name));
+  const constraints = lines.map(({ text, line: ln }) => {
+    let mm = /^([\p{L}_][\p{L}\p{N}_]*)\s+in\s+([\s\S]+)$/u.exec(text);
+    if (mm) {
+      if (!names.has(mm[1])) throw new S3DError(`${mm[1]} 不是这个 pattern 的角色`, ln);
+      return { k: 'in', role: mm[1], ast: parseValue(mm[2], ln), line: ln };
+    }
+    mm = new RegExp(`^(\\S+)\\s+(${['on', 'supports', 'against', 'inside', 'contains', 'touching'].join('|')})\\s+(\\S+)$`).exec(text);
+    if (mm) return { k: 'rel', a: parseValue(mm[1], ln), rel: mm[2], b: parseValue(mm[3], ln), line: ln };
+    return { k: 'expr', ast: parseValue(text, ln), line: ln };
+  });
+  return { kind: 'pattern', name: m[1], roles, constraints, line };
+}
+
+// ───────────────────────── 作用域 ─────────────────────────
+
+class Env {
+  constructor(parent, vars = {}) {
+    this.parent = parent;
+    this.vars = new Map(Object.entries(vars).map(([k, v]) => [k, { v }]));
+  }
+  // scope：名字查找从哪个节点的子物体开始；frame：坐标分量在哪个坐标系里取
+  setThunk(name, ast, env, node, scope = null, frame = null) { this.vars.set(name, { ast, env, node, scope, frame }); }
+  setLazy(name, fn) { this.vars.set(name, { fn }); }
+  lookup(name, S) {
+    for (let e = this; e; e = e.parent) {
+      const slot = e.vars.get(name);
+      if (!slot) continue;
+      if ('v' in slot) return slot;
+      if (slot.fn) {
+        if (slot.busy) throw new S3DError(`${name} 循环引用了自己`);
+        slot.busy = true;
+        try { slot.v = slot.fn(); } finally { slot.busy = false; }
+        return slot;
+      }
+      if (slot.busy) throw new S3DError(`${name} 循环引用了自己`);
+      slot.busy = true;
+      let v;
+      try { v = evalAst(slot.ast, { env: slot.env, node: slot.node, scope: slot.scope, frame: slot.frame, prop: name, S }); }
+      finally { slot.busy = false; }
+      // 展开阶段（S 为空）无法解析对象引用，结果不缓存
+      if (S) slot.v = v;
+      return { v };
+    }
+    return null;
+  }
+}
+
+// ───────────────────────── 节点 ─────────────────────────
+
+class Node {
+  constructor(kind, id, props, tags, line, env, parent) {
+    Object.assign(this, { kind, id, props, tags, line, env, parent, children: [] });
+    if (parent) {
+      parent.children.push(this);
+      const idx = parent.children.length - 1;
+      const seg = id ?? `${kind}#${idx}`;
+      this.path = parent.kind === 'root' ? seg : `${parent.path}.${seg}`;
+    } else this.path = '';
+  }
+  childById(id) {
+    // 名字 → 子节点的表（子节点数变了就重建）：根节点下常有几万个物体，逐个比较让整张大地图的编译接近平方复杂度
+    // 记下标：子节点会被替换（drop、重建实例）而数量不变，命中时核对那个位置上还是它、名字也没变，不对就重建
+    const build = () => { this._byId = new Map(); this.children.forEach((c, k) => { if (c.id != null && !this._byId.has(c.id)) this._byId.set(c.id, k); }); this._byIdN = this.children.length; };
+    if (this._byIdN !== this.children.length) build();
+    let k = this._byId.get(id);
+    if (k != null && (this.children[k]?.id !== id)) { build(); k = this._byId.get(id); }
+    if (k != null) return this.children[k];
+    for (const c of this.children) if (!c.id && c.children.length) { const r = c.childById(id); if (r) return r; }
+    return null;
+  }
+  isAncestorOf(n) { for (let a = n.parent; a; a = a.parent) if (a === this) return true; return false; }
+}
+
+// ───────────────────────── 求值 ─────────────────────────
+
+const isRef = (v) => v && typeof v === 'object' && v.ref === true;
+// 集合：一组对象（有序、不重复）。它是逻辑上的归类，不像 group 那样带坐标系
+class NodeSet { constructor(nodes) { this.nodes = [...new Set(nodes)]; } }
+const isSet = (v) => v instanceof NodeSet;
+function asSet(v) {
+  if (isSet(v)) return v;
+  if (v instanceof PatternValue) return v.all();
+  if (isRef(v)) return new NodeSet(v.node.isSet ? v.node.members : [v.node]);
+  if (v && v.list) return new NodeSet(v.list.flatMap((x) => asSet(x).nodes));
+  throw new S3DError(`需要集合（对象、#标签、kind(…)、列表…），得到 ${show(v)}`);
+}
+class PatternValue {
+  constructor(name, roles, matches) { Object.assign(this, { name, roles, matches }); }
+  role(r) { return new NodeSet(this.matches.flatMap((m) => { const v = m.get(r); return isSet(v) ? v.nodes : [v]; })); }
+  all() { return new NodeSet(this.roles.flatMap((r) => this.role(r.name).nodes)); }
+}
+const setLike = (v) => isSet(v) || isRef(v) || (v && v.list) || v instanceof PatternValue;
+function asBool(v) {
+  if (typeof v === 'boolean') return v;
+  if (typeof v === 'number') return v !== 0;
+  if (setLike(v)) return asSet(v).nodes.length > 0;
+  if (v === 'true' || v === 'false') return v === 'true';
+  throw new S3DError(`需要真假值，得到 ${show(v)}`);
+}
+const mkRef = (node, anchor = null, offset = [0, 0, 0]) => ({ ref: true, node, anchor, offset });
+const truthy = (v) => v === true || v === 'true' || v === 1;
+
+function arith(op, a, b) {
+  const isV = Array.isArray;
+  if (isRef(a) && isV(b) && (op === '+' || op === '-')) return mkRef(a.node, a.anchor, op === '+' ? add(a.offset, b) : sub(a.offset, b));
+  if (typeof a === 'number' && typeof b === 'number') {
+    switch (op) { case '+': return a + b; case '-': return a - b; case '*': return a * b; case '/': return a / b; }
+  }
+  if (isV(a) && isV(b) && a.length === b.length && (op === '+' || op === '-')) return a.map((x, k) => (op === '+' ? x + b[k] : x - b[k]));
+  if (op === '-' && setLike(a) && setLike(b)) { const drop = new Set(asSet(b).nodes); return new NodeSet(asSet(a).nodes.filter((n) => !drop.has(n))); }
+  if (isV(a) && typeof b === 'number' && (op === '*' || op === '/')) return a.map((x) => (op === '*' ? x * b : x / b));
+  if (typeof a === 'number' && isV(b) && op === '*') return b.map((x) => x * a);
+  throw new S3DError(`无法计算 ${show(a)} ${op} ${show(b)}`);
+}
+const show = (v) => (isSet(v) ? `{${v.nodes.length} 个对象}` : isRef(v) ? v.node.path : Array.isArray(v) ? `(${v.join(',')})` : String(v));
+
+function evalAst(ast, ctx) {
+  switch (ast.k) {
+    case 'num': return ast.v;
+    case 'str': return ast.v;
+    case 'envd': return evalAst(ast.ast, { ...ctx, env: ast.env });
+    case 'neg': { const v = evalAst(ast.a, ctx); return typeof v === 'number' ? -v : Array.isArray(v) ? v.map((x) => -x) : arith('*', -1, v); }
+    case 'bin': return arith(ast.op, evalAst(ast.a, ctx), evalAst(ast.b, ctx));
+    case 'vec': return ast.items.map((x) => {
+      const v = evalAst(x, ctx);
+      if (typeof v !== 'number') throw new S3DError(`向量分量必须是数字，得到 ${show(v)}`);
+      return v;
+    });
+    case 'list': return { list: ast.items.map((x) => evalAst(x, ctx)) };
+    case 'path': return evalPath(ast, ctx);
+    case 'hash': {
+      if (!ctx.S) return '#' + ast.v;
+      const idx = ctx.S.tagIndex();
+      if (idx.has(ast.v)) return new NodeSet(idx.get(ast.v));
+      if (/^[0-9a-f]+$/i.test(ast.v) && [3, 4, 6, 8].includes(ast.v.length)) return '#' + ast.v;
+      return new NodeSet([]);
+    }
+    case 'or': case 'and': {
+      const a = evalAst(ast.a, ctx), b = evalAst(ast.b, ctx);
+      if (setLike(a) || setLike(b)) {
+        const A = asSet(a).nodes, B = asSet(b).nodes;
+        if (ast.k === 'or') return new NodeSet([...A, ...B]);
+        const keep = new Set(B);
+        return new NodeSet(A.filter((n) => keep.has(n)));
+      }
+      return ast.k === 'or' ? asBool(a) || asBool(b) : asBool(a) && asBool(b);
+    }
+    case 'not': return !asBool(evalAst(ast.a, ctx));
+    case 'cmp': {
+      const a = evalAst(ast.a, ctx), b = evalAst(ast.b, ctx);
+      if (ast.op === '==') return same(a, b);
+      if (ast.op === '!=') return !same(a, b);
+      if (typeof a !== 'number' || typeof b !== 'number') throw new S3DError(`${ast.op} 两边需要数字，得到 ${show(a)} 和 ${show(b)}`);
+      return { '>': a > b, '<': a < b, '>=': a >= b, '<=': a <= b }[ast.op];
+    }
+    case 'where': {
+      // 对集合里的每个成员求条件；条件里可以用 w h d（自身尺寸）、x y z（世界中心）、
+      // top bottom（世界里的最高 / 最低点，按真实形状而不是包围盒）、kind、name、it
+      const base = asSet(evalAst(ast.a, ctx));
+      if (!ctx.S) throw new S3DError('where 只能在求解阶段使用');
+      return new NodeSet(base.nodes.filter((m) => {
+        const env = new Env(ctx.env);
+        for (const [k, v] of Object.entries((m.ghostOf ?? m).meta ?? {})) env.setLazy(k, () => v);
+        const size = () => { const b = ctx.S.box(m); return sub(b.max, b.min); };
+        const ctr = () => { const b = ctx.S.worldBox(m); return scl(add(b.min, b.max), 0.5); };
+        ['w', 'h', 'd'].forEach((k, i) => env.setLazy(k, () => size()[i]));
+        ['x', 'y', 'z'].forEach((k, i) => env.setLazy(k, () => ctr()[i]));
+        let tb;
+        const tight = () => (tb ??= (() => {
+          try { if (LEAVES.has(K(m)) && m.geom) return boundsOf(localParts(m).parts.flatMap((P) => boxCorners(partBox(worldPart(ctx.S.world(m), P))))); } catch {}
+          return ctx.S.worldBox(m);
+        })());
+        env.setLazy('top', () => tight().max[1]);
+        env.setLazy('bottom', () => tight().min[1]);
+        env.setLazy('kind', () => m.template ?? K(m));
+        env.setLazy('name', () => m.id ?? '');
+        env.setLazy('it', () => mkRef(m));
+        return asBool(evalAst(ast.pred, { ...ctx, env }));
+      }));
+    }
+    case 'call': return evalCall(ast, ctx);
+  }
+  throw new S3DError('未知表达式');
+}
+
+// 相等：对象比的是指向哪个对象，集合比的是成员
+function same(a, b) {
+  if (isRef(a) && isRef(b)) return a.node === b.node;
+  if (setLike(a) && setLike(b)) { const A = asSet(a).nodes, B = new Set(asSet(b).nodes); return A.length === B.size && A.every((n) => B.has(n)); }
+  return a === b;
+}
+
+const MATH = {
+  sin: (a) => Math.sin(rad(a)), cos: (a) => Math.cos(rad(a)), tan: (a) => Math.tan(rad(a)),
+  asin: (x) => (Math.asin(x) * 180) / Math.PI, acos: (x) => (Math.acos(x) * 180) / Math.PI, atan: (x) => (Math.atan(x) * 180) / Math.PI,
+  atan2: (y, x) => (Math.atan2(y, x) * 180) / Math.PI,
+  sqrt: Math.sqrt, abs: Math.abs, min: Math.min, max: Math.max, floor: Math.floor, ceil: Math.ceil, round: Math.round, pow: Math.pow,
+};
+// 由求解后的空间事实定义的集合：on(S) = 立在 S 上的；supports(S) = 承托着 S 的；……
+const RELATIONS = ['on', 'supports', 'against', 'inside', 'contains', 'touching', 'intersects'];
+
+function evalCall(ast, ctx) {
+  const { name, args } = ast;
+  const S = ctx.S;
+  const val = (i) => evalAst(args[i], ctx);
+  // kind(box) / tag(wall) 的参数是名字本身，不当对象解析
+  const names = () => args.map((a) => {
+    if (a.k === 'path' && a.segs.length === 1) return a.segs[0];
+    if (a.k === 'str') return a.v;
+    throw new S3DError(`${name}() 的参数要写名字，如 ${name}(box)`);
+  });
+  if (name in MATH) {
+    const xs = args.map((_, i) => val(i));
+    if (xs.some((x) => typeof x !== 'number')) throw new S3DError(`${name}() 需要数字参数`);
+    return MATH[name](...xs);
+  }
+  if (name === 'count') { const v = val(0); return v instanceof PatternValue ? v.matches.length : asSet(v).nodes.length; }
+  if (!S) throw new S3DError(`${name}() 只能在求解阶段使用`);
+  switch (name) {
+    case 'all': return new NodeSet(S.allNodes());
+    case 'kind': { const ks = new Set(names()); return new NodeSet(S.allNodes().filter((n) => ks.has(K(n)) || (n.types ?? (n.ghostOf ?? n.src)?.types ?? []).some((t) => ks.has(t)))); }
+    case 'children': return new NodeSet(asSet(val(0)).nodes.flatMap((n) => n.children));
+    case 'descendants': {
+      const out = [];
+      const walk = (n) => n.children.forEach((c) => { out.push(c); walk(c); });
+      asSet(val(0)).nodes.forEach(walk);
+      return new NodeSet(out);
+    }
+  }
+  if (RELATIONS.includes(name)) {
+    if (!args.length) throw new S3DError(`${name}() 需要参照集合，如 ${name}(ground)`);
+    const k = args.length > 1 ? val(1) : 1;
+    if (typeof k !== 'number') throw new S3DError(`${name}() 的第二个参数是数量`);
+    return S.relSet(name, asSet(val(0)), k);
+  }
+  throw new S3DError(`未知函数 ${name}()`);
+}
+
+function coord(ref, axis, ctx) {
+  if (!ctx.S) throw new S3DError('坐标分量只能在求解阶段使用');
+  const F = ctx.frame ?? ctx.node.parent ?? ctx.node;
+  return ctx.S.anchorIn(ref, F, DIRS.center).q['xyz'.indexOf(axis)];
+}
+
+function evalPath(ast, ctx) {
+  const [first, ...rest] = ast.segs;
+  let base, restSegs;
+  const slot = ctx.env.lookup(first, ctx.S);
+  if (ast.segs.includes('*')) {
+    // 路径通配：tanks.*.tank → 集合
+    if (ast.coords) throw new S3DError('通配路径后面不能取锚点');
+    let cur;
+    if (slot) cur = asSet(slot.v).nodes;
+    else {
+      const r = ctx.S && ctx.S.find([first], ctx.node, ctx.scope);
+      if (!r) throw new S3DError(`找不到对象 ${first}`);
+      cur = [r.node];
+    }
+    for (const seg of rest) cur = seg === '*' ? cur.flatMap((n) => n.children) : cur.map((n) => n.childById(seg)).filter(Boolean);
+    return new NodeSet(cur);
+  }
+  if (slot) {
+    const v = slot.v;
+    if (!rest.length && !ast.coords) return v;
+    if (v instanceof PatternValue) {
+      if (rest.length === 1 && v.roles.some((r) => r.name === rest[0])) return v.role(rest[0]);
+      throw new S3DError(`模式 ${first} 没有角色 ${rest.join('.')}（有：${v.roles.map((r) => r.name).join('、')}）`);
+    }
+    if (isSet(v)) { base = ctx.S.setNode(v); restSegs = rest; } // 集合的锚点 = 成员总包围盒的锚点
+    else {
+      if (!isRef(v)) throw new S3DError(`${first} 不是对象，不能取 .${rest.join('.')}`);
+      base = v.node; restSegs = rest;
+      while (restSegs.length) { const c = base.childById(restSegs[0]); if (!c) break; base = c; restSegs = restSegs.slice(1); }
+    }
+  } else {
+    const r = ctx.S ? ctx.S.find(ast.segs, ctx.node, ctx.scope) : null;
+    if (!r) {
+      if (ast.segs.length === 1 && !ast.coords) return first; // 符号：left / steel / x / true ...
+      throw new S3DError(`找不到对象 ${ast.segs.join('.')}`);
+    }
+    base = r.node; restSegs = r.rest;
+  }
+  if (ast.coords && restSegs.length === 1 && SURFACES.has(restSegs[0])) {
+    const c = evalAst(ast.coords, ctx);
+    if (!Array.isArray(c) || c.length !== 2 || !c.every((x) => typeof x === 'number')) throw new S3DError(`曲面锚点写成 ${base.id ?? 'B'}.${restSegs[0]}[a,b]（两个数）`);
+    return mkRef(base, { surf: restSegs[0], uv: c });
+  }
+  if (ast.coords) {
+    if (restSegs.length) throw new S3DError(`${base.path} 中没有 “${restSegs.join('.')}”`);
+    const c = evalAst(ast.coords, ctx);
+    if (typeof c === 'number') return mkRef(base, { t: c }); // 曲线上按弧长的参数位置
+    if (!Array.isArray(c) || c.length !== 3) throw new S3DError('锚点写成 名字[u,v,w]（包围盒内 -1..1），曲线上的点写成 名字[t]（0..1）');
+    return mkRef(base, c);
+  }
+  if (!restSegs.length) return mkRef(base);
+  if (restSegs.length === 1) {
+    const s = restSegs[0];
+    if (MEASURES.has(s)) {
+      const b = ctx.S.box(base);
+      return { w: b.max[0] - b.min[0], h: b.max[1] - b.min[1], d: b.max[2] - b.min[2] }[s];
+    }
+    if (s === 'origin') return mkRef(base, 'origin');
+    if (s in CURVE_POINTS && CURVES.has(K(base))) return mkRef(base, { t: CURVE_POINTS[s] });
+    if (s in AXES) return coord(mkRef(base, DIRS.center), s, ctx);
+    const dv = dirWord(s);
+    if (dv) return mkRef(base, dv);
+  }
+  // B.top.y：锚点在“当前物体的父坐标系”中的某个坐标分量
+  if (restSegs.length === 2 && restSegs[1] in AXES) {
+    const [a] = restSegs;
+    const anchor = a === 'origin' ? 'origin' : a in CURVE_POINTS && CURVES.has(K(base)) ? { t: CURVE_POINTS[a] } : dirWord(a);
+    if (anchor) return coord(mkRef(base, anchor), restSegs[1], ctx);
+  }
+  throw new S3DError(`${base.path || '场景'} 中没有子对象或锚点 “${restSegs.join('.')}”`);
+}
+
+// ───────────────────────── 展开：模板与阵列 ─────────────────────────
+
+function staticMeta(s, env, node) {
+  const out = {};
+  if (s.meta) for (const [k, ast] of s.meta) out[k] = evalAst(ast, { env, node, S: null });
+  return out;
+}
+
+// opts.metre：一米是多少个场景单位（默认 1）。语义库的长度阈值写成 3 * metre，场景单位不是米时也对
+function elaborate(program, errors, opts = {}) {
+  const defs = new Map(), materials = new Map();
+  const globals = new Env(null, { metre: opts.metre ?? 1 });
+  // 语义作用域：概念只在 concept / style / check 里可见，不会和几何里的对象名冲突
+  const semantic = new Env(globals);
+  const root = new Node('root', null, new Map(), [], 0, globals, null);
+  const flat = [];
+  const evalStatic = (ast, env, node) => evalAst(ast, { env, node, S: null });
+  const concepts = [], checks = [], styles = [], patterns = [], variants = [], opinions = [], copies = [];
+
+  for (const s of program) {
+    if (s.kind === 'def') {
+      if (s.base === s.name) {
+        // def house : house { … }：就地扩展已有类型，所有实例随之改变
+        s.baseDef = defs.get(s.name);
+        if (!s.baseDef) errors.push(new S3DError(`要扩展的类型 ${s.name} 还没有定义`, s.line));
+      }
+      defs.set(s.name, s);
+    }
+    else if (s.kind === 'concept') {
+      // 概念就是一个全局命名的集合，通常依赖空间事实，所以在求解之后才求值
+      // 同名概念以后写的为准：场景可以覆盖 import 进来的通用语义库
+      semantic.setThunk(s.name, s.ast, semantic, root, root, root);
+      const prev = concepts.findIndex((c) => c.name === s.name);
+      if (prev >= 0) concepts.splice(prev, 1);
+      concepts.push(s);
+    } else if (s.kind === 'over' && !s.retype && !s.children.length && s.props.size && [...s.props.keys()].every((k) => APPEARANCE.has(k) || s.props.has('use'))) {
+      // 只改外观的覆盖：求解后应用，选择器可以依赖空间事实与概念
+      if (s.props.has('use')) {
+        const u = s.props.get('use');
+        if (u.k !== 'path' || u.segs.length !== 1) errors.push(new S3DError('use= 后面写模板名', s.line));
+        else variants.push({ kind: 'variant', sel: s.sel, src: s.src, use: u.segs[0], params: new Map([...s.props].filter(([k]) => k !== 'use')), line: s.line, file: s.file });
+      } else styles.push({ kind: 'style', sel: s.sel, src: s.src, props: s.props, line: s.line });
+      s.appearance = true;
+    } else if (s.kind === 'pattern') patterns.push(s);
+    else if (s.kind === 'variant') variants.push(s);
+    else if (s.kind === 'check') checks.push(s);
+    else if (s.kind === 'style') styles.push(s);
+    else if (s.kind === 'material') {
+      if (!s.id) { errors.push(new S3DError('material 需要名字', s.line)); continue; }
+      const m = {};
+      for (const [k, ast] of s.props) {
+        try { m[k] = evalStatic(ast, globals, root); } catch (e) { e.line ??= s.line; errors.push(e); }
+      }
+      materials.set(s.id, m);
+    }
+  }
+
+  const walk = (stmts, parent, env, depth) => {
+    // let 在所在块内整体可见（惰性求值，与书写顺序无关）
+    const lets = stmts.filter((s) => s.kind === 'let');
+    if (lets.length) {
+      // 最外层的 let 放进全局作用域，模板体里也能用；其余的块各有自己的作用域
+      if (parent.kind !== 'root') env = new Env(env);
+      for (const s of lets) env.setThunk(s.name, s.ast, env, parent, parent, parent);
+    }
+    for (const s of stmts) {
+      try { one(s, parent, env, depth); } catch (e) { e.line ??= s.line; e.file ??= s.file; errors.push(e); }
+    }
+  };
+  const one = (s, parent, env, depth) => {
+    if (s.kind === 'material' || s.kind === 'let' || s.appearance) return;
+    if (s.kind === 'over' || s.kind === 'drop') { opinions.push({ s, env, scope: parent, depth }); return; }
+    if (s.kind === 'copy') {
+      if (!s.id) throw new S3DError('copy 需要名字：copy 新名字 of=原对象 …', s.line);
+      if (!s.props.has('of')) throw new S3DError('copy 需要 of=原对象', s.line);
+      copies.push({ s, env, parent, depth });
+      return;
+    }
+    if (['def', 'concept', 'check', 'style', 'pattern', 'variant'].includes(s.kind)) {
+      if (parent.kind !== 'root') throw new S3DError(`${s.kind} 只能写在最外层`, s.line);
+      return;
+    }
+    if (KIND_PROPS[s.kind]) {
+      const allowed = new Set([...KIND_PROPS[s.kind], ...PLACEMENT]);
+      for (const k of s.props.keys()) if (!allowed.has(k)) errors.push(new S3DError(`${s.kind} 没有属性 ${k}`, s.line));
+      const n = new Node(s.kind, s.id, s.props, s.tags, s.line, env, parent);
+      n.file = s.file;
+      n.meta = staticMeta(s, env, n);
+      n.stmt = s; n.srcEnv = env;
+      flat.push(n);
+      if ((LEAVES.has(s.kind) || CURVES.has(s.kind)) && s.children.length) throw new S3DError(`${s.kind} 不能有子语句`, s.line);
+      if (COPIES.has(s.kind) && s.props.has('of') && s.children.length) throw new S3DError(`${s.kind} 写了 of= 就是复制已有对象，不能再有子语句`, s.line);
+      if (s.kind === 'repeat') {
+        const cnt = s.props.has('n') ? evalStatic(s.props.get('n'), env, n) : 1;
+        const dims = Array.isArray(cnt) ? cnt.map((x) => Math.max(0, Math.round(x))) : [Math.max(0, Math.round(cnt))];
+        if (dims.some((x) => !Number.isFinite(x))) throw new S3DError('repeat 的 n 必须是常量', s.line);
+        const total = dims.reduce((a, b) => a * b, 1);
+        if (total > 5000) throw new S3DError(`repeat 数量过多（${total}）`, s.line);
+        const [ni, nj = 1, nk = 1] = dims;
+        let flatIdx = 0;
+        for (let k = 0; k < nk; k++) for (let j = 0; j < nj; j++) for (let i = 0; i < ni; i++) {
+          const inst = new Node('group', String(flatIdx), new Map(), [], s.line, env, n);
+          inst.inst = { index: [i, j, k], flat: flatIdx, grid: dims.length > 1 };
+          inst.file = s.file;
+          flat.push(inst);
+          walk(s.children, inst, new Env(env, { i, j, k, idx: flatIdx }), depth);
+          flatIdx++;
+        }
+        n.counts = dims;
+        n.total = total;
+      } else walk(s.children, n, env, depth);
+      return;
+    }
+    const def = defs.get(s.kind);
+    if (!def) throw new S3DError(`未知的类型 “${s.kind}”`, s.line);
+    if (depth > 32) throw new S3DError(`模板 ${s.kind} 递归过深`, s.line);
+    // 派生链：最派生的在前。参数 = 基类参数，再依次应用每一层的默认值覆盖与新参数
+    const chain = [];
+    for (let d = def; d; d = d.baseDef ?? (d.base && d.base !== d.name ? defs.get(d.base) : null)) {
+      if (chain.includes(d) || chain.length > 32) throw new S3DError(`类型 ${s.kind} 的派生链形成了循环`, s.line);
+      chain.push(d);
+      if (d.base && !d.baseDef && d.base !== d.name && !defs.get(d.base)) throw new S3DError(`${d.name} 的基类型 ${d.base} 没有定义`, d.line);
+    }
+    const params = new Map();
+    for (const d of [...chain].reverse()) {
+      for (const [k, ast] of d.overrides) {
+        if (!params.has(k)) throw new S3DError(`${d.name} 覆盖了基类型没有的参数 ${k}`, d.line);
+        params.set(k, ast);
+      }
+      for (const [k, ast] of d.params) params.set(k, ast);
+    }
+    // 模板自己声明了的参数优先于同名的定位关键字（例如模板可以有自己的 gap、turn 参数）
+    const isPlacement = (k) => PLACEMENT.has(k) && !params.has(k);
+    const own = new Map([...s.props].filter(([k]) => isPlacement(k)));
+    const n = new Node('group', s.id, own, s.tags, s.line, env, parent);
+    n.template = s.kind;
+    n.file = s.file;
+    n.types = [...new Set(chain.map((d) => d.name))];
+    n.meta = staticMeta(s, env, n);
+    n.stmt = s; n.srcEnv = env;
+    flat.push(n);
+    const body = new Env(globals);
+    n.bodyEnv = body; n.params = params;
+    for (const [k, ast] of s.props) {
+      if (isPlacement(k)) continue;
+      if (!params.has(k)) errors.push(new S3DError(`模板 ${s.kind} 没有参数 ${k}`, s.line));
+      body.setThunk(k, ast, env, n);
+    }
+    for (const [k, ast] of params) {
+      if (body.vars.has(k)) continue;
+      if (!ast) throw new S3DError(`模板 ${s.kind} 缺少参数 ${k}`, s.line);
+      body.setThunk(k, ast, body, n);
+    }
+    // 先展开最基础的类型体，再逐层展开派生体（派生体里的 over / drop 作用于已展开的部件）
+    for (const d of [...chain].reverse()) walk(d.body, n, body, depth + 1);
+  };
+  walk(program, root, globals, 0);
+  return { root, flat, defs, materials, globals, semantic, concepts, checks, styles, patterns, variants, opinions, copies, walk };
+}
+
+// ───────────────────────── 复制关系：镜像与旋转 ─────────────────────────
+// 副本是“影子节点”：结构与原物体相同、名字相同（可以用路径引用），
+// 局部变换与包围盒直接取自原物体，所以原物体怎么变，副本就怎么变。
+
+function buildCopies(root, flat, S, errors) {
+  const shadow = (src, parent) => {
+    const g = new Node(K(src), src.id, new Map(), src.tags, src.line, src.env, parent);
+    g.ghostOf = src;
+    g.file = src.file;
+    if (parent.skin) g.skin = true;
+    flat.push(g);
+    for (const c of src.children) shadow(c, g);
+    return g;
+  };
+  const state = new Map();
+  const ensure = (n) => {
+    if (state.get(n) === 'done') return;
+    if (state.get(n) === 'busy') throw new S3DError(`复制关系形成循环：${n.path}`, n.line, n);
+    state.set(n, 'busy');
+    for (const c of [...n.children]) ensure(c);
+    // 已经生成过副本的不再生成（变体挂上之后会再跑一遍，只处理新挂上的部分）
+    if (COPIES.has(n.kind) && !n.ghostOf && !n.copiesBuilt) {
+      n.copiesBuilt = true;
+      if (n.props.has('of')) {
+        const ast = n.props.get('of');
+        if (ast.k !== 'path' || ast.coords) throw new S3DError(`${n.path}：of 需要写一个对象名`, n.line, n);
+        const r = S.find(ast.segs, n);
+        if (!r || r.rest.length) throw new S3DError(`${n.path}：找不到要复制的对象 ${ast.segs.join('.')}`, n.line, n);
+        const src = r.node;
+        if (src === n || src.isAncestorOf(n)) throw new S3DError(`${n.path} 不能复制包含自己的对象`, n.line, n);
+        ensure(src);
+        n.src = src;
+        n.asKind = K(src);
+        for (const c of src.children) shadow(c, n);
+      } else {
+        const originals = [...n.children];
+        let count = 1;
+        if (n.kind === 'rotate') count = Math.round(S.num(n, 'n', 1));
+        if (!(count >= 1 && count <= 360)) throw new S3DError(`${n.path}：rotate 的 n 需要 1..360`, n.line, n);
+        for (let k = 1; k <= count; k++) {
+          const G = new Node('group', n.kind === 'mirror' ? 'mirrored' : `r${k}`, new Map(), [], n.line, n.env, n);
+          G.copyOf = { container: n, k };
+          G.file = n.file;
+          if (n.skin) G.skin = true;
+          flat.push(G);
+          for (const c of originals) shadow(c, G);
+        }
+      }
+    }
+    state.set(n, 'done');
+  };
+  try { ensure(root); } catch (e) { errors.push(e); }
+}
+
+// ───────────────────────── 结构派生与覆盖 ─────────────────────────
+
+// copy R of=A [定位] [{ 修改 }]：把 A 的定义（语句）在 R 处重新展开一次，再应用块里的修改。
+// 与 mirror / rotate 不同，copy 之后可以随意改；它复制的是 A 的定义，不包括后来对 A 的 over。
+function expandCopies(elab, S, errors, fail) {
+  let queue = [...elab.copies];
+  elab.copies.length = 0;
+  for (let round = 0; queue.length && round < 16; round++) {
+    const later = [];
+    for (const job of queue) {
+      const { s, env, parent, depth } = job;
+      try {
+        const ofAst = s.props.get('of');
+        if (ofAst.k !== 'path' || ofAst.coords) throw new S3DError('copy 的 of 写一个对象名', s.line);
+        const r = S.find(ofAst.segs, parent, parent);
+        if (!r || r.rest.length) {
+          // 也许原对象本身是一个还没展开的 copy
+          if (queue.some((j) => j !== job && j.s.id === ofAst.segs[0])) { later.push(job); continue; }
+          throw new S3DError(`copy 找不到原对象 ${ofAst.segs.join('.')}`, s.line);
+        }
+        const A = r.node;
+        if (A === parent || A.isAncestorOf(parent)) throw new S3DError(`copy 不能复制包含自己的对象 ${A.path}`, s.line);
+        const own = new Map([...s.props].filter(([k]) => k !== 'of').map(([k, a]) => [k, { k: 'envd', env, ast: a }]));
+        const before = parent.children.length;
+        if (A.stmt) {
+          // 新的定位关系取代原来的；朝向、材质等没有给出的属性沿用原对象
+          const replacesRel = [...own.keys()].some((k) => REL_KEYS.includes(k));
+          const props = new Map([...A.stmt.props].filter(([k]) => !(replacesRel && [...REL_KEYS, 'align', 'alignto', 'gap', 'offset', 'pin'].includes(k))));
+          for (const [k, a] of own) props.set(k, a);
+          elab.walk([{ ...A.stmt, id: s.id, props, tags: [...A.stmt.tags, ...s.tags], meta: s.meta?.size ? s.meta : A.stmt.meta }], parent, A.srcEnv, depth);
+        } else {
+          // 没有源语句的对象（如阵列实例）：复制它的每个子语句到一个新组里
+          const G = new Node('group', s.id, own, s.tags, s.line, env, parent);
+          elab.flat.push(G);
+          G.file = s.file;
+          for (const c of A.children) if (c.stmt) elab.walk([c.stmt], G, c.srcEnv, depth);
+        }
+        const R = parent.children[before];
+        if (!R) throw new S3DError(`copy ${s.id} 没有生成任何对象`, s.line);
+        R.copyOfStruct = A;
+        if (s.children.length) elab.walk(s.children, R, new Env(env, { it: mkRef(R) }), depth);
+      } catch (e) { errors.push(fail(e, { line: s.line })); }
+    }
+    queue = later.concat(elab.copies.splice(0));
+  }
+  for (const job of queue) errors.push(new S3DError(`copy ${job.s.id} 的原对象无法确定（复制关系形成了循环？）`, job.s.line));
+}
+
+// 一个类型（沿派生链）的全部参数名
+function defParams(defs, name) {
+  const out = new Set();
+  for (let d = defs.get(name), n = 0; d && n < 33; d = d.baseDef ?? (d.base && d.base !== d.name ? defs.get(d.base) : null), n++) { for (const k of d.params.keys()) out.add(k); for (const k of d.overrides.keys()) out.add(k); }
+  return [...out];
+}
+
+// over / drop：在求解之前修改几何与结构。选择器只能与空间事实无关（路径、#标签、kind、按尺寸的 where）。
+// 写在模板体或块里的 over / drop 只作用于该实例或成员内部。后写的覆盖先写的。
+// 分两轮：第一轮在 mirror / rotate 生成副本之前（改原物体，副本随之改变）；
+// 选不中的（路径经过副本，例如 rotor.r1.blade）留到第二轮，在副本生成之后应用到那一个副本上。
+const COPY_MISS = /没有子对象或锚点|没有选中任何对象|找不到/;
+function applyOpinions(elab, S, errors, fail, queue = elab.opinions, pass = 1) {
+  const q = queue;
+  const later = [];
+  let dropped = false;
+  const mark = (n) => { n.dropped = true; n.children.forEach(mark); };
+  for (let i = 0; i < q.length; i++) {
+    const { s, env, scope, depth } = q[i];
+    try {
+      let members;
+      try { members = asSet(evalAst(s.sel, { env, node: scope, scope, frame: scope, S })).nodes; }
+      catch (e) {
+        if (/求解后的空间事实/.test(e.message)) throw new S3DError(`${s.kind} 改的是几何，在求解之前生效，不能按空间事实选择（只改外观的 over 可以）`, s.line);
+        if (pass === 1 && COPY_MISS.test(e.message)) { later.push(q[i]); continue; }
+        throw e;
+      }
+      members = members.filter((m) => !m.dropped && (scope.kind === 'root' || scope.isAncestorOf(m)));
+      if (!members.length) {
+        if (pass === 1) { later.push(q[i]); continue; }
+        throw new S3DError(`${s.kind} ${s.src} 没有选中任何对象`, s.line);
+      }
+      if (s.kind === 'drop') {
+        for (const m of members) { mark(m); m.parent.children.splice(m.parent.children.indexOf(m), 1); }
+        dropped = true;
+        continue;
+      }
+      for (let m of members) {
+        if (COPIES.has(m.kind) && m.props.has('of') && !m.ghostOf) throw new S3DError(`${m.path} 是 ${m.kind} 生成的副本，副本跟随原物体：请覆盖原物体、覆盖副本里的某个部件，或改用 copy`, s.line);
+        if (m.ghostOf) {
+          // 改某一个副本：给它一个“孪生体”——挂在原物体的父级下（不进场景树）、属性 = 原物体的属性 + 这次的修改，
+          // 副本改为跟随孪生体。孪生体在原物体的坐标系里求解，再由副本的镜像 / 旋转带过去，所以关系的含义不变；
+          // 没改的部分仍然来自原物体（父类型以后加的东西照样传下来）
+          if (s.retype) throw new S3DError(`${m.path} 是副本，不能单独换类型：请对原物体换类型，或改用 copy`, s.line);
+          if (m.ghostOf.params && [...s.props.keys()].some((k) => m.ghostOf.params.has(k))) throw new S3DError(`${m.path} 是副本，不能单独改模板参数：请改用 copy`, s.line);
+          const T = twinOf(m);
+          for (const [k, ast] of s.props) {
+            if (k === 'use') throw new S3DError('use= 只能写在最外层的 over / variant 里', s.line);
+            if (REL_KEYS.includes(k)) for (const r of REL_KEYS) T.props.delete(r);
+            T.props.set(k, { k: 'envd', env, ast });
+          }
+          if (s.children.length) elab.walk(s.children, m, new Env(env, { it: mkRef(m) }), depth);
+          continue;
+        }
+        // 改模板参数、阵列数量或换类型：用新的值重建这个节点（结构会随之变化）
+        const paramKeys = m.params ? [...s.props.keys()].filter((k) => m.params.has(k))
+          : m.kind === 'repeat' && m.stmt ? [...s.props.keys()].filter((k) => k === 'n') : [];
+        if (s.retype) {
+          if (!elab.defs.has(s.retype) && !KIND_PROPS[s.retype]) throw new S3DError(`over ${s.src} : ${s.retype}：没有这个类型或形状种类`, s.line);
+          if (!m.stmt) throw new S3DError(`${m.path} 不是由一条语句声明的物体，不能换类型`, s.line);
+          if (['repeat', 'mirror', 'rotate', 'copy'].includes(s.retype) || CURVES.has(s.retype)) throw new S3DError(`不能把物体换成 ${s.retype}`, s.line);
+        }
+        if (paramKeys.length || s.retype) {
+          const P = m.parent, idx = P.children.indexOf(m);
+          let props = new Map(m.stmt.props);
+          for (const k of paramKeys) props.set(k, { k: 'envd', env, ast: s.props.get(k) });
+          // 保名换形：基本体 / 容器之间、或基本体 ↔ 模板之间换，只保留定位与外观，新形状的参数在建节点时就从这条 over 里取；
+          // 名字与路径不变，所有引用它的 on= / at= / of= 都不用改。模板换（派生）模板则保留全部参数
+          if (s.retype && !(m.template && elab.defs.has(s.retype))) {
+            const keep = new Set([...PLACEMENT, 'mat', 'color']);
+            props = new Map([...props].filter(([k]) => keep.has(k)));
+            const allowed = new Set(KIND_PROPS[s.retype] ?? defParams(elab.defs, s.retype));
+            for (const [k, ast] of s.props) if (allowed.has(k)) { props.set(k, { k: 'envd', env, ast }); paramKeys.push(k); }
+          }
+          mark(m); P.children.splice(idx, 1); dropped = true;
+          elab.walk([{ ...m.stmt, kind: s.retype ?? m.stmt.kind, props }], P, m.srcEnv, depth);
+          const fresh = P.children.pop();
+          P.children.splice(idx, 0, fresh);
+          m = fresh;
+        }
+        for (const [k, ast] of s.props) {
+          if (paramKeys.includes(k)) continue;
+          if (k === 'use') throw new S3DError('use= 只能写在最外层的 over / variant 里', s.line);
+          if (m.props === m.stmt?.props || !m.ownProps) { m.props = new Map(m.props); m.ownProps = true; }
+          if (REL_KEYS.includes(k)) for (const r of REL_KEYS) m.props.delete(r);
+          m.props.set(k, { k: 'envd', env, ast });
+        }
+        if (s.children.length) {
+          // over 阵列 { … }：改的是阵列的“模板”——块里的语句作用到每一个实例上（和写在 repeat 体里一样，可以用 i j k idx）
+          const insts = m.kind === 'repeat' ? m.children.filter((c) => c.inst) : null;
+          if (insts?.length) for (const c of insts) elab.walk(s.children, c, new Env(env, { it: mkRef(c), i: c.inst.index[0], j: c.inst.index[1], k: c.inst.index[2], idx: c.inst.flat }), depth);
+          else elab.walk(s.children, m, new Env(env, { it: mkRef(m) }), depth);
+        }
+      }
+    } catch (e) { errors.push(fail(e, { line: s.line })); }
+  }
+  if (dropped) {
+    const keep = elab.flat.filter((n) => !n.dropped);
+    elab.flat.length = 0;
+    for (const x of keep) elab.flat.push(x); // 不用展开：几十万个节点时会超出参数个数的上限
+  }
+  // 新增或删除了节点（包括第二轮在副本里加的部件）都要重建名字索引
+  S.rebuildIndex();
+  return later;
+}
+
+// 副本的孪生体（见上）：同一个副本改多次时共用一个
+function twinOf(g) {
+  if (g.twin) return g.ghostOf;
+  const src = g.ghostOf;
+  const T = new Node(src.kind, src.id, new Map(src.props), src.tags, src.line, src.env, src.parent);
+  src.parent.children.pop(); // 不进场景树：只用来求解这个副本的位置与形状
+  for (const k of ['asKind', 'stmt', 'srcEnv', 'meta', 'types', 'template', 'params', 'bodyEnv', 'inst', 'counts', 'total', 'src', 'copyOf', 'file']) if (src[k] !== undefined) T[k] = src[k];
+  T.path = src.path;
+  T.ownProps = true;
+  T.children = src.children; // 结构与原物体相同：容器的包围盒由原物体的部件算出
+  g.ghostOf = T;
+  g.twin = true;
+  g.twinOf = src;
+  return T;
+}
+
+// ───────────────────────── 求解 ─────────────────────────
+
+// 集合作为参照物时的“虚拟对象”：坐标系与世界对齐，包围盒是所有成员的总包围盒
+class SetNode {
+  constructor(members, root) {
+    Object.assign(this, { kind: 'set', isSet: true, members, parent: root, children: [], props: new Map(), tags: [], id: null, line: 0 });
+    this.path = `{${members.slice(0, 3).map((m) => m.path).join(', ')}${members.length > 3 ? ` …共 ${members.length} 个` : ''}}`;
+  }
+  childById() { return null; }
+  isAncestorOf() { return false; }
+}
+
+class Solver {
+  constructor(root, flat, opts = {}) {
+    this.root = root;
+    this.flat = flat;
+    // 网格表面的高度（B.top[u,w] 用）：heightAt(src, x, z) → 源文件坐标里竖直射线碰到的最高点的 y，没有就 null
+    this.heightAt = opts.heightAt ?? null;
+    this.warnings = [];
+    this.sets = new Map();
+    this.rebuildIndex();
+  }
+  rebuildIndex() {
+    this.index = new Map();
+    for (const n of this.flat) if (n.id && !n.inst) {
+      if (!this.index.has(n.id)) this.index.set(n.id, []);
+      this.index.get(n.id).push(n);
+    }
+    this._tags = null;
+  }
+
+  // 语义层看到的对象：变体（skin）只是外观，不参与集合、概念、模式与检查
+  allNodes() { return this.flat.filter((n) => !n.skin); }
+  tagIndex() {
+    if (this._tags && this._tagsAt === this.flat.length) return this._tags;
+    const idx = new Map();
+    for (const n of this.flat) if (!n.skin) for (const t of n.tags) { if (!idx.has(t)) idx.set(t, []); idx.get(t).push(n); }
+    this._tagsAt = this.flat.length;
+    return (this._tags = idx);
+  }
+  setNode(set) {
+    if (!set.nodes.length) throw new S3DError('集合是空的，不能当参照物');
+    const key = set.nodes.map((n) => n.path).join('|');
+    if (!this.sets.has(key)) this.sets.set(key, new SetNode(set.nodes, this.root));
+    return this.sets.get(key);
+  }
+  // 由空间事实建立关系索引；组也参与：组里任何一个物体满足关系，组就满足
+  buildRelations(facts) {
+    const byPath = new Map(this.flat.map((n) => [n.path, n]));
+    const chain = (n) => { const out = []; for (let a = n; a && a.kind !== 'root'; a = a.parent) out.push(a); return out; };
+    const R = Object.fromEntries(RELATIONS.map((r) => [r, new Map()]));
+    const put = (rel, x, y) => { if (!R[rel].has(x)) R[rel].set(x, new Set()); R[rel].get(x).add(y); };
+    for (const f of facts) {
+      const A = byPath.get(f.a), B = byPath.get(f.b);
+      if (!A || !B) continue;
+      const ca = chain(A), cb = chain(B), common = new Set(ca.filter((x) => cb.includes(x)));
+      for (const x of ca) for (const y of cb) {
+        if (common.has(x) || common.has(y)) continue;
+        if (f.rel === 'on') { put('on', x, y); put('supports', y, x); put('touching', x, y); put('touching', y, x); }
+        if (f.rel === 'against') { put('against', x, y); put('against', y, x); put('touching', x, y); put('touching', y, x); }
+        if (f.rel === 'inside') { put('inside', x, y); put('contains', y, x); }
+        if (f.rel === 'touching') { put('touching', x, y); put('touching', y, x); }
+        if (f.rel === 'intersects') { put('intersects', x, y); put('intersects', y, x); put('touching', x, y); put('touching', y, x); }
+      }
+    }
+    this.rel = R;
+  }
+  relSet(name, set, k = 1) {
+    if (!this.rel) throw new S3DError(`${name}() 依赖求解后的空间事实，只能用在 concept / style / check 里，不能用来决定位置`);
+    const members = new Set(set.nodes), out = [];
+    for (const [x, ys] of this.rel[name]) {
+      let c = 0;
+      for (const y of ys) if (members.has(y)) c++;
+      if (c >= k) out.push(x);
+    }
+    return new NodeSet(out);
+  }
+
+  // 名字查找：从 scope（缺省为当前节点的父级）逐层向外；最后按全局唯一名查找
+  find(segs, from, scope = null) {
+    const descend = (start, i) => {
+      let cur = start, k = i;
+      while (k < segs.length) { const c = cur.childById(segs[k]); if (!c) break; cur = c; k++; }
+      return { node: cur, rest: segs.slice(k) };
+    };
+    for (let sc = scope ?? from.parent; sc; sc = sc.parent) {
+      const c = sc.childById(segs[0]);
+      if (c) return descend(c, 1);
+    }
+    const cands = this.index.get(segs[0]);
+    if (cands && cands.length === 1) return descend(cands[0], 1);
+    if (cands && cands.length > 1) throw new S3DError(`名字 ${segs[0]} 不唯一，请写完整路径（${cands.map((c) => c.path).join(' / ')}）`);
+    return null;
+  }
+
+  memo(n, key, fn) {
+    const slot = '_' + key, busy = key + 'Busy';
+    if (n[slot] !== undefined) return n[slot];
+    if (n[busy]) throw new Cycle(n, key);
+    n[busy] = true;
+    try { return (n[slot] = fn()); } finally { n[busy] = false; }
+  }
+
+  eval(n, key, dflt) {
+    if (!n.props.has(key)) return dflt;
+    try { return evalAst(n.props.get(key), { env: n.env, node: n, prop: key, S: this }); }
+    catch (e) { if (e instanceof S3DError) { e.line ??= n.line; e.node ??= n; e.message = `${n.path} 的 ${key}：${e.message}`; } throw e; }
+  }
+  num(n, key, dflt) {
+    const v = this.eval(n, key, dflt);
+    if (typeof v !== 'number' || !Number.isFinite(v)) throw new S3DError(`${n.path} 的 ${key} 需要数字`, n.line, n);
+    return v;
+  }
+  vec(n, key, dflt) {
+    let v = this.eval(n, key, dflt);
+    if (typeof v === 'number') v = [v, v, v];
+    if (!Array.isArray(v) || v.length !== 3) throw new S3DError(`${n.path} 的 ${key} 需要三维向量 x,y,z`, n.line, n);
+    return v;
+  }
+  vec2(n, key, dflt) {
+    const v = this.eval(n, key, dflt);
+    if (!Array.isArray(v) || v.length !== 2) throw new S3DError(`${n.path} 的 ${key} 需要两个数：宽,厚`, n.line, n);
+    return v;
+  }
+  ref(n, key) {
+    let v = this.eval(n, key);
+    if (typeof v === 'string') throw new S3DError(`${n.path} 的 ${key}：找不到对象 ${v}`, n.line, n);
+    if (isSet(v) || (v && v.list && v.list.every(isRef))) {
+      const set = asSet(v);
+      if (set.nodes.some((m) => m === n || m.isAncestorOf(n) || n.isAncestorOf(m))) throw new S3DError(`${n.path} 的 ${key}：集合里包含它自己或它的上下级`, n.line, n);
+      v = mkRef(this.setNode(set));
+    }
+    if (!isRef(v)) throw new S3DError(`${n.path} 的 ${key} 需要引用一个对象，得到 ${show(v)}`, n.line, n);
+    if (v.node === n || n.isAncestorOf(v.node)) throw new S3DError(`${n.path} 不能相对自己定位`, n.line, n);
+    return v;
+  }
+  curveRef(n, key) {
+    const r = this.ref(n, key);
+    if (!CURVES.has(K(r.node))) throw new S3DError(`${n.path} 的 ${key} 需要一条曲线（line / bezier / spline / arc / helix）`, n.line, n);
+    return r;
+  }
+  sym(n, key, dflt) { const v = this.eval(n, key, dflt); return typeof v === 'string' ? v : dflt; }
+  names(n, key) {
+    const ast = unwrap(n.props.get(key));
+    const items = ast.k === 'vec' ? ast.items : [ast];
+    return items.map((a) => {
+      if (a.k !== 'path' || a.segs.length !== 1) throw new S3DError(`${key} 只接受面名，如 left,back`, n.line, n);
+      return a.segs[0];
+    });
+  }
+  anchorSpec(n, key) {
+    const ast = unwrap(n.props.get(key));
+    if (ast.k === 'path' && ast.segs.length === 1) {
+      if (ast.segs[0] === 'origin') return 'origin';
+      const d = dirWord(ast.segs[0]);
+      if (d) return d;
+    }
+    return this.vec(n, key);
+  }
+  points(n, key, F) {
+    const v = this.eval(n, key);
+    if (!v || !v.list || v.list.length < 2) throw new S3DError(`${n.path} 的 ${key} 至少需要两个点，如 ${key}=[A.top; B.top]`, n.line, n);
+    return v.list.map((x) => this.pointOf(x, F, `${n.path} 的 ${key}`));
+  }
+
+  // —— 框架变换 ——
+  lca(a, b) {
+    const seen = new Set();
+    for (let x = a; x; x = x.parent) seen.add(x);
+    for (let y = b; y; y = y.parent) if (seen.has(y)) return y;
+    return this.root;
+  }
+  toAncestor(n, L) { let T = IDENT; for (let a = n; a !== L; a = a.parent) T = compose(this.local(a), T); return T; }
+  // T 的框架相对 F 的框架
+  relTo(T, F) { const L = this.lca(T, F); return compose(invT(this.toAncestor(F, L)), this.toAncestor(T, L)); }
+  pointIn(T, p, F) { return apply(this.relTo(T, F), p); }
+  dirIn(T, d, F) { return applyDir(this.relTo(T, F), d); }
+  world(n) { return this.memo(n, 'world', () => (n.parent ? compose(this.world(n.parent), this.local(n)) : IDENT)); }
+
+  anchorLocal(n, a) {
+    if (a === 'origin') return { p: [0, 0, 0], nrm: [0, 0, 0] };
+    if (a && a.surf) return this.surfaceAnchor(n, a);
+    if (a && a.t !== undefined) {
+      if (!CURVES.has(K(n))) throw new S3DError(`${n.path} 不是曲线，不能用 [t] 取点`, n.line, n);
+      const c = curveAt(this.curve(n), a.t);
+      return { p: c.p, nrm: [0, 0, 0], tan: c.tan };
+    }
+    const b = this.box(n);
+    const c = scl(add(b.min, b.max), 0.5), h = scl(sub(b.max, b.min), 0.5);
+    return { p: [c[0] + h[0] * a[0], c[1] + h[1] * a[1], c[2] + h[2] * a[2]], nrm: dominant(a) };
+  }
+  // 曲面锚点（自身框架）：{ p, nrm }
+  surfaceAnchor(n, { surf, uv: [a, b] }) {
+    const box = this.box(n), g = n.geom ?? {}, kind = g.type;
+    const c = scl(add(box.min, box.max), 0.5), h = scl(sub(box.max, box.min), 0.5);
+    const rad = (d) => (d * Math.PI) / 180;
+    if (surf === 'top') {
+      const x = c[0] + h[0] * a, z = c[2] + h[2] * b, up = [0, 1, 0];
+      let y = box.max[1];
+      if (kind === 'mesh') {
+        const sy = this.heightAt ? this.heightAt(g.src, x + g.pivot[0], z + g.pivot[2]) : null;
+        if (sy != null && Number.isFinite(sy)) y = sy - g.pivot[1];
+        else this.warn(n, this.heightAt ? `${n.path}.top[${a},${b}]：竖直射线没有碰到网格，用包围盒的顶面` : `${n.path}.top[…]：没有网格数据，用包围盒的顶面（位置是近似的）`);
+      } else if (kind === 'sphere') {
+        const r = g.r, q = x * x + z * z;
+        y = q <= r * r ? r + Math.sqrt(r * r - q) : r;
+      } else if (kind === 'cyl' && g.axis === 'y' && g.r2 !== g.r1) {
+        // 圆台：顶面半径以内是平的，之外沿斜面
+        const rho = Math.hypot(x, z), lo = Math.min(g.r1, g.r2), hi = Math.max(g.r1, g.r2);
+        if (rho > lo) y = rho >= hi ? 0 : g.r2 < g.r1 ? (g.h * (g.r1 - rho)) / (g.r1 - g.r2) : g.h;
+      } else if (kind === 'revolve') {
+        // 旋转体：轮廓上半径不小于 ρ 的最高处
+        const rho = Math.hypot(x, z), P = g.prof;
+        let best = -Infinity;
+        for (let k = 1; k < P.length; k++) {
+          const [r0, y0] = P[k - 1], [r1, y1] = P[k];
+          if ((r0 - rho) * (r1 - rho) <= 0 && r0 !== r1) best = Math.max(best, y0 + ((rho - r0) * (y1 - y0)) / (r1 - r0));
+          else if (r0 >= rho && r1 >= rho) best = Math.max(best, y0, y1);
+        }
+        if (best > -Infinity) y = best;
+      }
+      return { p: [x, y, z], nrm: up };
+    }
+    if (surf === 'side') {
+      if (kind !== 'cyl' && kind !== 'revolve') throw new S3DError(`${n.path} 没有侧面锚点 side[θ,v]（只有圆柱、圆台、旋转体有）`);
+      const th = rad(a), cs = Math.cos(th), sn = Math.sin(th);
+      if (kind === 'cyl') {
+        const r = g.r1 + (g.r2 - g.r1) * b, slope = (g.r1 - g.r2) / g.h;
+        if (g.axis === 'y') return { p: [r * cs, b * g.h, -r * sn], nrm: unit([cs, slope, -sn]) };
+        // 横放的圆柱：轴心线在 y = R 处；0° 指向局部 +y（朝上），绕轴正向转
+        const R = Math.max(g.r1, g.r2), t = -g.h / 2 + b * g.h;
+        if (g.axis === 'x') return { p: [t, R + r * cs, r * sn], nrm: unit([-slope, cs, sn]) };
+        return { p: [r * sn, R + r * cs, t], nrm: unit([sn, cs, -slope]) };
+      }
+      // 旋转体：高度比例 → 轮廓上的半径（取这一高度上最大的半径）
+      const P = g.prof, ys = P.map((p) => p[1]), y = Math.min(...ys) + b * (Math.max(...ys) - Math.min(...ys));
+      let r = 0;
+      for (let k = 1; k < P.length; k++) {
+        const [r0, y0] = P[k - 1], [r1, y1] = P[k];
+        if ((y0 - y) * (y1 - y) <= 0) r = Math.max(r, y1 === y0 ? Math.max(r0, r1) : r0 + ((y - y0) * (r1 - r0)) / (y1 - y0));
+      }
+      return { p: [r * cs, y, -r * sn], nrm: [cs, 0, -sn] };
+    }
+    // surface：球面
+    if (kind !== 'sphere') throw new S3DError(`${n.path} 没有球面锚点 surface[θ,φ]（只有球有）`);
+    const th = rad(a), ph = rad(b), d = [Math.cos(ph) * Math.cos(th), Math.sin(ph), -Math.cos(ph) * Math.sin(th)];
+    return { p: add([0, g.r, 0], scl(d, g.r)), nrm: d };
+  }
+  warn(n, message) { if (!this.warnings.some((w) => w.message === message)) this.warnings.push({ line: n.line ?? null, file: n.file ?? null, message }); }
+  anchorIn(ref, F, dflt) {
+    const a = this.anchorLocal(ref.node, ref.anchor ?? dflt);
+    const R = this.relTo(ref.node, F);
+    return { q: add(apply(R, a.p), ref.offset), nrm: applyDir(R, a.nrm), tan: a.tan && applyDir(R, a.tan) };
+  }
+  pointOf(v, F, what) {
+    if (Array.isArray(v) && v.length === 3) return v;
+    if (isSet(v)) v = mkRef(this.setNode(v));
+    if (isRef(v)) return this.anchorIn(v, F, DIRS.center).q;
+    throw new S3DError(`${what} 需要点坐标或锚点`);
+  }
+
+  // —— 关系 → 定位 ——
+  relation(n, Rm) {
+    const P = n.parent;
+    const pin = n.props.has('pin') ? this.anchorSpec(n, 'pin') : null;
+    const pinP = (dflt) => this.anchorLocal(n, pin ?? dflt).p;
+    if (n.props.has('on')) {
+      const r = this.ref(n, 'on'), a = this.anchorIn(r, P, DIRS.top);
+      return { ref: r, q: a.q, nrm: this.dirIn(r.node, DIRS.top, P), pin: pinP(DIRS.bottom) };
+    }
+    if (n.props.has('under')) {
+      const r = this.ref(n, 'under'), a = this.anchorIn(r, P, DIRS.bottom);
+      return { ref: r, q: a.q, nrm: this.dirIn(r.node, DIRS.bottom, P), pin: pinP(DIRS.top) };
+    }
+    if (n.props.has('against')) {
+      const r = this.ref(n, 'against');
+      // 贴面要有法线：包围盒的面（B.left），或者曲面锚点（B.side[θ,v]、B.surface[θ,φ]，法线沿径向）
+      if (!Array.isArray(r.anchor) && !r.anchor?.surf) throw new S3DError(`${n.path}：against 要指明贴哪个面，如 ${r.node.id ?? 'B'}.left 或 ${r.node.id ?? 'B'}.side[90,0.5]`, n.line, n);
+      const a = this.anchorIn(r, P);
+      let face = pin;
+      if (!face) {
+        let best = Infinity;
+        for (const f of FACES) { const s = dot(mv(Rm, DIRS[f]), a.nrm); if (s < best) { best = s; face = DIRS[f]; } }
+      }
+      return { ref: r, q: a.q, nrm: a.nrm, pin: this.anchorLocal(n, face).p };
+    }
+    if (n.props.has('inside')) {
+      const r = this.ref(n, 'inside'), a = this.anchorIn(r, P, DIRS.center);
+      return { ref: r, q: a.q, nrm: [0, 0, 0], pin: pinP(DIRS.center) };
+    }
+    if (n.props.has('at')) {
+      const v = this.eval(n, 'at');
+      if (isRef(v)) {
+        if (v.node === n || n.isAncestorOf(v.node)) throw new S3DError(`${n.path} 不能相对自己定位`, n.line, n);
+        const a = this.anchorIn(v, P, DIRS.center);
+        return { ref: v, q: a.q, nrm: a.nrm, pin: pinP(DIRS.bottom) };
+      }
+      return { ref: null, q: this.pointOf(v, P, `${n.path} 的 at`), nrm: [0, 0, 0], pin: pinP(DIRS.bottom) };
+    }
+    if (pin) return { ref: null, q: [0, 0, 0], nrm: [0, 0, 0], pin: pinP(pin) };
+    return null;
+  }
+
+  local(n) {
+    return this.memo(n, 'local', () => {
+      if (!n.parent || n.isSet) return IDENT;
+      if (n.ghostOf) return this.local(n.ghostOf);
+      if (n.src) return this.copyLocal(n);
+      if (n.copyOf) return this.containerCopyLocal(n);
+      if (LINKS.has(n.kind)) return this.link(n).local;
+      if (PATH_CURVES.has(n.kind)) return IDENT;
+      if (n.inst) return this.instLocal(n);
+      const Rm = this.orientation(n);
+      let t = [0, 0, 0];
+      const r = this.relation(n, Rm);
+      if (r) {
+        t = sub(r.q, mv(Rm, r.pin));
+        const gap = this.num(n, 'gap', 0);
+        if (gap) t = add(t, scl(r.nrm, gap));
+      }
+      if (n.props.has('align')) {
+        const tgt = n.props.has('alignto') ? this.ref(n, 'alignto') : r && r.ref;
+        if (!tgt) throw new S3DError(`${n.path}：align 需要参照（on/under/against/inside/at=对象 或 alignto=对象）`, n.line, n);
+        const P = n.parent;
+        for (const f of this.names(n, 'align')) {
+          const T0 = T3(Rm, t);
+          const ax = { x: 0, y: 1, z: 2 }[f];
+          if (ax !== undefined) {
+            const q = this.anchorIn({ ...tgt, anchor: DIRS.center, offset: [0, 0, 0] }, P).q;
+            const p = apply(T0, this.anchorLocal(n, DIRS.center).p);
+            t = [...t]; t[ax] += q[ax] - p[ax];
+            continue;
+          }
+          const dv = dirWord(f);
+          if (!dv || f.includes('-') || f === 'center') throw new S3DError(`${n.path}：align 不认识 “${f}”（可用面名或 x/y/z）`, n.line, n);
+          const a = this.anchorIn({ ...tgt, anchor: dv, offset: [0, 0, 0] }, P);
+          let mine = dv, best = -Infinity;
+          for (const g of FACES) { const s = dot(mv(Rm, DIRS[g]), a.nrm); if (s > best) { best = s; mine = DIRS[g]; } }
+          const p = apply(T0, this.anchorLocal(n, mine).p);
+          t = add(t, scl(a.nrm, dot(sub(a.q, p), a.nrm)));
+        }
+      }
+      if (n.props.has('offset')) t = add(t, this.vec(n, 'offset'));
+      return T3(Rm, t);
+    });
+  }
+
+  // 朝向 = 基准 · turn · tilt · roll · rot
+  //   基准：on/under/against/inside 继承参照物的朝向；有 aim 时改为“让自己的某个面指向目标”
+  orientation(n) {
+    const P = n.parent;
+    let base = I3;
+    const rk = ['on', 'under', 'against', 'inside'].find((k) => n.props.has(k));
+    if (rk) {
+      base = this.relTo(this.ref(n, rk).node, P).R;
+      if (det3(base) < 0) base = mm(base, [[-1, 0, 0], [0, 1, 0], [0, 0, 1]]); // 参照物是镜像时，只继承朝向不继承手性
+    }
+    // repeat 也继承参照物的朝向，但它的 turn 是每个实例的递增角，不旋转阵列本身
+    if (n.kind === 'repeat') return base;
+    let Rm = mm(base, Ry(rad(this.num(n, 'turn', 0))));
+    if (n.props.has('aim')) {
+      const tgt = this.pointOf(this.eval(n, 'aim'), P, `${n.path} 的 aim`);
+      const r0 = this.relation(n, Rm);
+      const from = r0 ? r0.q : n.props.has('offset') ? this.vec(n, 'offset') : [0, 0, 0];
+      const d = sub(tgt, from);
+      if (len(d) < 1e-9) throw new S3DError(`${n.path}：aim 的目标与自身重合`, n.line, n);
+      const wName = this.sym(n, 'aimwith', 'front');
+      const a = dirWord(wName);
+      if (!a || len(a) < 1e-9) throw new S3DError(`${n.path} 的 aimwith 需要方向词，如 front / top / right`, n.line, n);
+      const au = unit(a);
+      // 次轴：尽量保持原来的“上”（若主轴本身是上下，则保持原来的“前”）
+      const b = Math.abs(au[1]) < 0.99 ? [0, 1, 0] : [0, 0, 1];
+      Rm = alignAxes(au, unit(sub(b, scl(au, dot(b, au)))), d, mv(Rm, b));
+    }
+    Rm = mm(Rm, mm(Rx(rad(this.num(n, 'tilt', 0))), Rroll(rad(this.num(n, 'roll', 0)))));
+    if (n.props.has('rot')) {
+      const v = this.eval(n, 'rot');
+      if (!Array.isArray(v) || v.length !== 4) throw new S3DError(`${n.path} 的 rot 写成 (轴x,轴y,轴z,角度)`, n.line, n);
+      Rm = mm(Rm, axisAngle(v.slice(0, 3), rad(v[3])));
+    }
+    return Rm;
+  }
+
+  instLocal(n) {
+    const R = n.parent;
+    const turn = rad(this.num(R, 'turn', 0));
+    const { index, flat, grid } = n.inst;
+    if (R.props.has('along')) {
+      // 沿曲线等弧长分布；默认朝向跟随切线
+      const c = this.curveRef(R, 'along');
+      const cv = this.curve(c.node);
+      const N = R.total;
+      const s = cv.closed ? flat / N : N > 1 ? flat / (N - 1) : 0;
+      const a = this.anchorIn({ ...c, anchor: { t: s } }, R);
+      // orient=yaw（默认）：只转向不倾斜，保持竖直；full：x 沿切线、z 水平朝外侧、y 为法向；none：不转
+      const o = this.eval(R, 'orient', 'yaw');
+      const mode = o === true || o === 'true' ? 'yaw' : o === false || o === 'false' ? 'none' : o;
+      if (!['yaw', 'full', 'none'].includes(mode)) throw new S3DError(`${R.path} 的 orient 只能是 yaw / full / none`, R.line, R);
+      let M = I3;
+      if (mode === 'yaw' && Math.hypot(a.tan[0], a.tan[2]) > 1e-9) M = Ry(Math.atan2(-a.tan[2], a.tan[0]));
+      if (mode === 'full') { const side = len(cross(a.tan, [0, 1, 0])) > 1e-6 ? unit(cross(a.tan, [0, 1, 0])) : [0, 0, 1]; M = cols(unit(a.tan), cross(side, unit(a.tan)), side); }
+      return T3(mm(M, Ry(turn * flat)), a.q);
+    }
+    const step = this.vec(R, 'step', [0, 0, 0]);
+    const centered = truthy(this.eval(R, 'center', false));
+    let t;
+    if (grid) t = index.map((x, k) => (x - (centered ? ((R.counts[k] ?? 1) - 1) / 2 : 0)) * step[k]);
+    else t = scl(step, flat - (centered ? (R.counts[0] - 1) / 2 : 0));
+    return T3(Ry(turn * flat), t);
+  }
+
+  // —— 镜像面 / 旋转轴（在框架 F 中表达）——
+  mirrorIn(n, F) {
+    const v = this.eval(n, 'across', 'x');
+    let q, nrm;
+    if (typeof v === 'string') {
+      if (!(v in AXES)) throw new S3DError(`${n.path}：across 写成 x / y / z、点坐标，或对象/锚点（如 B、B.right、B.top）`, n.line, n);
+      q = [0, 0, 0]; nrm = AXES[v];
+    } else if (Array.isArray(v)) {
+      q = v; nrm = this.dirSpec(n, 'axis', F, null, [1, 0, 0]);
+    } else if (isRef(v)) {
+      if (Array.isArray(v.anchor) && !n.props.has('axis') && len(v.anchor) > 0) {
+        const a = this.anchorIn(v, F); q = a.q; nrm = a.nrm; // 过某个面
+      } else {
+        q = this.anchorIn(v, F, DIRS.center).q;
+        nrm = this.dirSpec(n, 'axis', F, v.node, [1, 0, 0]); // 轴名按参照物自己的坐标轴理解
+      }
+    } else throw new S3DError(`${n.path}：无法理解 across`, n.line, n);
+    if (len(nrm) < 1e-9) throw new S3DError(`${n.path}：镜像面的法线为零`, n.line, n);
+    return reflectAcross(q, unit(nrm));
+  }
+  // 方向：x/y/z 或方向词（在 frameOf 的坐标系里，缺省为 F）、向量、或锚点（取其法线 / 曲线切线）
+  dirSpec(n, key, F, frameOf, dflt) {
+    const v = n.props.has(key) ? this.eval(n, key) : null;
+    const inFrame = (d) => (frameOf ? this.dirIn(frameOf, d, F) : d);
+    if (v == null) return inFrame(dflt);
+    if (typeof v === 'string') {
+      const d = AXES[v] ?? dirWord(v);
+      if (!d || len(d) < 1e-9) throw new S3DError(`${n.path} 的 ${key}：不认识方向 “${v}”`, n.line, n);
+      return unit(inFrame(d));
+    }
+    if (Array.isArray(v) && v.length === 3) return unit(v);
+    if (isRef(v)) {
+      if (v.anchor && v.anchor.t !== undefined) return unit(this.anchorIn(v, F).tan);
+      if (Array.isArray(v.anchor) && len(v.anchor) > 0) return unit(this.dirIn(v.node, v.anchor, F));
+    }
+    throw new S3DError(`${n.path} 的 ${key} 需要方向：x / y / z、向量，或锚点如 B.front`, n.line, n);
+  }
+  rotationIn(n, F, k) {
+    const count = n.src ? 1 : Math.round(this.num(n, 'n', 1));
+    const angle = this.num(n, 'angle', 360 / (count + 1));
+    const v = this.eval(n, 'about', null);
+    const q = v == null ? [0, 0, 0] : this.pointOf(v, F, `${n.path} 的 about`);
+    return rotateAbout(q, this.dirSpec(n, 'axis', F, null, [0, 1, 0]), rad(angle * k));
+  }
+  // of= 复制：副本的框架 = 关系变换 ∘ 原物体的框架（在父框架中计算）
+  copyLocal(n) {
+    const P = n.parent;
+    const M = n.kind === 'mirror' ? this.mirrorIn(n, P) : this.rotationIn(n, P, 1);
+    return compose(M, this.relTo(n.src, P));
+  }
+  // 容器式：生成的副本组相对容器本身
+  containerCopyLocal(G) {
+    const { container: C, k } = G.copyOf;
+    return C.kind === 'mirror' ? this.mirrorIn(C, C) : this.rotationIn(C, C, k);
+  }
+
+  // —— 曲线（自身框架中的密集采样）——
+  curve(n) {
+    return this.memo(n, 'curve', () => {
+      if (n.ghostOf) return this.curve(n.ghostOf);
+      if (n.src) return this.curve(n.src);
+      const k = n.kind;
+      if (k === 'arc' || k === 'helix') {
+        const r = this.num(n, 'r', 5);
+        let a0, a1, rise, plane = 'xz';
+        if (k === 'helix') {
+          const pitch = this.num(n, 'pitch', 3), turns = this.num(n, 'turns', 1);
+          a0 = 0; a1 = 360 * turns; rise = pitch * Math.abs(turns);
+        } else {
+          let ang = this.eval(n, 'angle', [0, 360]);
+          if (typeof ang === 'number') ang = [0, ang];
+          if (!Array.isArray(ang) || ang.length !== 2) throw new S3DError(`${n.path} 的 angle 写成 起,止（度）`, n.line, n);
+          [a0, a1] = ang;
+          rise = this.num(n, 'rise', 0);
+          plane = this.sym(n, 'plane', 'xz');
+          if (!['xz', 'xy', 'zy'].includes(plane)) throw new S3DError(`${n.path} 的 plane 只能是 xz / xy / zy`, n.line, n);
+        }
+        const sweep = a1 - a0, segs = Math.max(8, Math.ceil(Math.abs(sweep) / 4)), dth = rad(sweep);
+        const closed = Math.abs(sweep) >= 360 - 1e-9 && rise === 0;
+        const fn = (s) => {
+          const th = rad(a0 + sweep * s), c = r * Math.cos(th), sn = r * Math.sin(th);
+          const p = plane === 'xz' ? [c, rise * s, -sn] : plane === 'xy' ? [c, sn, rise * s] : [rise * s, sn, c];
+          const d = plane === 'xz' ? [-sn * dth, rise, -c * dth] : plane === 'xy' ? [-sn * dth, c * dth, rise] : [rise, c * dth, -sn * dth];
+          return { p, tan: scl(d, 1 / (len(d) || 1)) };
+        };
+        const pts = [];
+        for (let i = 0; i <= segs; i++) { if (closed && i === segs) break; pts.push(fn(i / segs).p); }
+        return measureCurve(pts, closed, fn);
+      }
+      const ctrl = this.points(n, 'path', n.parent);
+      if (k === 'line') return measureCurve(ctrl, false);
+      if (k === 'bezier') return measureCurve(bezierPts(ctrl), false);
+      const closed = truthy(this.eval(n, 'closed', false));
+      return measureCurve(catmullRom(ctrl, closed), closed);
+    });
+  }
+
+  // —— span / sweep / pipe：由两端或路径在父框架中直接确定自身 ——
+  link(n) {
+    return this.memo(n, 'link', () => {
+      const P = n.parent;
+      if (n.kind === 'sweep' || n.kind === 'pipe') {
+        const v = this.eval(n, 'path');
+        let pts, tans = null, closed = false;
+        const pv = n.kind === 'pipe' ? 'circle' : this.eval(n, 'profile', n.props.has('section') ? 'rect' : 'circle');
+        let profile = pv, poly = null;
+        if (pv && pv.list) {
+          // 自定义截面：截面平面里的多边形 [(u,v); …]，u 沿水平侧向、v 沿“上”
+          if (pv.list.length < 3 || pv.list.some((q) => !Array.isArray(q) || q.length !== 2)) throw new S3DError(`${n.path} 的 profile 多边形写成 [(u,v); (u,v); …]，至少 3 个点`, n.line, n);
+          profile = 'poly'; poly = pv.list;
+        } else if (!['circle', 'rect'].includes(profile)) throw new S3DError(`${n.path} 的 profile 只能是 circle / rect / 多边形列表`, n.line, n);
+        const r = this.num(n, 'r', 0.3);
+        const [w, th] = this.vec2(n, 'section', [1, 0.2]);
+        if (isRef(v)) {
+          const C = v.node;
+          if (!CURVES.has(K(C))) throw new S3DError(`${n.path} 的 path 需要曲线或点列表`, n.line, n);
+          const cv = this.curve(C), R = this.relTo(C, P);
+          pts = cv.pts.map((p) => apply(R, p));
+          closed = cv.closed;
+          // 有解析式的曲线（圆弧、螺旋）用精确切线，端点截面不会歪
+          if (cv.fn) tans = cv.pts.map((_, i) => applyDir(R, cv.fn(closed ? i / pts.length : i / (pts.length - 1)).tan));
+        } else {
+          const ctrl = this.points(n, 'path', P);
+          pts = truthy(this.eval(n, 'smooth', false)) ? catmullRom(ctrl, false, 10) : roundCorners(ctrl, profile === 'circle' ? Math.max(3 * r, 0.6) : Math.max(w, 1));
+        }
+        const pin = this.sym(n, 'pin', 'center');
+        const frames = sweepFrames(pts, closed, tans), prof = poly ? ccw(poly) : sweepProfile(profile, r, w, th, pin);
+        const ring = (f) => prof.map(([u, v]) => add(f.p, add(scl(f.side, u), scl(f.up, v))));
+        return { local: IDENT, box: boundsOf(frames.flatMap(ring)), geom: { type: 'sweep', frames, prof, closed, smooth: profile === 'circle' } };
+      }
+      const A = this.pointOf(this.eval(n, 'from'), P, `${n.path} 的 from`);
+      let B;
+      if (n.props.has('drop')) {
+        // 从 A 沿 dir（默认竖直向下）一直延伸，直到碰到参照物的面（默认是它的顶面所在平面）
+        const r = this.ref(n, 'drop'), dir = this.dirSpec(n, 'dir', P, null, [0, -1, 0]);
+        const face = this.anchorIn(r, P, DIRS.top);
+        const nrm = len(face.nrm) > 0 ? face.nrm : this.dirIn(r.node, DIRS.top, P);
+        const den = dot(dir, nrm);
+        if (Math.abs(den) < 1e-9) throw new S3DError(`${n.path}：drop 的方向与 ${r.node.path} 的面平行，碰不到`, n.line, n);
+        const s = dot(sub(face.q, A), nrm) / den;
+        if (s < 0) throw new S3DError(`${n.path}：沿 dir 方向碰不到 ${r.node.path}（它在反方向）`, n.line, n);
+        B = add(A, scl(dir, s));
+      } else B = this.pointOf(this.eval(n, 'to'), P, `${n.path} 的 to`);
+      const d = sub(B, A), H = Math.hypot(d[0], d[2]), L = len(d);
+      if (L < 1e-9) throw new S3DError(`${n.path}：from 与 to 重合`, n.line, n);
+      const mid = scl(add(A, B), 0.5);
+      const steps = Math.round(this.num(n, 'steps', 0));
+      if (steps > 0) {
+        // 台阶：框架只绕竖直轴转，踏面保持水平
+        const [w, th] = this.vec2(n, 'section', [1.2, 0.2]);
+        const treads = [];
+        for (let i = 0; i < steps; i++) {
+          const top = -d[1] / 2 + (d[1] * (i + 1)) / steps;
+          treads.push({ c: [-H / 2 + (H * (i + 0.5)) / steps, top - th / 2, 0], s: [H / steps, th, w] });
+        }
+        const corners = treads.flatMap((tr) => boxCorners({ min: sub(tr.c, scl(tr.s, 0.5)), max: add(tr.c, scl(tr.s, 0.5)) }));
+        return { local: T3(Ry(H < 1e-9 ? 0 : Math.atan2(-d[2], d[0])), mid), box: boundsOf(corners), geom: { type: 'steps', treads } };
+      }
+      // 梁 / 杆：局部 x 沿 A→B，y 尽量朝上，z 水平；顶面就是梁真正的顶面
+      const Rm = alignAxes([1, 0, 0], [0, 1, 0], d, [0, 1, 0]);
+      if (n.props.has('r')) {
+        const r = this.num(n, 'r');
+        return { local: T3(Rm, mid), box: { min: [-L / 2, -r, -r], max: [L / 2, r, r] }, geom: { type: 'rod', L, r } };
+      }
+      const [w, th] = this.vec2(n, 'section', [1, 0.3]);
+      const mode = this.sym(n, 'pin', 'center');
+      const dy = mode === 'bottom' ? th / 2 : mode === 'top' ? -th / 2 : 0;
+      return { local: T3(Rm, mid), box: { min: [-L / 2, dy - th / 2, -w / 2], max: [L / 2, dy + th / 2, w / 2] }, geom: { type: 'beam', L, w, t: th, dy } };
+    });
+  }
+
+  // 自身框架中的包围盒
+  box(n) {
+    return this.memo(n, 'box', () => {
+      if (n.isSet) return boundsOf(n.members.flatMap((m) => boxCorners(this.worldBox(m))));
+      const src = n.ghostOf ?? n.src;
+      if (src) { const b = this.box(src); n.geom = src.geom; return b; }
+      switch (n.kind) {
+        case 'box': case 'wedge': {
+          const [w, h, d] = this.vec(n, 'size', [1, 1, 1]);
+          n.geom = { type: n.kind, w, h, d };
+          return { min: [-w / 2, 0, -d / 2], max: [w / 2, h, d / 2] };
+        }
+        case 'plate': {
+          // 多边形平板（SVG 的 polygon 加厚度）：points 是局部 xz 平面里的轮廓 [(x,z); …]，从 y=0 拉到 y=h。
+          // 同其他基本体，at= 放包围盒的底面中心（pin=origin 时放轮廓坐标的原点）；倾斜的板用 rot / tilt / roll 转
+          const v = this.eval(n, 'points');
+          if (!v || !v.list || v.list.length < 3 || v.list.some((p) => !Array.isArray(p) || p.length !== 2 || !p.every(Number.isFinite)))
+            throw new S3DError(`${n.path}：plate 的 points 写成 [(x,z); (x,z); …]，至少 3 个点`, n.line, n);
+          const pts = v.list.map(([x, z]) => [x, z]), h = this.num(n, 'h', 0.2);
+          if (!(h > 0)) throw new S3DError(`${n.path}：plate 的厚度 h 要大于 0`, n.line, n);
+          if (Math.abs(polyArea2(pts)) < 1e-12) throw new S3DError(`${n.path}：plate 的轮廓面积是 0`, n.line, n);
+          n.geom = { type: 'plate', pts, h };
+          const xs = pts.map((p) => p[0]), zs = pts.map((p) => p[1]);
+          return { min: [Math.min(...xs), 0, Math.min(...zs)], max: [Math.max(...xs), h, Math.max(...zs)] };
+        }
+        case 'hull': {
+          // 凸包：一组局部坐标里的点 [(x,y,z); …]，形状是包住它们的最小凸体（岩石、土丘、不规则的块）。at= 放包围盒的底面中心（pin=origin 时放点坐标的原点）
+          const v = this.eval(n, 'points');
+          if (!v || !v.list || v.list.length < 4 || v.list.some((p) => !Array.isArray(p) || p.length !== 3 || !p.every(Number.isFinite)))
+            throw new S3DError(`${n.path}：hull 的 points 写成 [(x,y,z); (x,y,z); …]，至少 4 个点`, n.line, n);
+          const pts = v.list.map((p) => [...p]), faces = convexHull3(pts);
+          if (!faces) throw new S3DError(`${n.path}：hull 的点都在一个平面上（没有体积）`, n.line, n);
+          n.geom = { type: 'hull', pts, faces };
+          return boundsOf(pts);
+        }
+        case 'cyl': case 'cone': {
+          const r = this.num(n, 'r', 0.5), h = this.num(n, 'h', 1);
+          const r2 = n.kind === 'cone' ? this.num(n, 'r2', 0) : r;
+          const axis = this.sym(n, 'axis', 'y');
+          if (!(axis in AXES)) throw new S3DError(`${n.path} 的 axis 只能是 x / y / z`, n.line, n);
+          const R = Math.max(r, r2);
+          n.geom = { type: 'cyl', r1: r, r2, h, axis };
+          if (axis === 'y') return { min: [-R, 0, -R], max: [R, h, R] };
+          if (axis === 'x') return { min: [-h / 2, 0, -R], max: [h / 2, 2 * R, R] };
+          return { min: [-R, 0, -h / 2], max: [R, 2 * R, h / 2] };
+        }
+        case 'mesh': {
+          // 引用源模型里的网格：size 是它的外包络（原点在底面中心，与基本体一致），
+          // pivot 是网格在源文件坐标里对应这个原点的点。外包络写在源码里，所以编译仍是纯函数
+          const src = this.eval(n, 'src');
+          if (typeof src !== 'string' || !src) throw new S3DError(`${n.path}：mesh 需要 src="文件.glb#节点名"`, n.line, n);
+          const [w, h, d] = this.vec(n, 'size');
+          n.geom = { type: 'mesh', src, w, h, d, pivot: this.vec(n, 'pivot', [0, 0, 0]) };
+          return { min: [-w / 2, 0, -d / 2], max: [w / 2, h, d / 2] };
+        }
+        case 'sphere': {
+          const r = this.num(n, 'r', 0.5);
+          n.geom = { type: 'sphere', r };
+          return { min: [-r, 0, -r], max: [r, 2 * r, r] };
+        }
+        case 'revolve': {
+          const v = this.eval(n, 'profile');
+          if (!v || !v.list || v.list.length < 2 || v.list.some((p) => !Array.isArray(p) || p.length !== 2))
+            throw new S3DError(`${n.path}：revolve 的 profile 写成 [(半径,高); (半径,高); …]`, n.line, n);
+          let prof = v.list.map(([r, y]) => [Math.abs(r), y, 0]);
+          if (truthy(this.eval(n, 'smooth', false))) prof = catmullRom(prof, false, 10);
+          prof = prof.map(([r, y]) => [r, y]);
+          // 自动在轴上封口，使其成为封闭实体
+          if (prof[0][0] > 1e-6) prof.unshift([0, prof[0][1]]);
+          if (prof[prof.length - 1][0] > 1e-6) prof.push([0, prof[prof.length - 1][1]]);
+          const angle = this.num(n, 'angle', 360);
+          n.geom = { type: 'revolve', prof, angle };
+          const R = Math.max(...prof.map((p) => p[0])), ys = prof.map((p) => p[1]);
+          return { min: [-R, Math.min(...ys), -R], max: [R, Math.max(...ys), R] };
+        }
+        case 'span': case 'sweep': case 'pipe': {
+          const k = this.link(n);
+          n.geom = k.geom;
+          return k.box;
+        }
+      }
+      if (CURVES.has(n.kind)) return boundsOf(this.curve(n).pts);
+      // 名义外包络：envelope=w,h,d（底面中心在原点）或 envelope=x0,y0,z0,x1,y1,z1（自身坐标系里的最小点、最大点）。
+      // 关系、锚点、定位点都按它算，与里面的内容无关——细化把一个物体拆成很多块时，挂在它上面的物体纹丝不动。
+      // 空间事实、渲染、评分仍按真实的内容
+      if (n.kind === 'group' && n.props.has('envelope')) {
+        const e0 = this.eval(n, 'envelope', null), e = Array.isArray(e0) ? e0.map(Number) : null;
+        if (Array.isArray(e) && e.length === 3) return { min: [-e[0] / 2, 0, -e[2] / 2], max: [e[0] / 2, e[1], e[2] / 2] };
+        if (Array.isArray(e) && e.length === 6) return { min: e.slice(0, 3), max: e.slice(3) };
+        throw new S3DError(`${n.path} 的 envelope 写成 w,h,d 或 x0,y0,z0,x1,y1,z1`, n.line, n);
+      }
+      // 容器：子物体包围盒之并（subtract 只取被减体）
+      const kids = n.kind === 'subtract' ? n.children.slice(0, 1) : n.children;
+      const pts = [];
+      for (const c of kids) {
+        if (c.late) continue;
+        if (c.localBusy) { c.late = true; continue; }
+        try {
+          pts.push(...boxCorners(transformBox(this.local(c), this.box(c))));
+        } catch (e) {
+          // 子物体的位置依赖于本容器自身的位置 → 它是“后置”物体，不参与容器尺寸
+          if (e instanceof Cycle && e.node === n) { c.late = true; continue; }
+          throw e;
+        }
+      }
+      return pts.length ? boundsOf(pts) : ZERO_BOX;
+    });
+  }
+
+  worldBox(n) { return transformBox(this.world(n), this.box(n)); }
+}
+
+// ───────────────────────── 多对象模式 ─────────────────────────
+// 在场景里搜索所有满足约束的角色组合。单个角色逐个枚举（回溯），集合角色（名字带 *）
+// 绑定为“满足全部约束的所有成员”。同一组对象换个顺序算同一个匹配。
+
+function matchPattern(p, env0, root, S) {
+  const roleMap = new Map(p.roles.map((r) => [r.name, r]));
+  const scalars = p.roles.filter((r) => !r.set).map((r) => r.name);
+  const sets = p.roles.filter((r) => r.set).map((r) => r.name);
+  const envWith = (bind) => {
+    const env = new Env(env0);
+    for (const [k, v] of bind) env.vars.set(k, { v: isSet(v) ? v : mkRef(v) });
+    return env;
+  };
+  const evalIn = (ast, bind) => evalAst(ast, { env: envWith(bind), node: root, scope: root, frame: root, S });
+  const roleOf = (ast) => (ast.k === 'path' && ast.segs.length === 1 && !ast.coords && roleMap.has(ast.segs[0]) ? ast.segs[0] : null);
+  const refsIn = (ast, out = new Set()) => {
+    if (!ast || typeof ast !== 'object') return out;
+    if (ast.k === 'path' && roleMap.has(ast.segs[0])) out.add(ast.segs[0]);
+    for (const k of ['a', 'b', 'pred', 'coords']) if (ast[k]) refsIn(ast[k], out);
+    for (const k of ['items', 'args']) if (ast[k]) ast[k].forEach((x) => refsIn(x, out));
+    return out;
+  };
+  const domains = new Map();
+  const cons = [];
+  for (const c of p.constraints) {
+    if (c.k === 'in') { domains.set(c.role, c.ast); continue; }
+    const deps = c.k === 'rel' ? new Set([...refsIn(c.a), ...refsIn(c.b)]) : refsIn(c.ast);
+    const setDeps = [...deps].filter((r) => roleMap.get(r).set);
+    if (c.k === 'rel') {
+      const aRole = roleOf(c.a), bRole = roleOf(c.b);
+      if (setDeps.length > 1 || (setDeps.length === 1 && setDeps[0] !== aRole && setDeps[0] !== bRole))
+        throw new S3DError(`第 ${c.line} 行：一条关系约束里最多一个集合角色，且它要单独站在关系的一边`, c.line);
+      cons.push({ ...c, aRole, bRole, deps, setRole: setDeps[0] ?? null });
+    } else cons.push({ ...c, deps, setRole: setDeps.length ? setDeps[0] : null, late: setDeps.length > 0 });
+  }
+  // 每条只涉及单个角色的约束，在它最后一个依赖被绑定时检查
+  const pos = new Map(scalars.map((r, i) => [r, i]));
+  const at = (c) => (c.setRole || c.late ? -1 : Math.max(-1, ...[...c.deps].map((r) => pos.get(r))));
+  const byDepth = scalars.map((_, i) => cons.filter((c) => at(c) === i));
+  const final = cons.filter((c) => at(c) === -1);
+  const has = (rel, x, y) => !!(S.rel[rel].get(x) && S.rel[rel].get(x).has(y));
+  const domain = (r, bind) => (domains.has(r) ? asSet(evalIn(domains.get(r), bind)).nodes : S.allNodes());
+  const relOk = (c, bind, override) => {
+    const side = (role, ast) => (role ? [override && role === override[0] ? override[1] : bind.get(role)] : asSet(evalIn(ast, bind)).nodes);
+    const xs = side(c.aRole, c.a), ys = side(c.bRole, c.b);
+    return xs.some((x) => ys.some((y) => has(c.rel, x, y)));
+  };
+  const ok = (c, bind) => (c.k === 'rel' ? relOk(c, bind) : asBool(evalIn(c.ast, bind)));
+
+  const matches = [], seen = new Set();
+  let steps = 0;
+  const finish = (bind) => {
+    const used = new Set(bind.values());
+    const full = new Map(bind);
+    for (const T of sets) {
+      const rules = cons.filter((c) => c.k === 'rel' && c.setRole === T);
+      full.set(T, new NodeSet(domain(T, bind).filter((t) => !used.has(t) && rules.every((c) => relOk(c, bind, [T, t])))));
+    }
+    for (const c of final) if (!(c.k === 'rel' && c.setRole) && !ok(c, full)) return;
+    const key = [...full.values()].flatMap((v) => (isSet(v) ? v.nodes : [v])).map((n) => n.path).sort().join('|');
+    if (seen.has(key)) return;
+    seen.add(key);
+    matches.push(full);
+  };
+  const dfs = (i, bind) => {
+    if (++steps > 200000) throw new S3DError(`模式 ${p.name} 的搜索空间太大，请用 in 缩小各角色的范围`, p.line);
+    if (matches.length >= 500) return;
+    if (i === scalars.length) return finish(bind);
+    const r = scalars[i], used = new Set(bind.values());
+    for (const cand of domain(r, bind)) {
+      if (used.has(cand)) continue; // 一个对象不能同时扮演两个角色
+      bind.set(r, cand);
+      if (byDepth[i].every((c) => ok(c, bind))) dfs(i + 1, bind);
+      bind.delete(r);
+    }
+  };
+  dfs(0, new Map());
+  return new PatternValue(p.name, p.roles, matches);
+}
+
+// ───────────────────────── 输出 ─────────────────────────
+
+function materialOf(n, S, materials) {
+  for (let a = n; a; a = a.parent) {
+    const st = S.styleMap && S.styleMap.get(a);
+    if (st) return st;
+    if (a.ghostOf) return materialOf(a.ghostOf, S, materials); // 副本沿用原物体的材质
+    if (a.props.has('color')) return { color: String(S.eval(a, 'color')) };
+    if (a.props.has('mat')) {
+      // 材质名是符号，不当作对象引用解析（场景里可以同时有叫 ground 的物体和材质）
+      const ast = unwrap(a.props.get('mat'));
+      const name = ast.k === 'path' && ast.segs.length === 1 ? ast.segs[0] : ast.k === 'str' ? ast.v : null;
+      const m = materials.get(name);
+      if (m) return { name, ...m };
+      throw new S3DError(`未定义的材质 ${name ?? '(无效写法)'}`, a.line, a);
+    }
+    if (a.src) return materialOf(a.src, S, materials);
+  }
+  // 哪儿都没写材质：用标了 default=true 的材质（场景里大多数物体同一种材质时，逆向用它省掉每一行的 mat=）
+  for (const [name, m] of materials) if (m.default) return { name, ...m };
+  return { color: '#c9c9c9' };
+}
+
+function buildItems(root, S, materials) {
+  const leaf = (n) => ({
+    kind: 'solid', path: n.path, tags: n.tags, geom: n.geom, world: S.world(n), material: materialOf(n, S, materials),
+  });
+  const single = (n) => {
+    const k = K(n);
+    if (LEAVES.has(k)) return n.geom ? leaf(n) : null;
+    if (CURVES.has(k)) return null;
+    const op = CSG.has(k) ? k : 'union';
+    const children = n.children.filter((c) => !c.skin).map(single).filter(Boolean);
+    if (!children.length) return null;
+    if (op === 'union' && children.length === 1 && !CSG.has(k)) return children[0];
+    return { kind: 'csg', op, path: n.path, tags: n.tags, children, material: materialOf(n, S, materials) };
+  };
+  const out = [], curves = [];
+  const walk = (n) => {
+    const k = K(n);
+    if (n.hidden) { n.children.forEach(walk); return; } // 被变体替换的原物体：只找它下面的变体
+    if (LEAVES.has(k)) { if (n.geom) out.push(leaf(n)); n.children.forEach(walk); return; }
+    if (CURVES.has(k)) {
+      if (n._world) { const c = S.curve(n), W = S.world(n); curves.push({ path: n.path, closed: c.closed, pts: c.pts.map((p) => apply(W, p)) }); }
+      return;
+    }
+    if (CSG.has(k)) { const s = single(n); if (s) out.push(s); return; }
+    n.children.forEach(walk);
+  };
+  walk(root);
+  return { items: out, curves };
+}
+
+// 反向：从求解后的几何中读出客观空间事实，用同一套词汇表达。
+// 每一对物体只输出最强的一条关系：on > against > inside > touching（接触）> intersects（相交）。
+// on / against 在参照物 B 自己的坐标系里判断，所以 “A against B.left” 指的是 B 自身的左面；
+// 接触与相交用有向包围盒的分离轴测试，对任意朝向都精确（不再用世界包围盒近似）。
+// 曲线工具（逆向管线拟合“沿曲线的阵列”时要和编译器用完全相同的曲线）
+export const _curves = { catmullRom, measureCurve, curveAt };
+
+// 空间事实（接触、on、against）的容差，单位是场景单位；默认 2 cm（按米）。场景单位不是米时由调用方换算后传 opts.factEps
+export const FACT_EPS = 0.02;
+
+// ── 碰撞代理：每个物体 → 若干凸块（凸多面体或球），用于判断接触、相交、包含 ──
+// 盒子、楔形、梁是精确的多面体；圆柱、圆锥是 12 边棱柱；球是精确的；扫掠沿路径分段；
+// revolve 暂用外接圆柱（标为近似）。
+
+// 由顶点和面（顶点索引环）构造凸多面体：面法线用 Newell 法，对退化（如圆锥顶点重合）稳健
+function polyFrom(verts, faces) {
+  const normals = [], edges = [];
+  const addDir = (list, d) => {
+    const l = len(d);
+    if (l < 1e-9) return;
+    d = scl(d, 1 / l);
+    if (!list.some((e) => Math.abs(Math.abs(dot(e, d)) - 1) < 1e-6)) list.push(d);
+  };
+  for (const f of faces) {
+    let nrm = [0, 0, 0];
+    for (let i = 0; i < f.length; i++) {
+      const a = verts[f[i]], b = verts[f[(i + 1) % f.length]];
+      nrm = add(nrm, [(a[1] - b[1]) * (a[2] + b[2]), (a[2] - b[2]) * (a[0] + b[0]), (a[0] - b[0]) * (a[1] + b[1])]);
+      addDir(edges, sub(b, a));
+    }
+    addDir(normals, nrm);
+  }
+  return { verts, normals, edges };
+}
+const BOX_FACES = [[0, 1, 3, 2], [4, 6, 7, 5], [0, 4, 5, 1], [2, 3, 7, 6], [0, 2, 6, 4], [1, 5, 7, 3]];
+const boxPoly = (b) => polyFrom(boxCorners(b), BOX_FACES);
+// 沿 y 轴的棱台（底半径 r1、顶半径 r2、y 从 y0 到 y1），再由 map 变换到所需方向
+function frustumPoly(r1, r2, y0, y1, map = (p) => p, sides = 12) {
+  const verts = [];
+  for (let i = 0; i < sides; i++) { const a = (i / sides) * 2 * Math.PI; verts.push(map([r1 * Math.cos(a), y0, r1 * Math.sin(a)])); }
+  for (let i = 0; i < sides; i++) { const a = (i / sides) * 2 * Math.PI; verts.push(map([Math.max(r2, 1e-4) * Math.cos(a), y1, Math.max(r2, 1e-4) * Math.sin(a)])); }
+  const faces = [[...Array(sides).keys()].reverse(), [...Array(sides).keys()].map((i) => i + sides)];
+  for (let i = 0; i < sides; i++) faces.push([i, (i + 1) % sides, sides + ((i + 1) % sides), sides + i]);
+  return polyFrom(verts, faces);
+}
+// 三维凸包（增量法）：点 [[x,y,z], …] → 面（顶点序号的三元组，从外面看逆时针）；点共面、太少时返回 null。
+// 用不到的点（在凸包里面）不出现在面里。点不多（几十到几千个），O(n·面数) 足够
+export function convexHull3(P) {
+  const n = P.length;
+  if (n < 4) return null;
+  const sub3 = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], dot3 = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  const cross3 = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  let lo = 0, hi = 0;
+  for (let i = 1; i < n; i++) { if (P[i][0] < P[lo][0]) lo = i; if (P[i][0] > P[hi][0]) hi = i; }
+  let ext = 0;
+  for (let k = 0; k < 3; k++) { let a = Infinity, b = -Infinity; for (const p of P) { a = Math.min(a, p[k]); b = Math.max(b, p[k]); } ext = Math.max(ext, b - a); }
+  const eps = 1e-9 * Math.max(ext, 1e-9);
+  if (lo === hi) return null;
+  const d01 = sub3(P[hi], P[lo]);
+  let i2 = -1, best = eps;
+  for (let i = 0; i < n; i++) { const c = Math.hypot(...cross3(d01, sub3(P[i], P[lo]))) / Math.hypot(...d01); if (c > best) { best = c; i2 = i; } }
+  if (i2 < 0) return null;
+  const nrm0 = cross3(d01, sub3(P[i2], P[lo]));
+  let i3 = -1; best = eps;
+  for (let i = 0; i < n; i++) { const c = Math.abs(dot3(nrm0, sub3(P[i], P[lo]))) / Math.hypot(...nrm0); if (c > best) { best = c; i3 = i; } }
+  if (i3 < 0) return null;
+  const inner = [0, 1, 2].map((k) => (P[lo][k] + P[hi][k] + P[i2][k] + P[i3][k]) / 4);
+  const mk = (a, b, c) => {
+    let f = [a, b, c], nn = cross3(sub3(P[b], P[a]), sub3(P[c], P[a]));
+    if (dot3(nn, sub3(inner, P[a])) > 0) { f = [a, c, b]; nn = [-nn[0], -nn[1], -nn[2]]; }
+    const l = Math.hypot(...nn) || 1;
+    return { v: f, n: [nn[0] / l, nn[1] / l, nn[2] / l], d: dot3(nn, P[f[0]]) / l };
+  };
+  let faces = [mk(lo, hi, i2), mk(lo, hi, i3), mk(lo, i2, i3), mk(hi, i2, i3)];
+  const used = new Set([lo, hi, i2, i3]);
+  for (let i = 0; i < n; i++) {
+    if (used.has(i)) continue;
+    const p = P[i], vis = [], keep = [];
+    for (const F of faces) (dot3(F.n, p) - F.d > eps ? vis : keep).push(F);
+    if (!vis.length) continue;
+    const edges = new Set();
+    for (const F of vis) for (let e = 0; e < 3; e++) edges.add(`${F.v[e]},${F.v[(e + 1) % 3]}`);
+    for (const F of vis) for (let e = 0; e < 3; e++) {
+      const a = F.v[e], b = F.v[(e + 1) % 3];
+      if (edges.has(`${b},${a}`)) continue; // 两边都可见：不是地平线
+      const nn = cross3(sub3(P[b], P[a]), sub3(p, P[a])), l = Math.hypot(...nn) || 1;
+      keep.push({ v: [a, b, i], n: [nn[0] / l, nn[1] / l, nn[2] / l], d: dot3(nn, P[a]) / l });
+    }
+    faces = keep;
+  }
+  return faces.map((F) => F.v);
+}
+// 平面多边形（[[x,z], …]）：带符号面积的两倍；是不是凸的；耳切三角化（返回顶点序号的三元组，两种绕向都行）
+export function polyArea2(P) { let a = 0; for (let i = 0; i < P.length; i++) { const p = P[i], q = P[(i + 1) % P.length]; a += p[0] * q[1] - q[0] * p[1]; } return a; }
+function polyConvex(P) {
+  let sgn = 0;
+  for (let i = 0; i < P.length; i++) {
+    const a = P[i], b = P[(i + 1) % P.length], c = P[(i + 2) % P.length];
+    const cr = (b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0]);
+    if (Math.abs(cr) < 1e-12) continue;
+    if (sgn && Math.sign(cr) !== sgn) return false;
+    sgn = Math.sign(cr);
+  }
+  return true;
+}
+export function triangulate2(P) {
+  const sgn = polyArea2(P) >= 0 ? 1 : -1, idx = [...P.keys()], out = [];
+  const cr = (a, b, c) => sgn * ((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]));
+  const inside = (p, a, b, c) => cr(a, b, p) >= -1e-12 && cr(b, c, p) >= -1e-12 && cr(c, a, p) >= -1e-12;
+  let guard = 0;
+  while (idx.length > 3 && guard++ < 10 * P.length * P.length) {
+    let cut = false;
+    for (let k = 0; k < idx.length; k++) {
+      const i0 = idx[(k + idx.length - 1) % idx.length], i1 = idx[k], i2 = idx[(k + 1) % idx.length];
+      const a = P[i0], b = P[i1], c = P[i2];
+      if (cr(a, b, c) <= 1e-14) continue;
+      if (idx.some((j) => j !== i0 && j !== i1 && j !== i2 && inside(P[j], a, b, c))) continue;
+      out.push([i0, i1, i2]);
+      idx.splice(k, 1);
+      cut = true;
+      break;
+    }
+    if (!cut) { // 自交或退化：剩下的扇形切开（不会死循环）
+      for (let k = 1; k + 1 < idx.length; k++) out.push([idx[0], idx[k], idx[k + 1]]);
+      return out;
+    }
+  }
+  if (idx.length === 3) out.push(idx);
+  return out;
+}
+// 局部坐标系里的凸块
+function localParts(n) {
+  const g = n.geom, b = n._box;
+  if (!g) return { parts: [boxPoly(b)], approx: false };
+  switch (g.type) {
+    case 'box': case 'beam': return { parts: [boxPoly(b)], approx: false };
+    case 'mesh': return { parts: [boxPoly(b)], approx: true };
+    case 'wedge': {
+      const { w, h, d } = g;
+      const v = [[-w / 2, 0, -d / 2], [w / 2, 0, -d / 2], [w / 2, h, -d / 2], [-w / 2, 0, d / 2], [w / 2, 0, d / 2], [w / 2, h, d / 2]];
+      return { parts: [polyFrom(v, [[0, 1, 2], [3, 5, 4], [0, 3, 4, 1], [1, 4, 5, 2], [0, 2, 5, 3]])], approx: false };
+    }
+    case 'cyl': {
+      const R = Math.max(g.r1, g.r2);
+      const map = g.axis === 'y' ? (p) => p : g.axis === 'x' ? (p) => [p[1] - g.h / 2, R + p[0], p[2]] : (p) => [p[0], R + p[2], p[1] - g.h / 2];
+      return { parts: [frustumPoly(g.r1, g.r2, 0, g.h, map)], approx: false };
+    }
+    case 'rod': return { parts: [frustumPoly(g.r, g.r, -g.L / 2, g.L / 2, (p) => [p[1], p[0], p[2]])], approx: false };
+    case 'sphere': return { parts: [{ sphere: true, c: [0, g.r, 0], r: g.r }], approx: false };
+    case 'revolve': return { parts: [frustumPoly(b.max[0], b.max[0], b.min[1], b.max[1])], approx: true };
+    case 'hull': return { parts: [polyFrom(g.pts, g.faces)], approx: false };
+    case 'plate': {
+      // 凸的轮廓是一个棱柱；凹的切成三角形，每个三角形一个棱柱（并起来正好是这块板）
+      const P = g.pts, prism = (ids) => {
+        const v = [...ids.map((i) => [P[i][0], 0, P[i][1]]), ...ids.map((i) => [P[i][0], g.h, P[i][1]])], m = ids.length;
+        const faces = [[...Array(m).keys()], [...Array(m).keys()].map((i) => i + m).reverse()];
+        for (let i = 0; i < m; i++) faces.push([i, m + i, m + ((i + 1) % m), (i + 1) % m]);
+        return polyFrom(v, faces);
+      };
+      return { parts: polyConvex(P) ? [prism([...P.keys()])] : triangulate2(P).map(prism), approx: false };
+    }
+    case 'steps': return { parts: g.treads.map((t) => boxPoly({ min: sub(t.c, scl(t.s, 0.5)), max: add(t.c, scl(t.s, 0.5)) })), approx: false };
+    case 'sweep': {
+      // 每一段取相邻两个截面环的凸包（截面是凸的时候精确）；圆截面用 8 边形代替
+      const F = g.frames, segs = g.closed ? F.length : F.length - 1;
+      const prof = g.prof.length > 8 ? Array.from({ length: 8 }, (_, i) => g.prof[Math.floor((i * g.prof.length) / 8)]) : g.prof;
+      const m = prof.length, ring = (f) => prof.map(([u, v]) => add(f.p, add(scl(f.side, u), scl(f.up, v))));
+      const faces = [[...Array(m).keys()].reverse(), [...Array(m).keys()].map((i) => i + m)];
+      for (let i = 0; i < m; i++) faces.push([i, (i + 1) % m, m + ((i + 1) % m), m + i]);
+      const parts = [];
+      for (let i = 0; i < segs; i++) parts.push(polyFrom([...ring(F[i]), ...ring(F[(i + 1) % F.length])], faces));
+      return { parts, approx: false };
+    }
+  }
+  return { parts: [boxPoly(b)], approx: true };
+}
+const worldPart = (W, P) => (P.sphere ? { sphere: true, c: apply(W, P.c), r: P.r }
+  : { verts: P.verts.map((v) => apply(W, v)), normals: P.normals.map((d) => applyDir(W, d)), edges: P.edges.map((d) => applyDir(W, d)) });
+const projOf = (P, L) => {
+  if (P.sphere) { const c = dot(P.c, L); return [c - P.r, c + P.r]; }
+  let lo = Infinity, hi = -Infinity;
+  for (const v of P.verts) { const x = dot(v, L); if (x < lo) lo = x; if (x > hi) hi = x; }
+  return [lo, hi];
+};
+const partBox = (P) => (P.sphere ? { min: sub(P.c, [P.r, P.r, P.r]), max: add(P.c, [P.r, P.r, P.r]) } : boundsOf(P.verts));
+// 两个凸块在候选分离轴上的最大间隙：> 0 分离，≈ 0 接触，< 0 相交
+function partGap(A, B) {
+  const axes = [];
+  if (!A.sphere) axes.push(...A.normals);
+  if (!B.sphere) axes.push(...B.normals);
+  if (!A.sphere && !B.sphere) for (const a of A.edges) for (const b of B.edges) axes.push(cross(a, b));
+  if (A.sphere && B.sphere) axes.push(sub(B.c, A.c));
+  else if (A.sphere || B.sphere) { const [S0, P] = A.sphere ? [A, B] : [B, A]; for (const v of P.verts) axes.push(sub(v, S0.c)); }
+  let best = -Infinity;
+  for (let L of axes) {
+    const l = len(L);
+    if (l < 1e-9) continue;
+    L = scl(L, 1 / l);
+    const [a0, a1] = projOf(A, L), [b0, b1] = projOf(B, L);
+    best = Math.max(best, b0 - a1, a0 - b1);
+  }
+  return best;
+}
+
+function tightBox(n) {
+  try {
+    const parts = localParts(n).parts.map((P) => worldPart(n._world, P));
+    return boundsOf(parts.flatMap((P) => boxCorners(partBox(P))));
+  } catch { return null; }
+}
+
+// ── 空间事实的提供者（docs/PLAN2.md 4.10）──
+// 事实由一组提供者推导：provider = { name, derive(objs, ctx) → facts }。默认只有 contact（on / against / inside / touching / intersects）；
+// 别的提供者按名字注册（registerFactProvider），用 compile(src, { factProviders: ['contact', 'walkable'] }) 打开，也可以直接传提供者对象。
+//   objs：参与推导的物体（叶子与布尔组，变体除外），每个带 path、kind、世界变换 W、局部包围盒 box、世界凸块 parts 与各块的包围盒 pboxes、
+//         世界包围盒 wb，以及 approx（凸块是近似的）、boxy（单块的实心盒子类）、convex（单个精确凸块）
+//   ctx：eps（容差，场景单位）、metre（每米多少场景单位，由 factEps 与默认值之比推出）、options（compile 的 factOptions[name]）、
+//        pairs(margin)（三个方向都靠得足够近的物体对，粗筛）、gapOf(P, Q)（最小间隙与接触的块）、geo（凸块的几何工具）
+//   每条事实至少有 rel、a、text；二元事实有 b，一元事实（X walkable）的 b 是 null。compile 给每条补上 provider 字段
+// 机制本身不认任何具体场景：提供者只读几何（凸块、变换、包围盒），语义仍由 concept / pattern 定义。
+
+const ovAxis = (a, b, k) => Math.min(a.max[k], b.max[k]) - Math.max(a.min[k], b.min[k]);
+const ovI = (a, b) => Math.min(a[1], b[1]) - Math.max(a[0], b[0]);
+const boxVol = (x) => (x.max[0] - x.min[0]) * (x.max[1] - x.min[1]) * (x.max[2] - x.min[2]);
+
+// 参与推导的物体：叶子与布尔组（布尔组内部的块不单独算），尺寸不为零
+function factObjects(root, S) {
+  const objs = [];
+  const walk = (n, inCsg) => {
+    const k = K(n);
+    if (n.skin) return; // 变体只是外观，空间事实按原来的外包络算
+    if (n.kind !== 'root' && !inCsg && (LEAVES.has(k) || CSG.has(k)) && n._box && n._world) {
+      const b = n._box;
+      if (b.max[0] - b.min[0] + b.max[1] - b.min[1] + b.max[2] - b.min[2] > 1e-9) objs.push(n);
+    }
+    n.children.forEach((c) => walk(c, inCsg || CSG.has(k)));
+  };
+  walk(root, false);
+  return objs.map((n) => {
+    const W = S.world(n);
+    const lp = localParts(n);
+    const parts = lp.parts.map((P) => worldPart(W, P));
+    const k = K(n.ghostOf ?? n);
+    return {
+      n, path: n.path, kind: K(n), W, box: n._box, parts, pboxes: parts.map(partBox), approx: lp.approx, wb: boundsOf(parts.flatMap((P) => boxCorners(partBox(P)))),
+      // 单块、可以当作“实心盒子”看待的物体，才做贴面判断
+      boxy: lp.parts.length === 1 && !lp.approx && ['box', 'beam', 'wedge'].includes(n.geom?.type ?? 'box') && !CURVES.has(k),
+      convex: lp.parts.length === 1 && !lp.approx,
+    };
+  });
+}
+
+// 点在凸块里（含边界 tol）：凸多面体按各面法线方向的投影区间判断（面法线是完备的分离轴）
+function insidePart(P, p, tol = 1e-9) {
+  if (P.sphere) return len(sub(p, P.c)) <= P.r + tol;
+  return P.normals.every((nrm) => { const [lo, hi] = projOf(P, nrm), x = dot(p, nrm); return x >= lo - tol && x <= hi + tol; });
+}
+// 线段 a→b 与凸块的间隙：> 0 分离，< 0 穿过（线段当作只有一条棱的退化多面体；球按点到线段的距离）
+function segmentGap(a, b, P) {
+  if (P.sphere) {
+    const d = sub(b, a), L2 = dot(d, d), t = L2 > 0 ? Math.max(0, Math.min(1, dot(sub(P.c, a), d) / L2)) : 0;
+    return len(sub(P.c, add(a, scl(d, t)))) - P.r;
+  }
+  return partGap({ verts: [a, b], normals: [], edges: [sub(b, a)] }, P);
+}
+// 给提供者用的几何工具
+const FACT_GEO = { projOf, partGap, partBox, insidePart, segmentGap, apply, applyDir, boundsOf, boxCorners, overlap: ovAxis };
+
+// 粗筛：按世界包围盒的 x 起点排序扫描，只留下三个方向都靠得足够近的对
+function broadPairs(objs, margin) {
+  const order = [...objs].sort((p, q) => p.wb.min[0] - q.wb.min[0]);
+  const active = [], cands = [];
+  for (const P of order) {
+    for (let i = active.length - 1; i >= 0; i--) if (active[i].wb.max[0] < P.wb.min[0] - margin) active.splice(i, 1);
+    for (const Q of active) if (ovAxis(P.wb, Q.wb, 1) > -margin && ovAxis(P.wb, Q.wb, 2) > -margin) cands.push([P, Q]);
+    active.push(P);
+  }
+  return cands;
+}
+// 两个物体的最小间隙，以及哪些块彼此接触
+function gapBetween(P, Q, eps) {
+  let best = Infinity;
+  const touching = [];
+  for (let i = 0; i < P.parts.length; i++) for (let j = 0; j < Q.parts.length; j++) {
+    const a = P.pboxes[i], b = Q.pboxes[j];
+    if (ovAxis(a, b, 0) < -eps || ovAxis(a, b, 1) < -eps || ovAxis(a, b, 2) < -eps) continue;
+    const g = partGap(P.parts[i], Q.parts[j]);
+    if (g < best) best = g;
+    if (g <= eps) touching.push([i, j]);
+  }
+  return { gap: best, touching };
+}
+
+// 接触类事实（原来固定在 deriveFacts 里的五种）：on / against / inside / touching / intersects
+const contactProvider = {
+  name: 'contact',
+  rels: ['on', 'against', 'inside', 'touching', 'intersects'],
+  derive(objs, ctx) {
+    const { eps } = ctx;
+    // A 立在 B 上：A 与 B 的竖直轴平行；A 的最低处贴着与它接触的那块 B 的最高处；两者在水平方向上有重叠
+    const onTest = (A, B, touching, flip) => {
+      const rel = compose(invT(B.W), A.W);
+      if (Math.abs(Math.abs(rel.R[1][1]) - 1) > 1e-6) return null;
+      const up = applyDir(B.W, [0, 1, 0]), bx = applyDir(B.W, [1, 0, 0]), bz = applyDir(B.W, [0, 0, 1]);
+      const span = (O, L) => { const iv = O.parts.map((P) => projOf(P, L)); return [Math.min(...iv.map((x) => x[0])), Math.max(...iv.map((x) => x[1]))]; };
+      const bottom = span(A, up)[0];
+      for (const [i, j] of touching) {
+        const [ia, jb] = flip ? [j, i] : [i, j];
+        const top = projOf(B.parts[jb], up)[1];
+        if (Math.abs(bottom - top) >= eps) continue;
+        if (ovI(projOf(A.parts[ia], bx), projOf(B.parts[jb], bx)) > eps && ovI(projOf(A.parts[ia], bz), projOf(B.parts[jb], bz)) > eps) return bottom - top;
+      }
+      return null;
+    };
+    // A 在 B 里：B 是单个凸块，A 的每一块在 B 的每个面法线方向上都不超出
+    const insideTest = (A, B) => {
+      if (!B.convex || boxVol(A.box) >= boxVol(B.box) * 0.9) return false;
+      const PB = B.parts[0];
+      if (PB.sphere) return A.parts.every((P) => (P.sphere ? len(sub(P.c, PB.c)) + P.r : Math.max(...P.verts.map((v) => len(sub(v, PB.c))))) <= PB.r + eps);
+      return PB.normals.every((nrm) => {
+        const hb = projOf(PB, nrm), nb = projOf(PB, scl(nrm, -1));
+        return A.parts.every((P) => projOf(P, nrm)[1] <= hb[1] + eps && projOf(P, scl(nrm, -1))[1] <= nb[1] + eps);
+      });
+    };
+    const facts = [];
+    const push = (rel, A, B, text, gap, approx) => facts.push({ rel, a: A.path, b: B.path, text, gap: +gap.toFixed(4), eps, ...(approx ? { approx: true } : {}) });
+    for (const [P, Q] of ctx.pairs()) {
+      if (P.n.isAncestorOf(Q.n) || Q.n.isAncestorOf(P.n)) continue;
+      const { gap, touching } = ctx.gapOf(P, Q);
+      if (gap > eps) continue;
+      const approx = P.approx || Q.approx;
+      let g;
+      if ((g = onTest(P, Q, touching, false)) !== null) { push('on', P, Q, `${P.path} on ${Q.path}`, g, approx); continue; }
+      if ((g = onTest(Q, P, touching, true)) !== null) { push('on', Q, P, `${Q.path} on ${P.path}`, g, approx); continue; }
+      // 贴面：两个都是实心盒子、坐标轴平行；在体积较大的那个的坐标系里判断，报“小的贴着大的”
+      const [A, B] = boxVol(P.box) <= boxVol(Q.box) ? [P, Q] : [Q, P];
+      if (A.boxy && B.boxy) {
+        const rel = compose(invT(B.W), A.W);
+        if (isAxisAligned(rel.R)) {
+          const a = transformBox(rel, A.box), b = B.box;
+          const [ox, oy, oz] = [0, 1, 2].map((k) => ovAxis(a, b, k));
+          let face = null;
+          if (oy > eps) {
+            if (Math.abs(a.max[0] - b.min[0]) < eps && oz > eps) face = 'left';
+            else if (Math.abs(a.min[0] - b.max[0]) < eps && oz > eps) face = 'right';
+            else if (Math.abs(a.max[2] - b.min[2]) < eps && ox > eps) face = 'back';
+            else if (Math.abs(a.min[2] - b.max[2]) < eps && ox > eps) face = 'front';
+          }
+          if (face) { push('against', A, B, `${A.path} against ${B.path}.${face}`, gap, false); continue; }
+        }
+      }
+      if (insideTest(A, B)) { push('inside', A, B, `${A.path} inside ${B.path}`, gap, approx); continue; }
+      if (gap >= -eps) push('touching', A, B, `${A.path} touching ${B.path}`, gap, approx);
+      else push('intersects', A, B, `${A.path} intersects ${B.path}`, gap, approx);
+    }
+    return facts;
+  },
+};
+
+// 示例提供者 walkable（默认不启用）：顶面朝上（局部上方向与竖直的夹角 ≤ maxTilt）、顶面上方净空 ≥ clearance 的部分面积 ≥ minArea 的物体，
+// 记一条一元事实“X walkable”。做法：在顶面上取均匀的格点（格子约 cell 见方，每边 2–12 个），点要落在物体自己的凸块里（圆柱、球的顶面
+// 是圆的）；从点往上 clearance 高的竖直线段不穿过任何别的物体，这一格就算空着。立在上面的东西（桌腿、墙）占掉格子，天花板低于净空时
+// 整块不可走。长度按米（clearance 2 m、minArea 0.36 m²、cell 0.5 m、maxTilt 10°），乘 ctx.metre 换算成场景单位；factOptions.walkable 可以改
+const walkableProvider = {
+  name: 'walkable',
+  rels: ['walkable'],
+  derive(objs, ctx) {
+    const { eps, metre } = ctx, o = ctx.options ?? {};
+    const clearance = (o.clearance ?? 2) * metre, minArea = (o.minArea ?? 0.36) * metre * metre, cell = (o.cell ?? 0.5) * metre;
+    const cosTilt = Math.cos(((o.maxTilt ?? 10) * Math.PI) / 180);
+    // 水平分格的空间索引：每个物体按世界包围盒的 xz 范围登记，查询一根竖直线段附近的物体
+    const G = Math.max(cell * 4, clearance);
+    const grid = new Map(), keyOf = (i, j) => i * 73856093 ^ j * 19349663;
+    for (const P of objs) {
+      for (let i = Math.floor(P.wb.min[0] / G); i <= Math.floor(P.wb.max[0] / G); i++) for (let j = Math.floor(P.wb.min[2] / G); j <= Math.floor(P.wb.max[2] / G); j++) {
+        const k = keyOf(i, j);
+        if (!grid.has(k)) grid.set(k, []);
+        grid.get(k).push(P);
+      }
+    }
+    const blocked = (self, a, b) => {
+      for (const Q of grid.get(keyOf(Math.floor(a[0] / G), Math.floor(a[2] / G))) ?? []) {
+        if (Q === self || Q.wb.min[0] > a[0] || Q.wb.max[0] < a[0] || Q.wb.min[2] > a[2] || Q.wb.max[2] < a[2] || Q.wb.max[1] <= a[1] || Q.wb.min[1] >= b[1]) continue;
+        if (self.n.isAncestorOf(Q.n) || Q.n.isAncestorOf(self.n)) continue;
+        for (let j = 0; j < Q.parts.length; j++) {
+          const pb = Q.pboxes[j];
+          if (pb.min[0] > a[0] || pb.max[0] < a[0] || pb.min[2] > a[2] || pb.max[2] < a[2] || pb.max[1] <= a[1] || pb.min[1] >= b[1]) continue;
+          if (segmentGap(a, b, Q.parts[j]) < -eps / 2) return true;
+        }
+      }
+      return false;
+    };
+    const facts = [];
+    for (const P of objs) {
+      // 凸块是近似的（旋转体的外接圆柱、网格的外包络）时顶面不可信，默认跳过；factOptions.walkable.approx = true 时照算并标 approx
+      if (P.approx && !o.approx) continue;
+      const up = applyDir(P.W, [0, 1, 0]);
+      if (up[1] / (len(up) || 1) < cosTilt) continue;
+      const b = P.box, w = b.max[0] - b.min[0], d = b.max[2] - b.min[2], h = b.max[1] - b.min[1];
+      if (w * d < minArea) continue;
+      const nx = Math.max(2, Math.min(12, Math.ceil(w / cell))), nz = Math.max(2, Math.min(12, Math.ceil(d / cell)));
+      const cellArea = (w * d) / (nx * nz), probe = Math.min(eps, h / 2);
+      let onTop = 0, free = 0;
+      for (let i = 0; i < nx; i++) for (let j = 0; j < nz; j++) {
+        const x = b.min[0] + ((i + 0.5) * w) / nx, z = b.min[2] + ((j + 0.5) * d) / nz;
+        const s = apply(P.W, [x, b.max[1] - probe, z]);
+        if (!P.parts.some((Q) => insidePart(Q, s, 1e-6))) continue; // 不在顶面上（圆柱、球的四角）
+        onTop++;
+        const q = apply(P.W, [x, b.max[1], z]);
+        if (!blocked(P, [q[0], q[1] + 2 * eps, q[2]], [q[0], q[1] + clearance, q[2]])) free++;
+      }
+      const area = free * cellArea;
+      if (area < minArea) continue;
+      facts.push({ rel: 'walkable', a: P.path, b: null, text: `${P.path} walkable`, area: +area.toFixed(4), share: +(free / onTop).toFixed(3), clearance: +clearance.toFixed(4), eps, ...(P.approx ? { approx: true } : {}) });
+    }
+    return facts;
+  },
+};
+
+// 注册表：名字 → 提供者。contact 默认启用，其余要在 compile 的 factProviders 里点名
+const FACT_PROVIDERS = new Map([[contactProvider.name, contactProvider], [walkableProvider.name, walkableProvider]]);
+export const DEFAULT_FACT_PROVIDERS = ['contact'];
+export function registerFactProvider(p) {
+  if (!p || typeof p.name !== 'string' || !p.name || typeof p.derive !== 'function') throw new Error('事实提供者要有 name（字符串）与 derive(objs, ctx) 函数');
+  FACT_PROVIDERS.set(p.name, p);
+  return p;
+}
+// 已注册的提供者（界面列出可以打开的）
+export const factProviderList = () => [...FACT_PROVIDERS.values()].map((p) => ({ name: p.name, rels: p.rels ?? [], default: DEFAULT_FACT_PROVIDERS.includes(p.name) }));
+// compile 的 factProviders：名字或提供者对象；没给时用默认的
+function resolveProviders(list) {
+  return (list ?? DEFAULT_FACT_PROVIDERS).map((p) => {
+    if (typeof p !== 'string') { if (!p || typeof p.derive !== 'function') throw new S3DError('factProviders 里的每一项要是名字或 { name, derive } 对象'); return p; }
+    if (!FACT_PROVIDERS.has(p)) throw new S3DError(`没有名为 ${p} 的事实提供者（已注册：${[...FACT_PROVIDERS.keys()].join(' ')}）`);
+    return FACT_PROVIDERS.get(p);
+  });
+}
+
+// 依次运行提供者；一个提供者出错不影响别的（错误交给 onError）
+function deriveFacts(root, S, eps = FACT_EPS, providers = resolveProviders(), { options = {}, onError = (e) => { throw e; } } = {}) {
+  const objs = factObjects(root, S);
+  const pairCache = new Map();
+  const base = {
+    eps, metre: eps / FACT_EPS, geo: FACT_GEO,
+    pairs: (margin = eps) => { if (!pairCache.has(margin)) pairCache.set(margin, broadPairs(objs, margin)); return pairCache.get(margin); },
+    gapOf: (P, Q) => gapBetween(P, Q, eps),
+  };
+  const facts = [];
+  for (const p of providers) {
+    try {
+      for (const f of p.derive(objs, { ...base, options: options[p.name] ?? {} })) facts.push({ ...f, b: f.b ?? null, provider: p.name });
+    } catch (e) { onError(e instanceof S3DError ? e : new S3DError(`事实提供者 ${p.name} 出错：${e.message}`)); }
+  }
+  return facts;
+}
+
+// ───────────────────────── 入口 ─────────────────────────
+
+// 有 variant 时编译两遍：第一遍求解并识别语义，决定替换哪些对象；第二遍在这些对象的外包络里换上变体
+// 'auto' 时超过这么多个带几何的节点不推导空间事实
+export const FACTS_AUTO_MAX = 20000;
+function countGeom(root) { let n = 0; const walk = (x) => { if (x.geom) n++; for (const c of x.children) walk(c); }; walk(root); return n; }
+export function compile(src, opts = {}) {
+  const first = compileOnce(src, null, opts);
+  return first.plan ? compileOnce(src, first.plan, opts).result : first.result;
+}
+
+function compileOnce(src, plan, opts) {
+  const errors = [];
+  const program = loadProgram(src, opts, errors);
+  const elab = elaborate(program, errors, opts);
+  const { root, flat, materials, defs, semantic } = elab;
+  const S = new Solver(root, flat, opts); LAST_S = S;
+  const fail = (e, n) => {
+    if (e instanceof Cycle) return new S3DError(`循环依赖：${e.node.path} 的位置最终依赖于它自己`, e.node.line, e.node);
+    if (e instanceof S3DError) { e.line ??= n.line; e.node ??= n; e.file ??= e.node?.file ?? n.file; return e; }
+    return new S3DError(String(e && e.stack || e), n.line, n);
+  };
+
+  expandCopies(elab, S, errors, fail);
+  const pending = applyOpinions(elab, S, errors, fail);
+  buildCopies(root, flat, S, errors);
+  // 第二轮：路径经过副本的修改（只改那一个副本）
+  if (pending.length) applyOpinions(elab, S, errors, fail, pending, 2);
+
+  // 第二遍：把变体挂到被选中的对象上。原物体仍参与求解（外包络、锚点、关系都不变），只是不再渲染
+  const variantSummary = [];
+  if (plan) {
+    const byPath = new Map(flat.map((n) => [n.path, n]));
+    const paths = [...plan.keys()].sort();
+    const applied = new Map();
+    for (const path of paths) {
+      if (paths.some((q) => q !== path && path.startsWith(q + '.'))) continue; // 上级已经整体替换
+      const N = byPath.get(path), st = elab.variants[plan.get(path)];
+      if (!N) continue;
+      try {
+        const def = defs.get(st.use);
+        if (!def) throw new S3DError(`variant 的模板 ${st.use} 没有定义`, st.line);
+        const hide = (n) => { n.hidden = true; n.children.forEach(hide); };
+        hide(N);
+        const env = new Env(elab.globals);
+        env.setLazy('__self', () => mkRef(N, DIRS.bottom));
+        ['w', 'h', 'd'].forEach((k, i) => env.setLazy('__' + k, () => { const b = S.box(N); return b.max[i] - b.min[i]; }));
+        const props = new Map(st.params);
+        // 模板若声明了 w / h / d，就把外包络的尺寸传进去
+        for (const k of ['w', 'h', 'd']) if (def.params.has(k) && !props.has(k)) props.set(k, { k: 'path', segs: ['__' + k] });
+        props.set('at', { k: 'path', segs: ['__self'] });
+        props.set('pin', { k: 'path', segs: ['bottom'] });
+        const before = N.children.length;
+        elab.walk([{ kind: st.use, id: 'skin', props, tags: [], children: [], line: st.line }], N, env, 0);
+        const mark = (n) => { n.skin = true; n.hidden = false; n.children.forEach(mark); };
+        N.children.slice(before).forEach(mark);
+        if (!applied.has(st)) applied.set(st, []);
+        applied.get(st).push(path);
+      } catch (e) { errors.push(fail(e, { line: st.line })); }
+    }
+    for (const st of elab.variants) variantSummary.push({ line: st.line, file: st.file ?? null, use: st.use, src: st.src, members: applied.get(st) ?? [] });
+    // 变体里的 mirror / rotate 也要生成副本
+    buildCopies(root, flat, S, errors);
+  }
+
+  for (const n of flat) {
+    for (let tries = 0; tries < 4; tries++) {
+      try { S.world(n); S.box(n); break; } catch (e0) {
+        const e = fail(e0, n);
+        if (!errors.some((x) => x.message === e.message)) errors.push(e);
+        const bad = e.node || n;
+        bad._local ??= IDENT; bad._box ??= ZERO_BOX;
+        bad._link ??= { local: IDENT, box: ZERO_BOX, geom: null };
+        bad._curve ??= measureCurve([[0, 0, 0], [0, 0, 0]], false);
+      }
+    }
+  }
+  let items = [], curves = [], facts = [];
+  // 空间事实：按 opts.factProviders 列出的提供者推导（默认只有 contact）；某个提供者出错只记错误，不影响别的。
+  // opts.facts：true（默认）推导；false 不推导；'auto' 物体（带几何的节点）超过 FACTS_AUTO_MAX 时不推导——整张大地图十几万个物体，
+  // 事实推导要十几秒，看图用不着；结果里 factsSkipped 为 true，界面打开“空间事实”页时再带上事实重新编译。不推导时依赖关系的模式匹配不到
+  let providers;
+  try { providers = resolveProviders(opts.factProviders); } catch (e) { errors.push(fail(e, root)); providers = resolveProviders(); }
+  const nGeom = opts.facts === 'auto' ? countGeom(root) : 0;
+  const factsSkipped = opts.facts === false || (opts.facts === 'auto' && nGeom > FACTS_AUTO_MAX);
+  if (!factsSkipped) try { facts = deriveFacts(root, S, opts.factEps ?? FACT_EPS, providers, { options: opts.factOptions, onError: (e) => errors.push(fail(e, root)) }); } catch (e) { errors.push(fail(e, root)); }
+  S.buildRelations(facts);
+
+  // —— 语义层：概念 → 样式 → 检查（都在求解之后，可以使用空间事实）——
+  const evalTop = (ast) => evalAst(ast, { env: semantic, node: root, scope: root, frame: root, S });
+  for (const pt of elab.patterns) semantic.setLazy(pt.name, () => matchPattern(pt, semantic, root, S));
+  const patterns = [];
+  for (const pt of elab.patterns) {
+    try {
+      const v = semantic.lookup(pt.name, S).v;
+      for (const m of v.matches) for (const [r, val] of m) for (const n of isSet(val) ? val.nodes : [val]) (n.concepts ??= []).push(`${pt.name}.${r}`);
+      patterns.push({
+        name: pt.name, line: pt.line, file: pt.file ?? null, roles: pt.roles.map((r) => r.name + (r.set ? '*' : '')),
+        matches: v.matches.map((m) => Object.fromEntries([...m].map(([r, val]) => [r, isSet(val) ? val.nodes.map((n) => n.path) : val.path]))),
+      });
+    } catch (e) { errors.push(fail(e, { line: pt.line, file: pt.file })); patterns.push({ name: pt.name, line: pt.line, file: pt.file ?? null, roles: [], matches: [], error: e.message }); }
+  }
+  const concepts = [];
+  for (const c of elab.concepts) {
+    try {
+      const set = asSet(semantic.lookup(c.name, S).v);
+      for (const m of set.nodes) (m.concepts ??= []).push(c.name);
+      concepts.push({ name: c.name, parent: c.parent, line: c.line, file: c.file ?? null, src: c.src, members: set.nodes.map((m) => m.path) });
+    } catch (e) { errors.push(fail(e, { line: c.line, file: c.file })); concepts.push({ name: c.name, parent: c.parent, line: c.line, file: c.file ?? null, src: c.src, members: [], error: e.message }); }
+  }
+  S.styleMap = new Map();
+  for (const st of elab.styles) {
+    try {
+      const set = asSet(evalTop(st.sel));
+      let m = null;
+      for (const [k, ast] of st.props) {
+        if (k === 'color') m = { ...m, color: String(evalTop(ast)) };
+        else if (k === 'mat') {
+          const name = ast.k === 'path' && ast.segs.length === 1 ? ast.segs[0] : null;
+          if (!materials.has(name)) throw new S3DError(`未定义的材质 ${name}`);
+          m = { name, ...materials.get(name) };
+        } else throw new S3DError(`style 目前只支持 mat 和 color，不认识 ${k}`);
+      }
+      // 后写的样式覆盖先写的；作用于成员及其所有下级（变体自己写了材质的部分除外）
+      const mark = (n) => { if (n.skin) return; S.styleMap.set(n, m); n.children.forEach(mark); };
+      set.nodes.forEach(mark);
+    } catch (e) { errors.push(fail(e, { line: st.line })); }
+  }
+  const checks = [];
+  for (const c of elab.checks) {
+    const label = c.msg ?? c.src;
+    try {
+      const v = evalTop(c.ast);
+      if (setLike(v)) {
+        const bad = asSet(v).nodes;
+        checks.push({ line: c.line, file: c.file ?? null, message: label, ok: bad.length === 0, violators: bad.map((m) => m.path) });
+      } else checks.push({ line: c.line, file: c.file ?? null, message: label, ok: asBool(v), violators: [] });
+    } catch (e) { checks.push({ line: c.line, file: c.file ?? null, message: label, ok: false, violators: [], error: e.message }); }
+  }
+
+  // 第一遍：按语义决定哪些对象换成哪个变体（后写的覆盖先写的）
+  let nextPlan = null;
+  if (!plan && elab.variants.length) {
+    nextPlan = new Map();
+    elab.variants.forEach((st, i) => {
+      try { for (const n of asSet(evalTop(st.sel)).nodes) nextPlan.set(n.path, i); }
+      catch (e) { errors.push(fail(e, { line: st.line })); }
+    });
+    if (!nextPlan.size) nextPlan = null;
+  }
+
+  try { ({ items, curves } = buildItems(root, S, materials)); } catch (e) { errors.push(fail(e, root)); }
+  const order = [];
+  const dfs = (n) => { if (n !== root) order.push(n); n.children.forEach(dfs); };
+  dfs(root);
+  const nodes = order.map((n) => ({
+    path: n.path,
+    kind: n.template ? n.template : n.inst ? 'instance' : n.src ? `${n.kind}→${K(n)}` : n.copyOf ? n.copyOf.container.kind : K(n),
+    id: n.id, tags: n.tags, concepts: n.concepts ?? [], line: n.line, file: n.file ?? null, types: n.types ?? null, meta: (n.ghostOf ?? n).meta ?? {},
+    depth: n.path.split('.').length - 1, late: !!n.late, ghost: !!n.ghostOf, of: (n.twinOf ?? n.ghostOf ?? n.src)?.path ?? null, curve: CURVES.has(K(n)), hidden: !!n.hidden, skin: !!n.skin,
+    world: n._world ?? null, box: n._world && n._box ? transformBox(n._world, n._box) : null,
+    // 紧包围盒：按真实形状（与空间事实同一套凸块）求，旋转后的圆柱、球不会被放大
+    tight: n._world && n._box && n.geom && LEAVES.has(K(n)) ? tightBox(n) : null,
+  }));
+  errors.sort((a, b) => (a.line ?? 0) - (b.line ?? 0));
+  if (!plan && !nextPlan) for (const st of elab.variants) variantSummary.push({ line: st.line, file: st.file ?? null, use: st.use, src: st.src, members: [] });
+  return {
+    plan: nextPlan,
+    result: {
+      items, curves, facts, factsSkipped, factProviders: providers.map((p) => p.name), nodes, concepts, patterns, variants: variantSummary, checks, defs: [...defs.keys()], materials: Object.fromEntries(materials),
+      errors: errors.map((e) => ({ line: e.line ?? null, file: e.file ?? e.node?.file ?? null, message: e.message })),
+      warnings: S.warnings,
+    },
+  };
+}
+
+export let LAST_S = null;
+export { Solver, Node, NodeSet, FACES, AXES, CURVES, PATH_CURVES, LINKS, I3, IDENT };

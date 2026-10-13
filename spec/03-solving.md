@@ -906,6 +906,18 @@ arc、helix 是一般节点（3.1.2）：有自己的局部系，原点是圆心
 | `variant N use=cap`，$N$ 依次为 box、无 envelope 的 group、有 envelope 的 group、subtract、union、intersect、repeat 节点 | 皮肤 `late` 依次为假、真、假、假、真、真、真 | 相同（3.7.6 的表） |
 | `mirror radar2 of=radar …`，radar 里的 dish 后置 | `radar2.dish` 的 `late` 为假（标记不复制） | 真（3.9.7：取原件的） |
 
+### 3.11.6 实战工程核对（2026-10-13 补）
+
+原型逆向的三个实战工程（`SVG3D-Prototype` 仓库的 `work-snapshot/`：dorm、h1、sc；单位 stud，`metre = 1/0.28`）用原型重算 compile JSON 后（节点数与事实数与 `corpus/reference/MANIFEST.md` 记录的完全相同：4540 / 9683、3874 / 15232、149508 / 275343），用 3.11.1 的同一脚本（`spec/tools/verify/verify3-work.mjs`）按本章公式重算全部节点的局部变换与 `box`：
+
+| 工程 | 节点 | 定位 / 朝向组合类 | $W$ 不一致 | `box` 不一致 | 参考里的后置节点 |
+|---|---|---|---|---|---|
+| dorm | 4539 | 26 | 0 | 0 | 无 |
+| h1 | 3873 | 24 | 0 | 0 | 无 |
+| sc | 149507 | 37 | 0 | 0 | 2（见下） |
+
+覆盖到而语料示例没有的构件：`rot` 四元组（13 212 条）、`tilt`（4 991 条）、`against` 配 `turn`、`at=` 配 `pin` / `offset`、`mirror … of=` 配 `across=(…) axis=(…)` 向量形式（454 条）、`span` 的 `steps`（165 个）、`pipe`、容器式 `rotate`、模板实例嵌套四层。sc 的两个后置节点 `WalkwaySystem_MetalSupport_19_3.body` 与 `…_2_2.body` 按 3.6.3 推得一致：模板体内 `mirror box_56 of=volume_13_2` 的原件经全局索引解析到模板之外的一个顶层节点，$L(	ext{box\_56}) 	o T_{A 	o 	ext{body}} 	o L(	ext{实例})$，实例以 `at=` 定位、缺省 `pin=bottom` 读自己的盒（3.6.1 的 $L(n) 	o X(n)$ 边），于是 $X(	ext{实例}) 	o X(	ext{body}) 	o \dots 	o X(	ext{实例})$ 成环，body 对实例后置。
+
 ### 3.11.5 因本章定义而预期不同的项
 
 M1 的编译器按本章实现时，与原型输出的差别只会出现在下列情形；语料（7 个示例与 10 个 exports）里没有任何一处触发，所以参考输出仍然逐节点适用：
