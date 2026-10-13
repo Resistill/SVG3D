@@ -76,7 +76,16 @@ fn geom_json(s: &Solid) -> J {
         Solid::Plate { points, h } => json!({ "type": "plate", "pts": points, "h": h }),
         Solid::Hull { points } => {
             let pts: Vec<J> = points.iter().map(|p| vec3_json(*p)).collect();
-            json!({ "type": "hull", "pts": pts, "faces": [] })
+            // 2.2.6 的面片各按 2.1.9 的扇形规则三角化，按面片顺序（顶点序号指向输入点）
+            let mut faces: Vec<J> = Vec::new();
+            if let Some(fs) = s3d_geom::convex::hull_faces(points) {
+                for f in fs {
+                    for i in 1..f.len().saturating_sub(1) {
+                        faces.push(json!([f[0], f[i], f[i + 1]]));
+                    }
+                }
+            }
+            json!({ "type": "hull", "pts": pts, "faces": faces })
         }
         Solid::Revolve { profile, angle, .. } => {
             json!({ "type": "revolve", "prof": profile, "angle": angle })
