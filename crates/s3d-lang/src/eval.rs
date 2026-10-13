@@ -168,7 +168,7 @@ impl Compiler {
         Ok(Some(match name {
             "kind" => Value::Str(node.kind.clone()),
             "name" => Value::Str(node.name.clone()),
-            "mat" => match self.effective_mat_name(member) {
+            "mat" => match self.where_mat_name(member) {
                 Some(m) => Value::Str(m),
                 None => Value::Missing,
             },

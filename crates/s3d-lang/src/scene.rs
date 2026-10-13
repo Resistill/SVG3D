@@ -86,6 +86,8 @@ pub struct Node {
     pub pos: Vec<u64>,
     /// 已被 drop / 重建拿掉（不在树里）
     pub dropped: bool,
+    /// 命中的概念名（7.4.4）
+    pub concepts: Vec<String>,
 }
 
 impl Node {
@@ -131,6 +133,7 @@ impl Scene {
             depth: 0,
             pos: vec![],
             dropped: false,
+            concepts: vec![],
         };
         Scene { nodes: vec![root] }
     }

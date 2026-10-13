@@ -50,6 +50,93 @@ impl Compiler {
             let _ = self.require_lbox(id);
             let _ = self.require_wbox(id);
         }
+        self.compute_tight_all();
+    }
+
+    /// 紧包围盒（2.1.8、2.5.4）：实体按真实形状；最外层以内的布尔容器按操作数组合；其他为 None
+    fn compute_tight_all(&mut self) {
+        let order = self.scene.order();
+        // 先实体（含影子 / 副本式节点上复制来的 geom）
+        for &id in &order {
+            let node = &self.scene.nodes[id];
+            if node.degenerate {
+                continue;
+            }
+            if let (Some(g), Some(w)) = (&node.geom, &node.world) {
+                if crate::ast::SOLID_KINDS.contains(&node.kind.as_str()) {
+                    let t = s3d_geom::tight::tight_box(g, w);
+                    self.scene.nodes[id].tight = Some(t);
+                }
+            }
+        }
+        // 布尔容器：后序（内层先）
+        for &id in order.iter().rev() {
+            let kind = self.scene.nodes[id].kind.clone();
+            if matches!(kind.as_str(), "union" | "subtract" | "intersect") && !self.scene.nodes[id].degenerate
+            {
+                let t = self.bool_tight(id);
+                self.scene.nodes[id].tight = t;
+            }
+        }
+    }
+
+    /// 布尔容器的紧包围盒；容器操作数取其内部实体紧盒的并
+    fn bool_tight(&mut self, n: NodeId) -> Option<Aabb> {
+        let kind = self.scene.nodes[n].kind.clone();
+        let kids = self.scene.nodes[n].children.clone();
+        let mut acc: Option<Aabb> = None;
+        let mut first = true;
+        for c in kids {
+            let ck = self.scene.nodes[c].kind.clone();
+            if crate::ast::CURVE_KINDS.contains(&ck.as_str())
+                || matches!(self.scene.nodes[c].role, Role::Skin)
+            {
+                continue;
+            }
+            if self.scene.nodes[c].late || self.scene.nodes[c].degenerate {
+                continue;
+            }
+            let t = if crate::ast::SOLID_KINDS.contains(&ck.as_str()) {
+                self.scene.nodes[c].tight
+            } else if matches!(ck.as_str(), "union" | "subtract" | "intersect") {
+                self.scene.nodes[c].tight
+            } else {
+                self.subtree_solid_tight(c)
+            };
+            let t = match t {
+                Some(t) => t,
+                None => continue,
+            };
+            acc = Some(match (acc, kind.as_str()) {
+                (None, _) => t,
+                (Some(a), "intersect") => a.intersection(&t).unwrap_or(Aabb::ZERO),
+                (Some(a), "subtract") => {
+                    let _ = t;
+                    a
+                }
+                (Some(a), _) => a.union(&t),
+            });
+            if kind == "subtract" && first {
+                first = false;
+            }
+        }
+        acc
+    }
+
+    fn subtree_solid_tight(&self, n: NodeId) -> Option<Aabb> {
+        let mut acc: Option<Aabb> = None;
+        for id in self.scene.subtree_of(n) {
+            let node = &self.scene.nodes[id];
+            if crate::ast::SOLID_KINDS.contains(&node.kind.as_str()) && !node.degenerate && !node.hidden {
+                if let Some(t) = node.tight {
+                    acc = Some(match acc {
+                        None => t,
+                        Some(a) => a.union(&t),
+                    });
+                }
+            }
+        }
+        acc
     }
 
     pub fn require_world(&mut self, n: NodeId) -> Transform {
@@ -485,18 +572,21 @@ impl Compiler {
             }
             _ => return self.fail(n, format!("{} 的 path 需要曲线或点列表", path)),
         };
-        let rings = match sweep::rings(&pts, closed, tangents.as_deref(), &ring) {
+        let (rings, frames) = match sweep::rings(&pts, closed, tangents.as_deref(), &ring) {
             Ok(r) => r,
             Err(SweepErr::Coincident) => return self.fail(n, format!("{}：path 有重合的相邻点", path)),
             Err(SweepErr::Degenerate(i)) => {
                 return self.fail(n, format!("{}：路径在第 {} 个点退化", path, i))
             }
         };
+        let circle = matches!(profile, Profile::Circle { .. });
         Ok(Solid::Sweep {
             rings,
             m: ring.len(),
             closed,
             profile: ring,
+            frames,
+            circle,
         })
     }
 
@@ -921,18 +1011,6 @@ impl Compiler {
     pub fn top_bottom(&mut self, n: NodeId) -> (f64, f64) {
         let b = self.scene.nodes[n].tight.unwrap_or_else(|| self.require_wbox(n));
         (b.min.y, b.max.y)
-    }
-
-    /// 有效材质名（10.5.3 的 E_g；先用自有 / 祖先的 mat 字面量）
-    pub fn effective_mat_name(&mut self, n: NodeId) -> Option<String> {
-        let mut cur = n;
-        while cur != ROOT {
-            if let Some(m) = self.prop_literal(cur, "mat") {
-                return Some(m);
-            }
-            cur = self.scene.nodes[cur].parent;
-        }
-        None
     }
 
     pub fn relation_predicate(&mut self, name: &str, _args: &[Expr], _ctx: Ctx) -> EResult<Value> {

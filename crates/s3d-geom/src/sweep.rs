@@ -197,13 +197,13 @@ pub enum SweepErr {
     Degenerate(usize),
 }
 
-/// 环点 ρ_{i,k}（按 i 外层、k 内层排列）
+/// 环点 ρ_{i,k}（按 i 外层、k 内层排列）与框架 (p, side, up)
 pub fn rings(
     pts: &[Vec3],
     closed: bool,
     tangents: Option<&[Vec3]>,
     ring: &[[f64; 2]],
-) -> Result<Vec<Vec3>, SweepErr> {
+) -> Result<(Vec<Vec3>, Vec<(Vec3, Vec3, Vec3)>), SweepErr> {
     let n = pts.len();
     let segs = if closed { n } else { n.saturating_sub(1) };
     for i in 0..segs {
@@ -213,12 +213,14 @@ pub fn rings(
     }
     let fr = frames(pts, closed, tangents).map_err(SweepErr::Degenerate)?;
     let mut out = Vec::with_capacity(n * ring.len());
+    let mut frames_out = Vec::with_capacity(n);
     for (i, (_, side, up)) in fr.iter().enumerate() {
         for q in ring {
             out.push(pts[i] + *side * q[0] + *up * q[1]);
         }
+        frames_out.push((pts[i], *side, *up));
     }
-    Ok(out)
+    Ok((out, frames_out))
 }
 
 /// revolve 的轮廓处理（2.2.7 第 1–6 步）：|r|、可选平滑、截断、自动封口、规整、面积与简单性检查。

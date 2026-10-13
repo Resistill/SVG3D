@@ -90,6 +90,14 @@ pub struct Compiler {
     pub copies_inserted: Vec<(NodeId, usize)>,
     /// 推迟到阶段 6 的修改（4.4.4）
     pub deferred_mods: Vec<crate::elaborate::Modification>,
+    /// 材质表（10.1.3）与默认材质名
+    pub material_table: IndexMap<String, crate::material::MaterialEntry>,
+    pub default_material: Option<String>,
+    pub material_table_built: bool,
+    pub mat_errors_reported: Vec<NodeId>,
+    pub color_errors_reported: Vec<NodeId>,
+    /// 样式动作（7.7、10.3.3）：(选择集, mat, color)，按语句顺序
+    pub style_actions: Vec<(Vec<NodeId>, Option<String>, Option<(String, Option<u8>)>)>,
 }
 
 impl Compiler {
@@ -116,6 +124,12 @@ impl Compiler {
             copy_seq: 0,
             copies_inserted: Vec::new(),
             deferred_mods: Vec::new(),
+            material_table: IndexMap::new(),
+            default_material: None,
+            material_table_built: false,
+            mat_errors_reported: Vec::new(),
+            color_errors_reported: Vec::new(),
+            style_actions: Vec::new(),
             busy_local: Vec::new(),
             busy_box: Vec::new(),
         }

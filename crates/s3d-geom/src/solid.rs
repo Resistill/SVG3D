@@ -78,6 +78,10 @@ pub enum Solid {
         m: usize,
         closed: bool,
         profile: Vec<[f64; 2]>,
+        /// 每个路径点的框架 (p, side, up)（2.3.7；输出 frames 用）
+        frames: Vec<(Vec3, Vec3, Vec3)>,
+        /// 截面是圆（输出 smooth 用）
+        circle: bool,
     },
 }
 
