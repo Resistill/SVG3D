@@ -4,12 +4,15 @@
 
 pub mod aabb;
 pub mod bvh;
+pub mod compare;
 pub mod convex;
 pub mod csg;
 pub mod curve;
 pub mod math;
 pub mod mesh;
+pub mod png;
 pub mod poly2;
+pub mod raster;
 pub mod solid;
 pub mod sweep;
 pub mod tight;
