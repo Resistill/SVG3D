@@ -282,36 +282,669 @@ $$t = q - R_n\,\pi .$$
 
 ## 3.4 pin、gap、offset、align、alignto
 
-<!-- 3.4 -->
+本节的量都承接 3.3：关系给出 $q$、$\nu$（在 $P$ 里）与缺省定位点；$R_n$ 由 3.5 求出。五个属性的类型与缺省见 01-syntax.md 的 1.4.4（`pin` 定位点、`gap` 数、`offset` 向量₃、`align` 面名列表、`alignto` 参照物）。
+
+### 3.4.1 定位点 pin
+
+定位点 $\pi$ 是 $n$ **局部系**里的一个点，由 `pin` 的值按下表求出（$c_n$、$h_n$ 是 $n$ 的局部包围盒的盒心与半尺寸，3 章记法；容器用容器的盒，有 `envelope` 的 group 用 envelope，退化节点与空容器用零盒）：
+
+| `pin` 的值 | $\pi$ | 例 |
+|---|---|---|
+| 没写 | 关系的缺省定位点（3.3.1 的表：`on` / `at` → `bottom`，`under` → `top`，`inside` → `center`，`against` → 自动选面 3.3.4，没有关系 → `origin`，3.3.7） | |
+| `origin` | $(0,0,0)$ | `arc loop … pin=origin`：圆心落到 $q$ |
+| 方向词 / 组合词，向量 $a \in \{-1,0,1\}^3$（`center` 是 $0$） | $c_n + h_n \circ a$ | `pin=top`、`pin=bottom-right`（$a = (1,-1,0)$：底面右棱的中点） |
+| 向量₃ $(u,v,w)$（任意数，不限于 $[-1,1]$） | $c_n + h_n \circ (u,v,w)$ | `pin=0,1,0` 与 `pin=top` 相同；`pin=0,-1,0` 把盒底面之下一个半高处钉到 $q$ |
+
+- 定位点**只按局部包围盒**算（与锚点一样不看形状，3.2.1）：`sphere … pin=top` 是球顶，`wedge … pin=top` 是包围盒顶面中心（在斜面之上）。
+- 零盒（退化节点、空容器）的任何定位点都是原点。
+- `pin` 对 span、sweep 是几何参数（02-geometry.md 的 2.2.8、2.2.9，枚举 `bottom` / `top` / `center`），不是定位点；pipe、line、bezier、spline 没有 `pin`（01-syntax.md 的 1.4.4）。
+- 定位点同时是旋转支点（3.3.9）：`box fin … turn=180 pin=bottom-right` 绕底面右棱中点转。
+- `pin` 的值不是 `origin`、方向词 / 组合词或三个数时报错"pin 写成 origin、方向词或 u,v,w"（01-syntax.md 的 1.4.1），节点退化。
+
+### 3.4.2 gap
+
+$$t \leftarrow t + g\,\nu,$$
+$g$ 是 `gap` 的值（数，缺省 0），$\nu$ 是关系的法线（3.3.1，单位向量，在 $P$ 里）。正值沿法线离开参照物，负值沉进去（`cyl band … on=stage1 gap=-0.8`：底面比 stage1 顶面低 0.8）。
+
+- **$\nu = 0$ 时写了 `gap`**（不论值是多少）报错"`<路径>`：gap 需要有法线的定位关系（on / under / against，或 at= 带面锚点）"，节点退化。$\nu = 0$ 的情形：`inside`（3.3.5）、`at=` 向量 / 集合 / 无锚点引用 / 曲线取点（3.3.6）、没有关系（3.3.7）。原型（`local`）在 $\nu = 0$ 时静默忽略 gap；本版报错。
+- `gap` 与 `offset` 不合并：先加 gap，再做 align，再加 offset（3.4.5）。
+- gap 的方向由**关系**决定，不由锚点决定：`on=B[1,0,0] gap=1` 沿 $B$ 的 $+y$（3.3.2），`at=B.right gap=1` 沿 $B$ 的 $+x$（3.3.6）。
+
+### 3.4.3 align 与 alignto
+
+`align` 的值是面名列表（01-syntax.md 的 1.4.1：每项 ∈ {`left` `right` `front` `back` `top` `bottom` `x` `y` `z`}，组合词与 `center` 不合法，报错"align 只接受面名或 x / y / z，如 left,back"）。它在关系落点之后、offset 之前，按**书写顺序**逐项平移 $t$，不改 $R_n$。
+
+**对齐目标** $A$：写了 `alignto` 用它（参照物类型，可以是集合）；否则用主定位关系的参照物（`on` `under` `against` `inside` 的参照物，或 `at=` 引用形式的参照物）。没有目标（没有关系；`at=` 是向量或集合；只有 `pin`）报错"`<路径>`：align 需要参照（on / under / against / inside / at=对象 或 alignto=对象）"，节点退化。`alignto` 没有 `align` 报错"alignto 需要 align"（01-syntax.md 的 1.4.4）。目标上的锚点与偏移**不参与** align：下面两种锚点都在 $A$ 的盒上重新取、偏移取 $0$。
+
+对列表里的每一项 $f$，记当前的 $T_0 = (R_n, t)$：
+
+1. **轴名** $f \in \{x, y, z\}$（轴序号 $k$）：**盒心对齐**——$q_c$ = $A$ 的盒心换到 $P$（3.2.4，锚点 `center`，偏移 0），$p_c = T_0(c_n)$ 是自己盒心在 $P$ 里的位置；$t_k \leftarrow t_k + (q_{c,k} - p_{c,k})$，只改 $P$ 的第 $k$ 个坐标。
+2. **面名** $f$（向量 $a_f$）：**面对齐**——
+   - 目标面：$q_f$、$\nu_f$ = $A$ 的锚点 `f`（$c_A + h_A \circ a_f$，法线 $\mathrm{dominant}(a_f) = a_f$）换到 $P$（3.2.4）；
+   - 自己的面：在 $\mathrm{FACES}$ 的顺序里取使 $(R_n\,a_g) \cdot \nu_f$ **最大**的面 $g$（自己外法线在 $P$ 里与目标面法线最同向的面；并列取顺序靠前的；$R_n$ 是 3.5 的完整朝向）；$p_g = T_0(c_n + h_n \circ a_g)$；
+   - $t \leftarrow t + \big((q_f - p_g)\cdot \nu_f\big)\,\nu_f$：沿目标面的法线平移，使自己那个面的中心落到目标面所在的**平面**上（不是落到面的范围内；也不改变沿其他方向的位置）。
+
+- 轴名对齐在 $P$ 的坐标轴上做，面名对齐在**目标自己的面法线**上做；参照物转过时两者不同：`on=floor turn=30 align=x` 把盒心的 $x$ 对齐到 floor 盒心的 $x$；`align=back` 把自己朝 $-z_{\text{floor}}$ 的那个面（选面用的是转过之后的外法线）贴到 floor 的后面所在的平面。
+- 同一项写两次（`align=left,left`）做两次，第二次位移为 0。先 `align=x` 再 `align=left`（即 `align=x,left`）以后者为准，因为 left 的平移改掉了 x 对齐的结果。
+- 目标是集合时用集合的盒（3.2.8），法线是世界轴换到 $P$。
+- 自己是零盒时 $c_n = h_n = 0$：面对齐把原点放到目标面的平面上，轴对齐把原点对到目标盒心的该坐标。
+
+```s3d
+box shelf size=10,9,2 on=floor align=back                      // 后面贴到 floor 的后面平面
+box book1 size=0.6,3,1.6 against=shelf.front align=bottom,left   // 先底对底，再左对左
+cyl spare r=2.4 h=20 axis=x inside=hangar.body align=bottom     // 落到被减体的底面
+box sign size=3,1,0.1 on=plinth align=x,z alignto=gate          // 盒心的 x、z 对齐到 gate，仍立在 plinth 上
+```
+
+### 3.4.4 offset
+
+$$t \leftarrow t + o,$$
+$o$ 是 `offset` 的值（向量₃，缺省 0），**在父框架 $P$ 里**加，不随 $R_n$ 转、不随参照物转（原型 `local` 的最后一步；用参考输出核对见 3.11，并经小例子确认：`box a turn=90 offset=1,0,0` 得 $t = (1,0,0)$；转过 90° 的组里 `box b offset=1,0,0` 的 $b$ 沿组的 $+x$ 偏 1）。要沿自己的轴偏移，用 `pin` 的向量形式或在锚点里写 `B[u,v,w]`；要沿参照物的轴偏移，用 `B[u,v,w]` / `B.top[u,w]`。
+
+- offset 对所有一般节点有效，包括没有关系的（3.3.7：$t = o$）、容器与阵列节点。
+- 引用上的偏移（`at=B.top+(0,0.2,0)`，3.2.4）与 `offset=0,0.2,0` 对定位的效果相同；区别是前者影响锚点 $q$（因此也影响 `aim` 的起点 3.5.4），后者只在最后加。
+
+### 3.4.5 合成顺序与示例
+
+一般节点的平移按 3.1.3 的顺序，不得重排：
+
+$$t = \underbrace{q - R_n\,\pi}_{\text{3.3.9}} \;+\; \underbrace{g\,\nu}_{\text{3.4.2}} \;\xrightarrow{\ \text{align 逐项（3.4.3）}\ }\; t' \;+\; \underbrace{o}_{\text{3.4.4}}.$$
+
+align 要用到"当前的 $t$"（求 $p_c$、$p_g$），所以它放在 gap 之后、offset 之前这件事有观察后果：`on=B gap=1 align=bottom` 的 bottom 对齐把 gap 抬起的量又消掉（底面贴回 $B$ 的底面平面），而 `on=B align=bottom offset=0,1,0` 最后仍抬 1。
+
+**示例**（basics.s3d；floor 是 $40 \times 1 \times 24$ 的盒、`pin=top`，顶面在 $y = 0$）：
+
+```s3d
+box turned size=6,3,3 on=floor[-0.1,1,0.55] turn=35
+box sticker size=1,1.5,1 against=turned.right align=bottom
+```
+
+turned：$q = c_{\text{floor}} + h \circ (-0.1, 1, 0.55) = (-2, 0, 6.6)$，$R = R_y(35°)$，$\pi$ = 底面中心 $= 0$，$t = (-2, 0, 6.6)$。
+sticker：继承 $R_{\text{base}} = R_y(35°)$（3.5.1），$R_n = R_y(35°)$；$q$ = turned 的右面中心 $(3, 1.5, 0)$ 换到 $P$：$(0.4575, 1.5, 4.8793)$，$\nu = R_y(35°)\hat x = (0.8192, 0, -0.5736)$；自动选面：$(R_n a_g)\cdot\nu = a_g \cdot \hat x$ 最小的是 `left`，$\pi = (-0.5, 0.75, 0)$；$t = q - R_n\pi = (0.8671, 0.75, 4.5925)$；`align=bottom`：$q_f = (-2, 0, 6.6)$、$\nu_f = -\hat y$，自己最朝下的面是 bottom，$p_g = t = (0.8671, 0.75, 4.5925)$，位移 $((q_f - p_g)\cdot\nu_f)\nu_f = (0, -0.75, 0)$；最终 $t = (0.8671, 0, 4.5925)$——与参考输出一致（3.11）。
 
 ## 3.5 朝向
 
-<!-- 3.5 -->
+$R_n$ 是 $n$ 的局部轴在 $P$ 里的方向（列向量是局部 $\hat x, \hat y, \hat z$ 的像）。本节定义它的每个因子；对 span / sweep / pipe、曲线 line / bezier / spline、阵列实例、副本与影子，$R_n$ 由 3.8–3.10 另定，本节只适用于一般节点（3.1.2）。
+
+### 3.5.1 缺省朝向：继承
+
+$$R_{\text{base}} = \begin{cases} R_{B \to P} & \text{主定位关系是 } \texttt{on} / \texttt{under} / \texttt{against} / \texttt{inside}\text{，参照物 } B \\ I & \text{主定位关系是 } \texttt{at}\text{（任何形式），或没有关系} \end{cases}$$
+
+$R_{B \to P}$ 是 $T_{B \to P}$ 的旋转部分（3.1.1；$B$ 是集合时取 $W_P^{-1}$ 的旋转部分，即继承世界朝向，3.2.8）。含义：
+
+- 贴在、放在、装在一个物体上（下）的东西跟它一起转——`bunker turn=30` 上的 `mast`、`berm` 都是 30°，`turned turn=35` 右面上的 `sticker` 是 35°；参照物在转过的容器里时，容器的旋转也在 $R_{B \to P}$ 里。
+- `at=` **不**继承：`at=B.top` 把物体立在 $B$ 顶面中心，但轴向与父框架相同（3.3.6）。
+- 没有关系的节点取父框架的轴向（$I$）——在转过的组里就是组的轴向。
+- $\det R_{B \to P} = -1$（参照物是镜像副本或其后代）时按 3.5.7 修正。
+- `repeat` 节点：$R_n = R_{\text{base}}$，不再乘任何因子（它的 `turn` 是实例的递增角，3.8.3；`tilt` `roll` `rot` `aim` 对 repeat 不合法，01-syntax.md 的 1.4.4）。
+
+### 3.5.2 turn、tilt、roll
+
+三个角都是度（数，缺省 0）。矩阵（$c = \cos\theta$，$s = \sin\theta$）：
+
+| 属性 | 矩阵 | 轴与正方向 | 效果 |
+|---|---|---|---|
+| `turn` | $R_y(\theta) = \begin{pmatrix} c & 0 & s \\ 0 & 1 & 0 \\ -s & 0 & c \end{pmatrix}$ | 绕局部 $+y$，右手（俯视逆时针） | $\hat x \mapsto (c, 0, -s)$：右转向后（北）；$\hat z \mapsto (s, 0, c)$：前转向右（东） |
+| `tilt` | $R_x(\theta) = \begin{pmatrix} 1 & 0 & 0 \\ 0 & c & -s \\ 0 & s & c \end{pmatrix}$ | 绕局部 $+x$，右手 | $\hat y \mapsto (0, c, s)$：顶部倒向前（$+z$） |
+| `roll` | $R_{\text{roll}}(\theta) = \begin{pmatrix} c & s & 0 \\ -s & c & 0 \\ 0 & 0 & 1 \end{pmatrix}$ | 绕局部 $+z$，**左手**（$= R_z(-\theta)$） | $\hat y \mapsto (s, c, 0)$：顶部倒向右（$+x$） |
+
+- roll 的正方向是"顶部倒向右"，所以它等于绕 $+z$ 的右手旋转 $-\theta$：`roll=5` 与 `rot=(0,0,1,-5)` 相同。这是定义（语料 `pisa roll=5` 向东倾）。
+- 三者都是**内旋**（绕自己当前的轴）：$R_{\text{base}} R_y(\text{turn}) R_x(\text{tilt}) R_{\text{roll}}(\text{roll})$ 从右向左读是"先 roll、再 tilt、再 turn"作用在局部点上，从左向右读是"先 turn 转父系的 $y$、再 tilt 转转过之后的 $x$、再 roll 转再转过之后的 $z$"。`turn=30 tilt=20`（rotation.s3d 的 `sat`）得 $R = R_y(30°) R_x(20°)$，第一列 $(0.8660, 0, -0.5)$、第二列 $(0.1710, 0.9397, 0.2962)$、第三列 $(0.4698, -0.3420, 0.8138)$。
+- 角度不规整（不取模、不限范围）；$\sin$ / $\cos$ 用 01-syntax.md 的 1.1.3 要求的确定性实现。
+
+### 3.5.3 rot
+
+`rot=(a_x, a_y, a_z, θ)`（向量₄；其他长度报错"`<路径>` 的 rot 写成 (轴x,轴y,轴z,角度)"）：绕局部轴 $\hat a = \mathrm{unit}(a)$ 右手旋转 $\theta$ 度（Rodrigues）：
+$$R_{\text{axis}}(a, \theta) = c\,I + s\,[\hat a]_\times + (1 - c)\,\hat a \hat a^{\mathsf T},\qquad [\hat a]_\times = \begin{pmatrix} 0 & -a_z & a_y \\ a_z & 0 & -a_x \\ -a_y & a_x & 0 \end{pmatrix}.$$
+
+- $\lVert a \rVert < \varepsilon_{\text{len}}$ 报错"`<路径>` 的 rot 的轴不能是零向量"，节点退化（原型对零轴算出 $cI$，不是正交矩阵；本版报错）。
+- `rot` 在 turn / tilt / roll 之后乘（3.5.6）；`rot=(0,1,0,θ)` 与 `turn=θ` 等价，`rot=(1,0,0,θ)` 与 `tilt=θ` 等价，`rot=(0,0,1,θ)` 与 `roll=-θ` 等价。
+- 轴向量在**节点自己的局部系**里（内旋）；要绕父系的轴转，把 rot 写在还没转过的因子前面没有语法，用等价的 turn / tilt / roll 或改写轴向量。
+
+```s3d
+rotate rotor n=2 axis=z at=hub.center pin=origin rot=(0,0,1,phase)   // 整体先转一个相位
+box ramp size=12.2,0.2,1.5 at=floor[0.575,8,-0.43] rot=(0,0,1,35)
+```
+
+### 3.5.4 aim 与 aimwith
+
+`aim` 的值是点（3.2.9，在 $P$ 里求成 $g$）；`aimwith` 是方向词或组合词（缺省 `front`；不是方向词报错"`<路径>` 的 aimwith 需要方向词，如 front / top / right"，没有 `aim` 时写 `aimwith` 报错"aimwith 需要 aim"，01-syntax.md 的 1.4.4）。效果：让自己的 `aimwith` 方向指向目标 $g$，并尽量保持"上"。
+
+记 $R_1 = R_{\text{base}} R_y(\text{turn})$（3.5.1、3.5.2）。
+
+1. **起点** $s$：有主定位关系时 $s = q$（关系的落点，3.3.1；含引用上的偏移，不含 gap / align / offset）；没有关系时 $s = o$（`offset` 的值；没写则 $0$）。
+2. $d = g - s$；$\lVert d \rVert < \varepsilon_{\text{len}}$ 报错"`<路径>`：aim 的目标与自身重合"，节点退化。$\hat d = \mathrm{unit}(d)$。
+3. 主轴 $\hat a = \mathrm{unit}(a)$，$a$ 是 `aimwith` 的方向向量（组合词取各词向量之和再单位化，`top-left` $\to \mathrm{unit}(-1, 1, 0)$）。
+4. 次轴 $b$：$\lvert \hat a_y \rvert < \kappa_{\text{up}} = 0.99$ 时 $b = \hat y$（保持"上"），否则 $b = \hat z$（主轴本身是上下时保持"前"）；$\hat b = \mathrm{unit}(b - (b \cdot \hat a)\hat a)$。
+5. 次轴在 $P$ 里的期望方向：$e_0 = R_1\,b$；去掉沿 $\hat d$ 的分量 $e_1 = e_0 - (e_0 \cdot \hat d)\hat d$；$\lVert e_1 \rVert < \varepsilon_{\text{dir}} = 10^{-6}$ 时 $\hat e = \mathrm{perp}(\hat d)$，否则 $\hat e = \mathrm{unit}(e_1)$。其中 $\mathrm{perp}(v) = \mathrm{unit}(v \times \hat y)$ 当 $\lvert v_y \rvert < \kappa_{\text{perp}} = 0.9$，否则 $\mathrm{unit}(v \times \hat x)$（与 02-geometry.md 的 2.2.8 相同）。
+6. $$A = \big[\,\hat d\ \ \hat e\ \ \hat d \times \hat e\,\big]\;\big[\,\hat a\ \ \hat b\ \ \hat a \times \hat b\,\big]^{\mathsf T}$$（方括号里是列向量拼成的矩阵）。$A$ 是正交矩阵，$A\hat a = \hat d$，$A\hat b = \hat e$。
+
+aim 的结果 $A$ **取代** $R_1$（继承与 turn 只通过第 5 步的 $e_0 = R_1 b$ 影响结果，即只决定绕视线的滚转）；之后再乘 tilt、roll、rot（3.5.6）。
+
+- 起点取关系落点而不是自己的盒心，是为了让"放在 B 上、对准 C"的物体从它站立的那一点瞄准；要从别处瞄准，用 `pin` 改落点或用 `offset`（没有关系时）。
+- 目标可以是引用（取锚点或盒心）、集合（盒心）或向量。目标在另一个容器里时，$n$ 可能后置（3.6.3，rotation.s3d 的 `radar.dish aim=sat`）。
+
+**示例**（rotation.s3d）：`revolve dish … on=mast aimwith=top aim=sat`，radar 组在世界 $(-44, 0, -36)$，mast 顶面中心在组里是 $(0, 9, 0)$，sat 组的盒心在世界 $(-59.8290, 58.9397, -71.7038)$。$s = q = (0, 9, 0)$，目标换到 radar 组里 $g = (-15.8290, 58.9397, -35.7038)$，$\hat d = (-0.2497, 0.7877, -0.5632)$；$\hat a = \hat y$（$\lvert \hat a_y \rvert \ge 0.99$）所以 $b = \hat z$、$\hat b = \hat z$；$R_1 = I$，$e_0 = \hat z$，$\hat e = \mathrm{unit}(\hat z - \hat z_{\parallel \hat d})$；$A$ 的第二列（$\hat y$ 的像）$= \hat d$——与参考输出 `radar.dish` 的 $R$ 第二列 $(-0.2497, 0.7877, -0.5632)$ 一致，$t = q - A\,\pi = (0, 9, 0)$（dish 的盒底面中心是原点）。
+
+### 3.5.5 继承的后果
+
+- 继承让关系"以参照物自身的面为准"：`against=turned.right` 贴的是 turned 转过之后的右面，法线 $\nu = R_{B \to P}\hat x$，物体自己也转同样的角，于是面与面平行相贴。
+- 倾斜的参照物：`on=B`，$B$ 有 `tilt=25`，则 $n$ 也 tilt 25°，底面贴在 $B$ 倾斜的顶面上（$\nu = R_{B \to P}\hat y$ 是倾斜的顶面法线，gap 沿它走）。
+- 继承只取 $R_{B \to P}$，不取 $B$ 自己的 pin / gap / offset，也不层层累加：$n$ 的 `turn` 是相对 $R_{B \to P}$ 再转。
+- 参照物是集合时继承世界朝向：转过的容器里 `on=#wall` 的物体会被转回世界轴向（3.2.8）。
+
+### 3.5.6 合成顺序
+
+$$R_n = \big(\text{aim 存在 ? } A : R_{\text{base}}\,R_y(\text{turn})\big)\ \cdot\ R_x(\text{tilt})\ \cdot\ R_{\text{roll}}(\text{roll})\ \cdot\ R_{\text{axis}}(\text{rot}),$$
+
+缺省的因子是 $I$（没写的角为 0、没写 `rot` 为 $I$）。这就是 3.1.3 第 1 步的 $R_{\text{base}} \cdot R_y(\text{turn}) \cdot [\text{aim}] \cdot R_x(\text{tilt}) \cdot R_{\text{roll}}(\text{roll}) \cdot R_{\text{axis}}(\text{rot})$：$[\text{aim}]$ 表示 aim 存在时它左边的乘积整体换成 $A$。矩阵乘法按此顺序从左到右做，实现不得改变结合顺序（浮点结果要逐位一致）。
+
+| 情形 | $R_n$ |
+|---|---|
+| 没有朝向属性、没有关系或 `at` | $I$ |
+| 没有朝向属性、`on` / `under` / `against` / `inside` | $R_{B \to P}$（3.5.7 修正后） |
+| 只有 `turn` | $R_{\text{base}} R_y(\text{turn})$ |
+| `turn` + `tilt` | $R_{\text{base}} R_y(\text{turn}) R_x(\text{tilt})$ |
+| `aim`（可带 `aimwith`） | $A\,R_x(\text{tilt})\,R_{\text{roll}}(\text{roll})\,R_{\text{axis}}(\text{rot})$ |
+| `repeat` 节点 | $R_{\text{base}}$ |
+
+### 3.5.7 参照物是镜像时
+
+$\det R_{B \to P} = -1$（$B$ 是镜像副本、镜像副本组或它们的后代，3.9.6）时
+$$R_{\text{base}} = R_{B \to P}\,\mathrm{diag}(-1, 1, 1),$$
+即把 $B$ 的局部 $x$ 轴反向之后再继承：$R_{\text{base}}$ 仍是旋转（$\det = +1$），$n$ 的 $y$、$z$ 轴与 $B$ 的一致，$x$ 轴相反。含义："只继承朝向，不继承手性"——放在镜像物体上的东西不会自己变成镜像（楔形的高边不会翻）。对一个非镜像的 $B$ 这条不起作用。
+
+小例子（用原型 `orientation` 确认）：`box a size=2,1,2 turn=30 at=5,0,0`，`mirror a2 of=a across=z`，`box b on=a2`：$R_{a2}$ 的列为 $\hat x \mapsto (0.866, 0, 0.5)$、$\hat z \mapsto (0.5, 0, -0.866)$，$\det = -1$；$b$ 的 $R$ 的列为 $\hat x \mapsto (-0.866, 0, -0.5)$、$\hat z \mapsto (0.5, 0, -0.866)$，$\det = +1$。
 
 ## 3.6 依赖、循环与后置
 
-<!-- 3.6 -->
+### 3.6.1 依赖图
+
+求解的对象是两类量：每个节点的**局部变换** $L(n) = T_n$ 与**局部包围盒** $X(n) = B_n$。依赖图 $G$ 的顶点是全部节点的 $L(\cdot)$ 与 $X(\cdot)$；"$u$ 依赖 $v$"记 $u \to v$，边按下面的规则**精确地**由计算过程读到的量给出（读到才有边；不读不加边）：
+
+| 量 | 依赖 |
+|---|---|
+| $T_{B \to F}$（3.1.1） | 两条链上每个节点的 $L$：$L(b_1), \dots, L(b_m)$、$L(f_1), \dots, L(f_k)$；$B$ 是集合时 $= W_F^{-1}$，依赖 $F$ 到根的链上每个节点的 $L$ |
+| 锚点在 $F$ 里的点与法线（3.2.4） | $T_{B \to F}$；方向词锚点与 `B[u,v,w]` 还依赖 $X(B)$；曲面锚点依赖 $X(B)$ 与 $B$ 的几何参数；曲线取点依赖 $B$ 的采样点列（$B$ 是 line / bezier / spline 时即它 `path` 里各点的依赖） |
+| 集合的盒（3.2.8） | 每个成员 $m$ 的 $X(m)$ 与 $W_m$（$m$ 到根的链上每个 $L$） |
+| 度量 `B.w/h/d`（3.2.6） | $X(B)$ |
+| 坐标分量 `锚点.x`（3.2.7） | 该锚点在求值框架里的点的依赖 |
+| `let`、模板参数的值 | 它们的表达式按自己的上下文（01-syntax.md 的 1.5.8）求值时读到的量 |
+| $L(n)$，一般节点（3.1.3） | 主定位关系的锚点（$q$、$\nu$）与 $R_{B \to P}$；$\pi$ 不是 `origin` 时 $X(n)$（缺省定位点在有关系或有 `pin` 时都不是 origin，3.4.1）；`against` 没有 `pin` 时 $X(n)$；`align` 时 $X(n)$、目标的盒心 / 面锚点；`aim` 的目标点；属性值里引用的量 |
+| $L(n)$，阵列实例（3.8） | 阵列节点 $R$ 的 `step` `center` `turn` `n`；`along` 时曲线 $C$ 的取点与 $T_{C \to R}$ |
+| $L(n)$，副本式（3.9.1） | $T_{A \to P}$（$A$ 是原件）；镜像面 / 旋转轴的量（3.9.3、3.9.4） |
+| $L(n)$，副本组（3.9.2） | 容器 $C$ 的镜像面 / 旋转轴的量（在 $C$ 里求） |
+| $L(n)$，影子（3.9.7） | 原件（或孪生体）的 $L$ |
+| $L(n)$，span（3.10.1） | `from`、`to` / `drop` 的点与法线、`dir` |
+| $L(n)$，sweep / pipe / line / bezier / spline | 无（$\mathbb 1$） |
+| $X(n)$，实体 | 自己的几何参数（它们的表达式里引用的量）；sweep / pipe 还依赖路径点或曲线 $C$ 的采样点列与 $T_{C \to P}$；span 依赖 $L(n)$ 用到的端点 |
+| $X(n)$，曲线 | arc / helix：参数；line / bezier / spline：`path` 各点 |
+| $X(n)$，容器（02-geometry.md 的 2.6、2.5.4） | 每个计入的子节点 $c$ 的 $L(c)$ 与 $X(c)$（group / union / repeat 节点 / 容器式 mirror、rotate / 模板实例 / copy / 阵列实例：全部子节点，曲线在布尔容器里不计；subtract：第一个操作数；intersect：全部操作数）；有 `envelope` 的 group：无 |
+| $X(n)$，副本式节点、copy | 源的 $X$ |
+| $X(n)$，退化节点 | 无（零盒） |
+
+$W_n$ 不是顶点：它由根到 $n$ 的 $L$ 复合而成（3.1.1），"依赖 $W_n$"即依赖链上每个 $L$。
+
+### 3.6.2 不能引用自己、祖先或后代
+
+参照物类型与点类型的属性（`on` `under` `against` `inside` `at` `alignto` `aim` `from` `to` `drop` `about` `across`、`along`、路径点）引用的节点不得是 $n$ 自己、$n$ 的祖先或 $n$ 的后代；集合里含这三类成员同样不行。报错"`<路径>` 不能相对自己定位"（自己或后代）、"`<路径>` 不能相对包含自己的对象定位"（祖先；原型（`ref`）只检查自己与后代，祖先经 3.6.3 成为后置，本版直接报错）、"`<路径>` 的 `<属性>`：集合里包含它自己或它的上下级"（集合），节点退化。
+
+- 引用祖先的锚点（`box a on=g.top`，$g$ 是 $a$ 的父节点）看似"把自己放在容器顶上"，但容器的盒由 $a$ 决定（02-geometry.md 的 2.6），没有不循环的解释；写 `at=g.origin` 一类不读盒的锚点也一律报错，不做特例。
+- 引用祖先的**度量或分量**（`size=g.w,1,1`）不属于本节（不是定位引用），按 3.6.3 处理：$X(a) \to X(g) \to X(a)$ 使 $a$ 后置，$g$ 的盒不含 $a$，$a$ 读到的 `g.w` 是不含它自己的盒宽（可以为 0）。
+- `mirror R of=A` / `rotate R of=A` / `copy R of=A` 的 $A$ 不得是 $R$ 自己或 $R$ 的祖先（04-derivation.md 报错）。
+
+### 3.6.3 后置的判定
+
+容器 $A$ 的盒 $X(A)$ 由子节点算出（3.6.1 最后几行），而子节点的位置又可能依赖 $A$ 自己的位置或盒（例如子节点 `on=` 容器外的物体、`on=` 集合、`aim=` 容器外的点、读 `A.w`）。这种子节点叫**后置**（late）：它不计入 $A$ 的盒，在 $A$ 定位之后再求解。判定规则：
+
+1. 对每个由子节点算盒的容器 $A$（有 `envelope` 的 group 不算；退化节点不算），按**节点顺序的逆序**（01-syntax.md 的 1.6.1；逆序保证子容器先于父容器处理）依次处理；对 $A$ 的每个计入盒的子节点 $c$ 按节点顺序依次判定：
+2. 若在**当前的** $G$ 里从 $\{L(c), X(c)\}$ 出发沿边可达 $X(A)$，则 $c$ 是 $A$ 的后置子节点：标记 `late`，并从 $G$ 删去边 $X(A) \to L(c)$ 与 $X(A) \to X(c)$。
+3. 全部容器处理完后得到最终的 $G'$ 与后置集合；3.6.5 在 $G'$ 上判循环。
+
+性质与例子（三条都用原型编译的小例子确认与原型一致）：
+
+- `group radar on=ground[…] { cyl base; cyl mast on=base; revolve dish on=mast aim=sat; span feed from=dish.bottom to=dish.top; sphere horn at=dish.top }`，sat 在 radar 之外：$L(\text{dish}) \to T_{\text{sat} \to \text{radar}} \to L(\text{radar}) \to X(\text{radar})$（radar 有关系，读自己的盒做定位点），所以 dish 后置；feed、horn 经 $L(\text{dish})$ 同样可达，也后置；base、mast 不后置。radar 的盒 = base ∪ mast（rotation.s3d 的参考输出：这三个节点 `late`，radar 的 `box` 高 9）。
+- 嵌套：`group g on=floor { group h { box a on=#wall } box b }`。先处理 $h$：$L(a) \to L(h), L(g)$（集合的框架是世界，$W_h^{-1}$ 含两者），$L(h)$ 没有关系与 pin、不读 $X(h)$，所以从 $a$ 到不了 $X(h)$：$a$ **不**后置。再处理 $g$：$X(h) \to L(a) \to L(g) \to X(g)$，所以 $h$ 后置（$g$ 的盒只含 $b$，$h$ 的盒含 $a$）。若把 $h$ 改成 `group h on=floor { … }`，则 $L(h) \to X(h)$，$a$ 也后置（$h$ 的盒为零盒），且 $h$ 仍因 $L(h) \to T_{\text{floor} \to g} \to L(g) \to X(g)$ 后置。
+- 按逆序处理使内层先判；一个子节点一旦判为后置，它对父容器盒的边被删，父容器的判定在删边之后做，所以不会因为"经过已后置的孙节点"而把父容器的子节点也判成后置。
+- 后置不是错误，不产生诊断；但它改变容器的盒（因此改变容器的定位点、锚点、`w/h/d`、事实里容器的范围，02-geometry.md 的 2.6），输出里用 `late` 标出（3.6.4）。
+- 阵列实例是阵列节点的子节点，同样可以后置：`repeat r n=4 along=c on=floor { … }` 里 $L(\text{实例}) \to T_{c \to r} \to L(r) \to X(r)$，全部实例后置，阵列的盒是零盒，`on=floor` 把阵列的原点放到 floor 顶面中心。
+- 变体皮肤 `skin` 永远后置（3.7.6）。
+
+原型（`Solver.box` 的 `Cycle` 捕获与 `localBusy` 标记）用惰性求值的"忙"标记在求值时顺带判定后置，结果依赖求值顺序；本版用上面的图规则。两者在语料的全部节点上一致（3.11.3）；在同一个节点同时属于多个嵌套循环的罕见情形下可能不同（原型会按先碰到的容器标记），本版以本节为准。
+
+### 3.6.4 后置的输出与求解时机
+
+- 后置子节点 $c$ 的 $L(c)$、$X(c)$ 照常求解，只是排在 $L(A)$（与 $X(A)$）之后；$W_c = W_A \circ L(c)$ 不变。它照常参与空间事实、选择器、语义层，照常渲染。
+- 输出里每个节点带 `late`（布尔）：3.6.3 判为后置的为真，其余为假。后置是子节点相对**其父容器**的属性，不向上传播（孙节点后置不使父节点 `late`）。
+- 后置节点的子树照常：它自己的子节点按 3.6.3 对**它**判定。
+
+### 3.6.5 循环依赖
+
+3.6.3 之后的图 $G'$ 必须无环。有环时，环上（任何一个非平凡强连通分量里）的每个 $L(\cdot)$ 或 $X(\cdot)$ 所属的节点都报错"循环依赖：`<路径>` 的位置最终依赖于它自己"，并成为退化节点（01-syntax.md 的 1.1.4：$L = \mathbb 1$、零盒）；依赖这些节点而自身不在环上的节点照常求解（用退化值）。错误按 1.1.5 排序；同一个节点只报一条。
+
+- 例：`box x on=y`、`box y on=x`：$L(x) \to L(y) \to L(x)$，x、y 都退化。原型（`compileOnce` 的 `fail`）只把先碰到"忙"标记的那个节点（x）退化、报一条错，y 放在退化的 x 上；本版两者都退化。
+- 例：`let a = b.w`、`box b size=a,1,1`：$X(b) \to a \to X(b)$，b 退化（`let` 的循环见 01-syntax.md 的 1.5.8，这里的环经过了节点，按本节报）。
+- 自环（$L(n) \to L(n)$ 经一条边，如 `at=` 引用自己）在 3.6.2 已经报错，不到本节。
+- 退化后 3.6.3 的后置判定不重做；输出以第一次判定为准。
+
+### 3.6.6 求解顺序与确定性
+
+- 实现按 $G'$ 的任一拓扑序求解即可：每个量的值是其依赖的值的确定函数（本章的公式），与拓扑序的选择无关；因此并行求解合法，只要每个量按本章的运算顺序计算。
+- 源码顺序只在两处起作用：节点顺序决定 3.6.3 的处理顺序（因而决定罕见情形下谁后置），以及错误的排序（01-syntax.md 的 1.1.5）。前向引用、跨文件引用、引用后面才展开的 copy 或副本都合法。
+- $T_{B \to F}$ 必须按 3.1.1 的两条链计算，不得用 $W_F^{-1} \circ W_B$ 代替（结果在容差内相同，但不逐位相同；09-compat.md 规定两份实现对比用容差，但同一实现在不同平台上要逐位一致）。
 
 ## 3.7 容器
 
-<!-- 3.7 -->
+容器指 group、union、subtract、intersect、repeat 节点、容器式 mirror / rotate 节点、模板实例、copy 节点、阵列实例节点；副本组 `mirrored` / `r`$k$ 的定位见 3.9.2，皮肤见 3.7.6。
+
+### 3.7.1 容器的盒与包络
+
+容器的局部包围盒 $B_A$ 按 02-geometry.md 的 2.6（子节点盒之并，后置子节点不计，曲线计入）、2.5.4（布尔容器）与 2.6 的 `envelope`（只有 group 接受）。本章把它叫容器的**包络**：
+
+- 没有 `envelope`：包络 = 子节点在容器局部系里的盒之并的轴对齐盒，即**内容决定包络**；
+- 有 `envelope`：包络 = 声明的盒（01-syntax.md 的 1.1.2 的"外包络"），**与内容无关**，内容可以超出或空着。
+
+关系、锚点、`pin`、`align`、`w/h/d`、作为参照物时的面都按包络；空间事实与渲染按内容（06-facts.md）。
+
+### 3.7.2 容器的定位
+
+容器是一般节点（3.1.2），定位与朝向完全按 3.3–3.5，把"局部包围盒"换成包络：`on=B` 把包络的底面中心放到 $B$ 的顶面中心；`pin=origin` 把容器的原点放到落点；`inside=B` 把包络的盒心放到 $B$ 的盒心；`turn` 绕落点转整个容器。
+
+- `group rocket on=pad { cyl stage1 …; cyl stage2 on=stage1 … }`：rocket 的包络是两级之并（底面中心在 stage1 底面中心），rocket 的原点正好在那里，所以 rocket 的 $t$ = pad 顶面中心。
+- `group sat at=-60,58,-72 turn=30 tilt=20 { box body size=2,2,3 pin=center; box wing … against=body.right; mirror wing2 of=wing across=body axis=x }`：包络 $[-7,7] \times [-1,1] \times [-1.5,1.5]$，$\pi = (0,-1,0)$，$R = R_y(30°)R_x(20°)$，$t = (-60,58,-72) - R\pi = (-59.8290, 58.9397, -71.7038)$（参考输出一致）。写 `pin=origin` 才让 $t = (-60,58,-72)$。
+- `repeat lights n=(2,1,2) step=40,0,40 center=true at=pad.bottom pin=origin`：阵列节点的原点钉在 pad 底面中心；不写 `pin=origin` 则是阵列包络（四根灯塔之并）的底面中心。
+
+### 3.7.3 子节点与容器的先后
+
+- 子节点的局部变换 $L(c)$ 在**容器的局部系**里求，不需要知道容器放在哪（除非它引用了容器外的量，3.6.3）；容器的包络由这些 $L(c)$、$X(c)$ 算出；容器再按包络定位。所以顺序是：子节点 → 包络 → 容器的 $L(A)$ → 子节点的 $W_c = W_A \circ L(c)$。
+- 容器的 `turn` / `tilt` / `roll` / `rot` / `aim` 转的是整个容器（连同全部子节点），绕容器的定位点（3.3.9）；子节点自己的朝向属性是相对容器局部系的。
+- 容器的 `mat` / `color` 向子节点继承（10-materials.md）；定位属性不继承。
+- 修改容器的包络（加减子节点、改子节点尺寸）会移动容器的落点（因为定位点随包络变），这正是 `envelope` 存在的理由：声明包络后，细化容器内部不会移动挂在它上面的东西。
+
+### 3.7.4 空容器
+
+没有任何计入的子节点（没有子节点，或子节点全部后置）的容器：包络是零盒 $Z$（02-geometry.md 的 2.6）。退化的子节点以零盒计入——它在容器里是 $t_c$ 处的一个点，所以只含退化子节点的容器的包络是包住这些点的盒（都在原点时就是 $Z$）。包络是 $Z$ 时所有定位点都是原点，`on=B` 把原点放到 $B$ 的顶面中心，`inside=B` 放到 $B$ 的盒心，锚点全在原点，`w = h = d = 0`。空容器不报错（空块合法，01-syntax.md 的 1.3.15）；布尔容器没有操作数时按 02-geometry.md 的 2.5.1 报错并退化。
+
+### 3.7.5 各种容器的包络
+
+| 容器 | 包络 | 说明 |
+|---|---|---|
+| group | 子节点之并；有 `envelope` 则为声明值 | 2.6 |
+| union | 全部操作数的盒之并 | 2.5.4；曲线不计 |
+| subtract | 第一个操作数的盒 | 2.5.4；被挖的部分仍在包络里 |
+| intersect | 操作数盒之交（空则零盒） | 2.5.4 |
+| repeat 节点 | 全部（非后置）实例的盒之并 | 3.8.5 |
+| 阵列实例 | 其子节点之并 | 它是一个容器（1.6.2） |
+| 容器式 mirror / rotate 节点 | 原件与全部副本组的盒之并 | 3.9.2 |
+| 副本组 `mirrored` / `r`$k$ | 影子之并 = 原件之并（在副本组自己的局部系里与原件集合的并相同） | 3.9.2 |
+| 副本式 `mirror R of=A` | 等于 $A$ 的盒（在 $R$ 的局部系里） | 2.6；$R$ 的局部系是 $A$ 的局部系经 $M$ 映射 |
+| 模板实例 | 体展开出的子节点之并 | 04-derivation.md 的 4.2.3 |
+| copy 节点 | 复制出的内容之并（与源语句重新展开的结果一致） | 04-derivation.md 的 4.3 |
+
+### 3.7.6 变体皮肤
+
+变体（07-semantics.md 的 7.8）给被选中的节点 $N$ 挂一个段为 `skin` 的子节点。它的定位由本节固定，不接受定位属性（`at`、`pin` 在 variant 上报错，01-syntax.md 的 1.3.13）：
+
+$$T_{\text{skin}} = (I,\ b_N - b_{\text{skin}}),\qquad b_N = (c_{N,x},\ \min_{N,y},\ c_{N,z}),$$
+
+$b_{\text{skin}}$ 是皮肤自己的局部包围盒（其子节点之并）的底面中心。即皮肤的**局部包围盒底面中心**放到宿主 $N$ **包络**（有 `envelope` 用 envelope）的底面中心，轴向与 $N$ 相同（皮肤是 $N$ 的子节点，所以继承 $N$ 的世界朝向）。等价于皮肤节点写了 `at=N.bottom pin=bottom`；这条引用由本节规定，不受 3.6.2 "不得引用祖先" 的限制。皮肤读 $N$ 的包络（$X(N)$），而 $X(N)$ 由子节点（含皮肤）算，所以皮肤**总是**后置（3.6.3），不计入 $N$ 的包络——变体不改变任何包围盒与事实（07-semantics.md 的保证）。皮肤模板的 `w` `h` `d` 参数取 $N$ 包络的边长（07-semantics.md 的 7.8.3）。参考输出：semantics.s3d 的 `street.h4.skin` 为 `late`，世界 $t = (43, 0, 8)$ = h4 的包络底面中心（h4 的门向前凸 0.2，使盒心 $z$ 比 h4 的原点多 0.1）。
 
 ## 3.8 repeat
 
-<!-- 3.8 -->
+`repeat` 语句生成一个**阵列节点** $R$（一般节点，按 3.7.2 定位，$R_R = R_{\text{base}}$，3.5.1）和它的子节点——**阵列实例**（段是扁平下标，01-syntax.md 的 1.6.2；种类 `instance`）；块里的语句在每个实例下各展开一份（04-derivation.md）。本节定义实例的个数、下标与局部变换。专有属性见 01-syntax.md 的 1.4.5：`n`（常量，必填）、`step`（向量₃，缺省 0）、`turn`（数，缺省 0）、`center`（布尔，缺省 false）、`along`（曲线）、`orient`（枚举 `yaw` `full` `none`，缺省 `yaw`）。
+
+### 3.8.1 n 与实例数
+
+`n` 是常量（展开时求值，可以引用 let、模板参数、外层阵列的 `i j k idx`、`metre`，不能引用对象）：
+
+- 一个数 $\nu$：**线性阵列**，$n_i = \nu$，$n_j = n_k = 1$。
+- 向量₂ $(\nu_i, \nu_j)$ 或向量₃ $(\nu_i, \nu_j, \nu_k)$：**网格阵列**，缺省的 $n_k = 1$。
+- 每个分量必须与某个整数 $m \ge 0$ 的差 $< \varepsilon_{\text{int}} = 10^{-9}$，取 $m$；否则报错"`<路径>` 的 n 需要非负整数（得到 X）"，节点退化、不生成实例（原型（`elaborate`）对小数四舍五入、负数取 0；本版报错）。
+- 实例总数 $N = n_i n_j n_k$。$N = 0$ 合法：没有实例，阵列包络为零盒，不报错。$N > N_{\max} = 5000$ 报错"repeat 数量过多（N）"，节点退化、不生成实例。
+- 其他类型（字符串、引用、4 个分量……）报错"`<路径>` 的 n 需要数或 n_i,n_j,n_k"。
+
+线性与网格是两种不同的变换规则（3.8.3）：`n=3` 与 `n=(3,1,1)` 的实例位置**不同**，前者沿 `step` 向量排列，后者只用 `step` 的 $x$ 分量。
+
+### 3.8.2 下标与实例段
+
+实例按 $k$ 外层、$j$ 中层、$i$ 内层的顺序生成：
+$$idx = i + n_i\,(j + n_j\,k),\qquad 0 \le i < n_i,\ 0 \le j < n_j,\ 0 \le k < n_k,$$
+实例的段是 $idx$ 的十进制数字串；节点顺序按 $idx$ 递增（01-syntax.md 的 1.6.1）。线性阵列的 $(i, j, k) = (idx, 0, 0)$。
+
+实例体内的词法环境（阵列实例帧，01-syntax.md 的 1.5.8）绑定 `i` `j` `k` `idx` 四个数；嵌套阵列的内层帧遮蔽外层的同名变量。被 `drop` 的实例留下空洞，其余实例的下标与位置不变（1.6.2）。
+
+### 3.8.3 网格阵列与线性阵列的实例变换
+
+没有 `along` 时，实例 $(i,j,k)$ / $idx$ 的局部变换（在 $R$ 的局部系里）：
+
+$$R_{\text{inst}} = R_y(\text{turn} \cdot idx),\qquad t_{\text{inst}} = \begin{cases} \big((i - \gamma_i)\,s_x,\ (j - \gamma_j)\,s_y,\ (k - \gamma_k)\,s_z\big) & \text{网格} \\ (idx - \gamma_i)\,s & \text{线性} \end{cases}$$
+
+$s = $ `step`，$\gamma_a = (n_a - 1)/2$ 当 `center=true`，否则 $0$（$a \in \{i,j,k\}$；网格阵列没写的 $n_k$ 按 1 算，$\gamma_k = 0$）。
+
+- **网格**：三个下标各走 `step` 的一个分量；`step=w,0,w`、`n=(2,1,2)` 是 $x$、$z$ 各两列。
+- **线性**：下标走整个 `step` 向量，所以可以沿斜线排（`repeat farm n=3 step=26,0,-8`）。
+- `center=true` 把阵列对称到原点两侧（下标中心 $\gamma$ 落在原点）；`turn` 给第 $idx$ 个实例绕它自己原点的 $+y$ 转 $\text{turn} \cdot idx$ 度（螺旋楼梯：`step=0,h,0 turn=15`）。
+- 实例自己没有属性（1.6.2），不能写定位；要让每个实例的内容按下标变化，在体内用 `i j k idx`（`let s = 0.8 + 0.12*i`、`turbine t phase=idx*40`）。
+- 阵列节点的 `turn` 不转阵列本身（3.5.1）；要整体转，把 repeat 放进带 `turn` 的 group。
+
+### 3.8.4 沿曲线：along 与 orient
+
+`along=C`（$C$ 是曲线，01-syntax.md 的 1.4.1；写了 `along` 时 `step` / `center` 不得写，报错"`<路径>`：along 与 step / center 不能同时写"；`orient` 只能与 `along` 一起写，否则报错"`<路径>`：orient 只能和 along 一起写"。原型忽略这些组合；本版报错）：
+
+1. 曲线参数：$N$ 是实例总数（3.8.1，`n` 通常是一个数；网格也允许，按 $idx$ 排）；闭合曲线 $s = idx / N$（首尾不重合），开放曲线 $s = idx / (N - 1)$（$N = 1$ 时 $s = 0$；两端各一个实例）。
+2. 取点 $C[s]$（02-geometry.md 的 2.3.1）换到 $R$ 的局部系：$p = T_{C \to R}(C[s])$，切线 $\tau = R_{C \to R}\,\hat T(s)$（单位向量）。$C$ 可以在树的任何位置。
+3. 朝向 $M$ 按 `orient`：
+   - `yaw`（缺省）：$h = \sqrt{\tau_x^2 + \tau_z^2}$；$h > \varepsilon_{\text{yaw}} = 10^{-9}$ 时 $M = R_y(\psi)$，$\psi = \mathrm{atan2}(-\tau_z, \tau_x)$（度），使局部 $+x$ 的水平投影沿切线的水平投影；否则（竖直段）$M = I$。实例保持竖直。
+   - `full`：$\sigma = \tau \times \hat y$；$\lVert \sigma \rVert > \varepsilon_{\text{dir}} = 10^{-6}$ 时 $\text{side} = \mathrm{unit}(\sigma)$，否则 $\text{side} = \hat z$；$M = [\,\tau\ \ \text{side} \times \tau\ \ \text{side}\,]$（列）：局部 $x$ 沿切线、$z$ 水平朝曲线外侧（俯视逆时针的弧的外侧）、$y$ 是两者的法向，与扫掠框架（02-geometry.md 的 2.3.7）的 $(T, \text{up}, \text{side})$ 一致，但竖直段的 side 取固定的 $\hat z$（扫掠框架沿用前一段的 side）。
+   - `none`：$M = I$。
+4. $$R_{\text{inst}} = M\,R_y(\text{turn} \cdot idx),\qquad t_{\text{inst}} = p .$$
+
+- 实例原点落在曲线上，所以体内物体用自己的定位决定相对曲线的位置：`cyl pole … at=0,0,6` 在 `yaw` 下沿局部 $+z$（曲线外侧）偏 6；`box tread pin=top` 把踏面顶放到螺旋线上。
+- 曲线自身的朝向（arc 的 `turn` 等）在 $T_{C \to R}$ 里；曲线是镜像副本时 $\tau$ 随之反射。
+- 参数按**采样折线的弦长**（arc / helix 用解析式）均分，不是按真实弧长。
+
+**示例**（curves.s3d）：`arc loop r=40 angle=-60,240`，`repeat lamps n=11 along=loop`。开放弧，$N = 11$；$idx = 3$：$s = 0.3$，$\theta = -60 + 300 \cdot 0.3 = 30°$，$p = (40\cos 30°, 0, -40\sin 30°) = (34.6410, 0, -20)$，$\tau \propto (-\sin 30°, 0, -\cos 30°)$，$\psi = \mathrm{atan2}(\cos 30°, -\sin 30°) = 120°$，$M = R_y(120°)$——参考输出 `lamps.3` 的 $t$、$R$ 一致。rotation.s3d 的 `repeat ties n=110 along=track orient=full`（闭合样条，$s = idx/110$）与 `repeat legs n=20 along=track`（yaw）全部 130 个实例与参考输出一致（3.11）。
+
+### 3.8.5 阵列节点与实例的盒和定位
+
+- 实例节点是容器：盒 = 其子节点之并（02-geometry.md 的 2.6），后置子节点不计。
+- 阵列节点 $R$ 的包络 = 全部非后置实例的盒经 $T_{\text{inst}}$ 变换后的并（3.7.5）；$R$ 按 3.7.2 定位（`on=river` 把阵列包络的底面中心放到 river 顶面；`at=slab.top pin=origin` 把阵列原点放到 slab 顶面中心）。
+- 实例的 $W = W_R \circ T_{\text{inst}}$；体内节点相对实例定位。
+- `along` 的曲线在 $R$ 的父框架或更外层时，$T_{C \to R}$ 含 $L(R)$；若 $R$ 又有定位关系或 `pin`（读自己的包络），全部实例后置、$R$ 的包络为零盒（3.6.3）。要避免，让曲线成为阵列体外、阵列**不**写关系（语料的写法），或给阵列 `pin=origin at=…`。
+
+### 3.8.6 上限与错误
+
+| 情形 | 处理 |
+|---|---|
+| `n` 缺省 | 报错"`<路径>` 缺少 n"（01-syntax.md 的 1.4.5），节点退化 |
+| `n` 不是常量（引用对象、用了 where） | 报错"`<路径>` 的 n 必须是常量"，节点退化 |
+| 分量不是非负整数（容差 $\varepsilon_{\text{int}}$） | 报错，节点退化 |
+| $N > N_{\max} = 5000$ | 报错"repeat 数量过多（N）"，节点退化 |
+| `along` 不是曲线 | 报错"`<路径>` 的 along 需要一条曲线（line / bezier / spline / arc / helix）" |
+| `along` 与 `step` / `center` 同写；`orient` 没有 `along` | 报错（3.8.4），节点退化 |
+| `orient` 不是 `yaw` / `full` / `none` | 报错"`<路径>` 的 orient 只能是 yaw / full / none"（原型还接受 `true` / `false`；本版按 01-syntax.md 的 1.4.3 只接受三个枚举值） |
+| `center` 不是 `true` / `false` | 报错（01-syntax.md 的 1.4.3） |
+| 阵列节点上写 `tilt` `roll` `rot` `aim` `aimwith` | 报错"repeat 没有属性 X"（01-syntax.md 的 1.4.4） |
+
+节点退化时不生成任何实例（体不展开），路径 `r.0` 等不存在，引用它们按"找不到对象"报错。
 
 ## 3.9 mirror / rotate
 
-<!-- 3.9 -->
+两种形式（01-syntax.md 的 1.3.3、1.6.3）：**副本式** `mirror R of=A …` / `rotate R of=A …` 生成一个跟随 $A$ 的节点 $R$；**容器式** `mirror C … { 原件 }` / `rotate C n=k … { 原件 }` 在容器 $C$ 下生成副本组 `mirrored` / `r1 … rk`。副本树的生成、影子的属性与修改见 04-derivation.md 的 4.4；本节只定义变换。记 $M$ 为**副本变换**（镜像：反射；旋转：绕轴旋转），在框架 $F$ 里表达。
+
+### 3.9.1 副本式：of=
+
+$R$ 的父节点是 $P$（写 `mirror R` 的块的节点），原件 $A$ 可以在树的任何位置（不得是 $R$ 或 $R$ 的祖先）。
+$$T_R = M \circ T_{A \to P},$$
+$M$ 在 $P$ 里求（镜像面 3.9.3、旋转轴 3.9.4，$F = P$）。含义：$R$ 的局部系是 $A$ 的局部系先换到 $P$、再经 $M$ 映射；$R$ 的局部几何与局部盒等于 $A$ 的（02-geometry.md 的 2.6），所以 $R$ 的世界几何 = $A$ 的世界几何经 $W_P \circ M \circ W_P^{-1}$（$P$ 里的那个反射 / 旋转）映射。
+
+- $R$ 的子节点是 $A$ 的子节点的影子，$T = $ 原件的 $T$（3.9.7）；于是整棵副本树随 $A$ 一起被映射。
+- $R$ 不接受定位与朝向属性（`at` `on` `pin` `turn` …，报错"副本跟随原物体，不接受定位属性"，01-syntax.md 的 1.4.4；原型（`local` 的 `n.src` 分支）静默忽略；本版报错，节点退化）。只接受 `mat` / `color` 与自己的专有属性（`across` `axis`；`about` `axis` `angle`）。
+- rotate 副本式：$k = 1$，`angle` 缺省 180；`n` 不合法（1.4.5）。
+- $A$ 是 span / sweep / pipe / 曲线 / 容器 / 阵列 / 模板实例 / 另一个副本都可以；$A$ 是集合或带锚点的引用报错"`<路径>`：of 需要写一个对象名"。
+
+**示例**（spaceport.s3d）：`mirror tower2 of=tower across=rocket axis=x`，rocket 是没转过的组、盒心 $x = 25$（在根里）。$M$：过 $(25, c_y, c_z)$、法线 $\hat x$ 的反射；tower 的 $t = (15.9, 2, -9.1)$ → tower2 的 $t = (34.1, 2, -9.1)$，$R = \mathrm{diag}(-1, 1, 1)$（参考输出一致）。
+
+### 3.9.2 容器式：副本组
+
+容器 $C$ 是一般节点（按 3.7.2 定位，包络 = 原件与副本组之并）。第 $k$ 个副本组 $G_k$（mirror 只有 $k = 1$，段 `mirrored`；rotate 有 $k = 1..n$，段 `r`$k$）是 $C$ 的子节点：
+$$T_{G_k} = M_k,$$
+$M_k$ 在 **$C$ 自己的局部系**里求（$F = C$；旋转的角是 $k \cdot$ `angle`，3.9.4）。$G_k$ 的子节点是原件的影子，$T$ = 原件的 $T$（在 $C$ 里）；所以副本组里每个影子的世界几何 = 原件的世界几何经 $W_C \circ M_k \circ W_C^{-1}$ 映射。
+
+- 原件留在 $C$ 下原位（它们的 $T$ 在 $C$ 里按一般规则求，可以互相引用：`wedge ramp against=house.right`）。
+- 副本组自己没有属性、不能被定位（1.6.3）。
+- `rotate C n=k`：$n$ 必须是 1 到 360 的整数（容差 $\varepsilon_{\text{int}}$），否则报错"`<路径>`：rotate 的 n 需要 1..360 的整数"（原型四舍五入后检查范围；本版非整数报错），节点退化、不生成副本组。缺省 $n = 1$。
+- 镜像面 / 旋转轴的量引用容器外的节点时（`mirror wings across=hangar.body axis=x`），$T_{B \to C}$ 含 $L(C)$；$C$ 自己没有关系与 pin 时没有环（语料的写法）；$C$ 有关系时副本组后置、不计入 $C$ 的包络（3.6.3）。
+
+**示例**（spaceport.s3d）：`rotate fins n=3 about=stage1 { wedge fin … }`：`angle` 缺省 $360/4 = 90$，$M_1$ = 绕过 stage1 盒心 $(0, 14, 0)$、方向 $\hat y$ 的轴转 90°：$R = R_y(90°)$，$t = q - Rq = 0$（$q$ 在轴上）；参考输出 `rocket.fins.r1` 的 $T$ 一致。rotation.s3d 的 `rotate rotor n=2 axis=z { box blade … }`：`angle` $= 120$，$M_1 = R_{\text{axis}}(\hat z, 120°)$，$t = 0$。
+
+### 3.9.3 镜像面：across 与 axis
+
+镜像面由一点 $q$ 与单位法线 $\hat m$（都在 $F$ 里）确定，反射
+$$M = \big(I - 2\,\hat m \hat m^{\mathsf T},\ \ 2\,(q \cdot \hat m)\,\hat m\big).$$
+
+`across` 的类型是镜像面规格（01-syntax.md 的 1.4.1），缺省 `x`；`axis` 是方向规格（3.9.5），缺省 $\hat x$：
+
+| `across` | $q$ | $\hat m$ | 说明 |
+|---|---|---|---|
+| `x` / `y` / `z` | $F$ 的原点 $0$ | $F$ 的该轴 | 过框架原点的坐标面；写了 `axis` 报错"`<路径>`：across 是轴名时不能再写 axis"（原型忽略 axis；本版报错） |
+| 向量₃ | 该点（在 $F$ 里） | `axis` 在 $F$ 里的方向（3.9.5；缺省 $\hat x$） | 过给定点 |
+| 引用，带**向量非零的盒锚点**（方向词 / 组合词 / `B[u,v,w]`），且**没写** `axis` | 锚点的点 $q$（3.2.4） | 锚点的法线 $\nu_F$（$\mathrm{dominant}$） | "过某个面"：`across=B.right` 是 $B$ 的右面所在平面；`across=B.top-right` 法线取 $\hat y$（3.2.3）；`across=B[0,1,0.5]` 过顶面上的点、法线 $\hat y$ |
+| 引用，其他情形（无锚点、`center` / `origin` / 曲线取点 / 曲面锚点，或写了 `axis`） | 锚点的点（无锚点取盒心） | `axis` 在**该引用节点的局部系**里的方向换到 $F$（缺省该节点的 $\hat x$） | "过某物中心、垂直于它的某根轴"：`across=rocket axis=x`；`across=B.right axis=z` 是过 $B$ 右面中心、法线为 $B$ 的 $z$ 轴的面 |
+| 其他值 | 报错"across 写成 x / y / z、点坐标，或对象 / 锚点（如 B、B.right、B.top）" | | |
+
+- $\lVert m \rVert < \varepsilon_{\text{len}}$（例如 `axis=(0,0,0)`）报错"`<路径>`：镜像面的法线为零"，节点退化。
+- `axis` 是向量₃时直接在 $F$ 里（不随引用节点转）；是方向词 / 轴名时在引用节点的局部系里（没有引用时在 $F$ 里）；是锚点引用时取该锚点的法线或切线（3.9.5）。
+- 引用是集合时：盒心是集合盒心，轴是世界轴（3.2.8）。
+- 曲线可以作镜像参照（`across=archline axis=x`：过弧的采样折线盒的盒心、法线为弧局部 $x$ 的面）。
+
+小例子（原型 `mirrorIn` 确认）：floor 是 $40\times1\times24$、`pin=top` 的盒，`box q size=2,2,2 at=20,0,20`：`mirror q2 of=q across=floor.right axis=z` 得 $t = (20, 0, -20)$（过右面中心、法线 $\hat z$）；`mirror q3 of=q across=floor.right` 得 $t = (20, 0, 20)$、$R = \mathrm{diag}(-1,1,1)$（过 $x = 20$ 的面）；`mirror q4 of=q across=floor` 得 $t = (-20, 0, 20)$（过盒心、法线 $\hat x$）。
+
+### 3.9.4 旋转：about、axis、angle、n
+
+绕过点 $q$（`about`，点类型，缺省 $F$ 的原点 $0$；引用取锚点或盒心，3.2.9）、方向 $\hat a$（`axis`，方向规格，缺省 $\hat y$，**在 $F$ 里**——轴名与方向词按 $F$ 的轴，不按 `about` 所引用物体的轴）、角 $\theta$（`angle`，数，度）的旋转：
+$$M_k = \big(R_{\text{axis}}(\hat a, k\theta),\ \ q - R_{\text{axis}}(\hat a, k\theta)\,q\big),$$
+$R_{\text{axis}}$ 见 3.5.3（右手）。`angle` 缺省 $360 / (n + 1)$（$n$ 是容器式的 `n`；副本式 $n = 1$，即 180）：$n$ 个副本加原件均分一圈。
+
+- `angle` 可以为 0 或负、不限范围；`angle=0` 的副本与原件重合，合法。
+- $\lVert \hat a \rVert < \varepsilon_{\text{len}}$（`axis=(0,0,0)`）报错"`<路径>` 的 axis 不能是零向量"，节点退化。
+- `about` 引用容器外的物体时的后置规则同 3.9.2。
+
+**示例**：curves.s3d 的 `rotate benches n=5 about=basin { … }`：$\theta = 60°$，$q$ = basin 的盒心（在 plaza 里），$\hat a = \hat y$；`rotate gate2 of=gate about=garage angle=180`：$F$ = 根，$q$ = garage 包络的盒心。两者与参考输出一致（3.11）。
+
+### 3.9.5 方向规格
+
+类型"方向规格"（01-syntax.md 的 1.4.1）用于 mirror / rotate 的 `axis` 与 span 的 `dir`。给定使用处的框架 $F$ 与可选的**参照系节点** $Q$（3.9.3 第四行的引用节点；其他情形没有），值 $v$ 求成 $F$ 里的单位向量：
+
+| $v$ | 方向 |
+|---|---|
+| `x` / `y` / `z` | $\hat x$ / $\hat y$ / $\hat z$，有 $Q$ 时经 $R_{Q \to F}$ 换到 $F$ |
+| 方向词 / 组合词（向量 $a$） | $\mathrm{unit}(a)$，有 $Q$ 时经 $R_{Q \to F}$ |
+| 向量₃ | $\mathrm{unit}(v)$，直接在 $F$ 里（不经 $Q$） |
+| 盒锚点引用 `B.面` / `B.组合词` / `B[u,v,w]`（向量 $a \ne 0$） | $\mathrm{unit}(R_{B \to F}\,a)$——注意用的是锚点的**方向向量**，不是 $\mathrm{dominant}$：`axis=B.top-right` 是 $B$ 里 $(1,1,0)$ 方向 |
+| 曲线取点 `C[t]` / `C.start` … | 切线 $\tau_F = R_{C \to F}\,\hat T$（3.2.2） |
+| 裸引用、`center` / `origin`、曲面锚点、集合、其他 | 报错"`<路径>` 的 `<属性>` 需要方向：x / y / z、方向词、向量，或锚点如 B.front" |
+
+结果的长度 $< \varepsilon_{\text{len}}$（零向量）报错"`<路径>` 的 `<属性>` 不能是零向量"。缺省值（没写）按各属性：mirror 的 `axis` 是 $\hat x$（有 $Q$ 时是 $Q$ 的 $\hat x$），rotate 的 `axis` 是 $F$ 的 $\hat y$，span 的 `dir` 是 $F$ 的 $(0,-1,0)$。
+
+### 3.9.6 det R = −1
+
+镜像副本（副本式 $R$、副本组 `mirrored`）的 $T$ 有 $\det = -1$，它们的后代经复合也有 $\det W = -1$（偶数次镜像又回到 $+1$）。几何上的含义全部由 02-geometry.md 定义（2.1.1：点集就是局部点集经反射的像，楔形的高边换到另一侧、helix 的旋向反转；2.1.9：三角化按 $\det$ 调整绕序；2.3.8：曲线点列反射）。本章只规定：
+
+- $\det = -1$ 的 $T$ 在复合、求逆、$T_{B \to F}$ 里与旋转同样处理（正交矩阵的一般公式，不特判）；
+- 继承镜像参照物的朝向时按 3.5.7 去掉手性；
+- 镜像副本自己的 `turn` 等属性不存在（3.9.1），所以不存在"在镜像系里转"的歧义；影子的 $T$ 直接取原件的（3.9.7），在镜像系里解释。
+
+### 3.9.7 影子
+
+副本树里的每个影子 $g$（对应原件子树里的节点 $o$，04-derivation.md 的 4.4）：
+$$T_g = T_{o'},$$
+$o'$ 是 $o$ 本身，或当 $g$ 上有影子覆盖（路径经过副本的 `over` 改了它的属性，4.4.4）时 $o$ 的**孪生体**——一个带覆盖后属性、在 $o$ 的父框架里按本章规则重新求解、但不进场景树的节点。影子的局部盒同理取 $o'$ 的盒。影子不接受定位属性；影子的子节点是 $o$ 的子节点的影子。
+
+- 影子的世界变换 $W_g = W_{\text{副本根}} \circ T_{o_1} \circ \cdots \circ T_{o_m}$（从副本根到 $g$ 的影子链各取原件的 $T$），即原件的世界几何经副本变换映射（3.9.1、3.9.2）。
+- 影子里不再求解关系：原件 `against=house.right` 在镜像里仍是"贴在镜像后的 house 的（镜像后的）右面"，因为整体一起映射；镜像后的楔形坡向翻转就是这个意思（curves.s3d 的 `gate`）。
+- 影子的后置标记取原件的（输出照抄）。
 
 ## 3.10 span / sweep / pipe 的定位
 
-<!-- 3.10 -->
+这三种实体的局部系不由定位属性决定（01-syntax.md 的 1.4.4 不给它们定位 / 朝向属性），而由端点或路径决定；几何、局部系的公式在 02-geometry.md 的 2.2.8–2.2.10。本节定义接口：各个点与方向怎样在父框架里求出，以及由此得到的 $T_n$。
+
+### 3.10.1 span 的端点
+
+`from`、`to` 是点（3.2.9），在 span 的**父框架 $P$** 里求值：向量₃直接用；引用取锚点（无锚点取盒心），引用上的偏移在 $P$ 里加（3.2.4）；集合取集合盒心。得到 $A$ 与 $B$，交给 02-geometry.md 的 2.2.8：梁 / 杆 $R = [\,e_x\ e_y\ e_z\,]$、台阶 $R = R_y(\psi)$，$t = \tfrac12(A + B)$。
+
+- `span beam from=pillarL.top-right to=pillarR.top-left`：两个锚点在 pillar 的盒上（经各自的 $T_{\cdot \to P}$ 换到 $P$）。
+- 端点可以在不同容器里，也可以引用后置、副本、影子、阵列实例（`tower.decks.5.deck.top-right-front`）。
+- 2.2.8 的 $\mathrm{perp}$ 与本章 3.5.4 的相同；$e_y$ 的退化阈值 $\varepsilon_{\text{dir}}$。
+
+### 3.10.2 drop
+
+`drop=B`（参照物，可带锚点；缺省锚点 `top`）与 `dir`（方向规格，3.9.5，在 $P$ 里，没有参照系节点，缺省 $(0,-1,0)$）：锚点的点 $q$ 与法线 $\nu$ 按 3.2.4 换到 $P$；$\nu = 0$ 时（裸引用、`center`、曲线取点）取 $B$ 的 $+y$ 在 $P$ 里的方向 $R_{B \to P}\hat y$。然后按 2.2.8 求 $B_{\text{点}} = A + s\,\mathrm{dir}$（与无限平面求交，不检查落点在面内）。
+
+- rotation.s3d 的 `repeat legs n=20 along=track { span col from=(0,-0.7,0) drop=ground r=0.22 }`：每个实例里 $A = (0, -0.7, 0)$（实例的局部系，原点在轨道上），`dir` 缺省竖直向下（在实例框架里；`yaw` 朝向保持 $y$ 竖直，所以就是世界的下），ground 的顶面经 $T_{\text{ground} \to \text{实例}}$ 换到实例框架；20 根立柱与参考输出一致。
+- 法线与 `dir` 平行、目标在反方向的报错见 2.2.8。
+
+### 3.10.3 span 的局部系与盒
+
+$T_n$ 由 2.2.8 给出；局部盒也由它给出（梁 / 杆 / 台阶各自的公式）。span 的 `pin` 是截面参数（2.2.8），不参与定位；`turn` 等不合法。span 的 $T$ 依赖的量见 3.6.1。span 可以当参照物（`on=deck`，锚点按它的局部盒：梁的顶面是梁真正的顶面，杆的盒是 $[-\tfrac L2,\tfrac L2]\times[-r,r]^2$）。
+
+### 3.10.4 sweep / pipe 的路径点与曲线路径的变换
+
+$T_n = \mathbb 1$：sweep、pipe 的局部系就是父框架，几何直接在 $P$ 里构造（2.2.9）。
+
+- `path` 是点列表：每项是点（3.2.9），在 $P$ 里求值（坐标、锚点、带偏移的锚点、集合盒心）。
+- `path` 是曲线 $C$：$C$ 的采样点列 $p_i$（在 $C$ 的局部系里）经 $T_{C \to P}$ 换到 $P$：$p_i' = R_{C \to P}\,p_i + t_{C \to P}$；arc / helix 的解析切线经 $R_{C \to P}$。这就是 2.2.9 里的 $(R_{\text{rel}}, t_{\text{rel}})$。$C$ 可以在任何位置（`sweep ramp path=rampline` 与 helix 同在 garage 组里；curves.s3d 的 `sweep lane path=loop` 在根）。
+- 局部盒 = 全部环点的盒（2.2.9），世界盒 = 同一盒（$W_n = W_P$）。
+- 依赖：$X(n)$ 依赖路径各点的依赖、$T_{C \to P}$ 与 $C$ 的采样点列（3.6.1）。sweep 的几何由 $X(n)$ 的计算一并得到。
+
+### 3.10.5 line / bezier / spline
+
+$T_n = \mathbb 1$；`path` 的每一项在 $P$ 里求值（3.2.9；引用无锚点时取盒心，02-geometry.md 的 2.3.4）；采样点列在 $P$ 里。它们不接受任何定位 / 朝向属性（写了报错，01-syntax.md 的 1.4.4）。作为参照物时局部盒是采样点列的盒（2.3.8）；它们的局部系就是 $P$，所以 `C[t]` 等取点直接是 $P$ 里的点，换到别的框架按 3.2.4（$T_C = \mathbb 1$ 只是链上的一个恒等因子）。
+
+### 3.10.6 arc / helix
+
+arc、helix 是一般节点（3.1.2）：有自己的局部系，原点是圆心，按 3.3–3.5 定位（`at=canal.top pin=origin`、`at=0,1,0 pin=origin`），缺省定位点是采样折线盒的底面中心（2.3.8）。它们的采样点列在自己的局部系里，被 sweep / repeat / 锚点使用时经 $T_{C \to F}$ 换框架（3.10.4、3.8.4）。
 
 ## 3.11 用参考输出验证
 
-<!-- 3.11 -->
+### 3.11.1 方法
+
+脚本（scratchpad 的 `verify3.mjs`）对 7 个示例的参考输出 `corpus/reference/examples/<名>.compile.json` 逐节点核对本章的规则。为了只检验本章，脚本从原型只取第 1 章（属性值求值、名字解析）与第 2 章（局部包围盒、曲面锚点、曲线采样）的结果，**不**使用原型的求解结果；按 3.1.2 的表对每个节点独立计算 $T_n$（3.3–3.10 的公式照本章实现），再与参考输出比较：
+
+- 变换：$W_P^{\text{ref}} \circ T_n$ 对 `nodes[].world`（$P$ 的世界变换取自参考输出，所以每个节点的核对只检验**它自己**那条规则，不受上游误差影响）；相对变换 $T_{B \to P}$ 用参考输出的 $W_P^{-1} \circ W_B$。
+- 包围盒：$\mathrm{AABB}(W_n^{\text{ref}}(B_n))$ 对 `nodes[].box`（3.1.6）。
+- 后置：`nodes[].late` 对 3.6.3 的判定（人工按依赖图推导）。
+
+容差 $10^{-6}$（场景单位 / 无量纲；实际最大偏差在 $10^{-12}$ 量级，来自 $T_{B \to P}$ 的两种计算顺序）。
+
+### 3.11.2 结果
+
+全部 7 个文件、1644 个节点（basics 18、curves 94、rotation 615、semantics 267、spaceport 193、spaceport_blueprint 240、spaceport_edit 217）的 `world` 与 `box` **全部通过**，参考输出的 `errors` / `warnings` 为空。按规则分类（一个节点按它用到的属性归一类；数字是节点数）：
+
+| 规则 | 节点数 | 出现的文件 |
+|---|---|---|
+| `on`（3.3.2；含与 gap / turn / tilt / roll / aim / align 的组合） | 162 | 全部 7 个 |
+| `against`（3.3.4，自动选面；含 align） | 15 | basics, curves, rotation, semantics, spaceport × 3 |
+| `inside` + `align`（3.3.5、3.4.3） | 4 | basics, spaceport × 3 |
+| `at=` 向量（3.3.6；含 pin / turn / tilt） | 70 | curves, rotation, semantics, spaceport × 3 |
+| `at=` 引用（3.3.6；含 pin / offset / rot / align） | 25 | basics, curves, rotation, semantics, spaceport × 3 |
+| 没有关系（3.3.7；含 turn） | 176 | 全部 7 个 |
+| 只有 `pin`（3.3.7；含 turn） | 193 | 全部 7 个 |
+| 变体皮肤及皮肤子树里的节点（3.7.6） | 77 | semantics, spaceport_blueprint |
+| 网格阵列实例（3.8.3） | 97 | rotation, semantics, spaceport × 3 |
+| 线性阵列实例（3.8.3，含 center / turn） | 117 | rotation, semantics, spaceport × 3 |
+| 沿曲线 `yaw`（3.8.4） | 103 | curves, rotation, spaceport × 3 |
+| 沿曲线 `full`（3.8.4） | 110 | rotation |
+| `mirror … of=`（3.9.1） | 14 | curves, rotation, semantics, spaceport × 3 |
+| `mirrored` 副本组（3.9.2） | 4 | curves, spaceport × 3 |
+| `rotate … of=`（3.9.1） | 1 | curves |
+| `r`$k$ 副本组（3.9.2） | 125 | curves, rotation, spaceport × 3 |
+| 影子（3.9.7） | 260 | curves, rotation, spaceport × 3 |
+| span 梁 / 杆 / 台阶（3.10.1、3.10.3） | 41 | 全部 7 个 |
+| span `drop`（3.10.2） | 20 | rotation |
+| sweep（3.10.4） | 20 | curves, rotation, spaceport × 3 |
+| line / bezier / spline（3.10.5） | 10 | rotation, spaceport × 3 |
+
+覆盖到的具体规则：五种关系里的四种（`under` 语料没有，见 3.11.4）；pin 的 `origin`、方向词、组合词（`bottom-right`）；负 gap；align 的面名（`bottom` `left` `back` `front`）；offset；turn、tilt、roll、rot、aim+aimwith（`top`）；继承（转过的 bunker / turned 上的物体、倾斜的 sat 组里的物体）；网格与线性阵列、`center`、`turn`、嵌套阵列（pisa 的 galleries × cols）；闭合与开放曲线上的 `along`；`across` 的引用 + `axis`、`across=x`；`about` 的引用、缺省 `angle`、`axis=z`、`rot` 与容器式 rotate 的组合；span 的三种形态与 drop；sweep 的曲线路径与点列表路径。
+
+语料**没有**覆盖、只按原型源码与本章定义写下的规则：`under`（3.3.3；`relation` 的 `under` 分支，小例子见 3.11.4）、`alignto` 与 align 的轴名 `x` `y` `z`（3.4.3；`local` 的 align 循环，小例子见 3.11.4）、`aimwith` 取 `front` 等非竖直方向时的次轴选择（3.5.4；`orientation`，小例子 3.11.4 的 `aim=0,10,0`）、`orient=none`（3.8.4）、`across` 为向量₃或 `B[u,v,w]` 锚点（3.9.3）、方向规格的锚点与曲线切线形式（3.9.5）、副本式 `rotate … of=` 带 `about`（curves.s3d 的 `gate2` 只用了缺省轴）。
+
+### 3.11.3 后置
+
+参考输出里的 `late` 节点恰好是：rotation.s3d 的 `radar.dish`、`radar.feed`、`radar.horn`（3.6.3 第一个例子）与 semantics.s3d 的 `street.h4.skin`（3.7.6）；其他 1640 个节点都不是。按 3.6.3 的图规则推导得到同一集合（dish 经 $T_{\text{sat} \to \text{radar}}$ 可达 $L(\text{radar}) \to X(\text{radar})$；feed、horn 经 $L(\text{dish})$ 可达；skin 直接读 $X(\text{h4})$）。
+
+### 3.11.4 小例子
+
+语料没有覆盖、用原型编译小例子确认原型行为（结果都已写进相应小节）：
+
+| 情形 | 原型结果 | 本版 |
+|---|---|---|
+| `box a turn=90 offset=1,0,0`；转过的组里 `offset=1,0,0` | offset 在父框架里加（3.4.4） | 相同 |
+| `box c under=floor`；`under=floor pin=center` | 顶面 / 盒心贴到底面中心（3.3.3） | 相同 |
+| `on=floor turn=30 align=x`、`align=z,back` | 轴名对盒心、面名沿目标面法线（3.4.3） | 相同 |
+| `pin=0,1,0` | 与 `pin=top` 相同（3.4.1） | 相同 |
+| `against=floor.right pin=top` | 不自动选面，顶面中心落到右面中心（3.3.4） | 相同 |
+| `inside=g gap=5` | gap 被静默忽略 | 报错（3.4.2） |
+| `aim=0,10,0 offset=3,0,0`（无关系） | 起点取 offset（3.5.4） | 相同 |
+| `rot=(0,0,0,30)` | $R = 0.866\,I$（非正交） | 报错（3.5.3） |
+| `mirror a2 of=a across=x axis=z` | axis 被忽略 | 报错（3.9.3） |
+| `across=floor.right axis=z` / `across=floor.right` / `across=floor` | 3.9.3 表的第四 / 三 / 四行 | 相同 |
+| `on=` 镜像副本 | $R_{\text{base}} = R_{B \to P}\,\mathrm{diag}(-1,1,1)$（3.5.7） | 相同 |
+| `mirror … of=a turn=90 at=…`；`rotate … of=a n=3` | 定位属性与 `n` 被忽略 | 报错（3.9.1） |
+| `repeat n=2.4` / `n=-1` / `n=0` | 2 个 / 0 个 / 0 个实例 | 报错 / 报错 / 0 个（3.8.1） |
+| `repeat n=(2,2) step=1,2,3 center=true`；`n=3 step=1,0,0 turn=10` | 3.8.3 的两个公式 | 相同 |
+| `repeat n=4 along=闭合弧`、`n=3 along=弧 orient=none turn=15` | 3.8.4 | 相同 |
+| `repeat … along=c step=1,0,0 center=true orient=true` | step / center 被忽略，`true` 当 `yaw` | 报错（3.8.4、3.8.6） |
+| `repeat r n=4 along=c on=floor` | 全部实例后置、阵列盒为零盒（3.8.5） | 相同 |
+| `rotate rr n=2.6 { … }` | 3 个副本组 | 报错（3.9.2） |
+| `rotate rr n=2 about=floor.right` | 绕锚点、120°（3.9.4） | 相同 |
+| `group g on=floor { group h { box a on=#wall } box b }` 及两个变体 | h 后置 / a 后置 / 都后置（3.6.3 第二个例子） | 相同 |
+| `group g4 { box x on=y; box y on=x }` | 只有 x 报错并退化 | x、y 都报错并退化（3.6.5） |
+| `group g pin=origin at=… { box p at=g.origin }` | 不后置、不报错 | 报错（3.6.2：引用祖先） |
+
+### 3.11.5 因本章定义而预期不同的项
+
+M1 的编译器按本章实现时，与原型输出的差别只会出现在下列情形；语料（7 个示例与 11 个 exports）里没有任何一处触发，所以参考输出仍然逐节点适用：
+
+| 节 | 情形 | 原型 | 本版 | 理由 |
+|---|---|---|---|---|
+| 3.4.2 | `gap` 写在 $\nu = 0$ 的关系上 | 静默忽略（`local`） | 报错，节点退化 | 1.1.1：不得静默接受无效写法 |
+| 3.5.3 | `rot` 的轴是零向量 | 非正交矩阵（`axisAngle`） | 报错 | 结果无定义 |
+| 3.5.4 | `aimwith` 不是方向词 | 退回 `front`（`sym`） | 报错 | 类型规则 1.4.1 |
+| 3.6.2 | 定位引用自己的祖先 | 经后置得到一个解（`ref` 只查自己与后代） | 报错 | 容器的盒由子节点决定，引用没有不循环的含义 |
+| 3.6.3 | 后置的判定 | 惰性求值的忙标记，依赖求值顺序 | 依赖图上的可达性，按节点逆序 | 确定性（1.1.3）；语料结果相同 |
+| 3.6.5 | 循环依赖 | 只退化先碰到的节点、报一条错 | 环上全部节点退化，各报一条 | 错误局部化与确定性 |
+| 3.8.1 | `n` 非整数 / 负数 | 四舍五入 / 取 0（`elaborate`） | 报错 | 不猜 |
+| 3.8.4、3.8.6 | `along` 与 `step` / `center` 同写；`orient` 没有 `along`；`orient=true/false` | 忽略 / 当 yaw、none（`instLocal`） | 报错 | 互斥与枚举规则 |
+| 3.9.1 | 副本式节点写定位属性；`rotate … of=` 写 `n` | 忽略（`local` 的 `n.src` 分支、`rotationIn`） | 报错 | 1.4.4、1.4.5 |
+| 3.9.2 | `rotate` 容器式的 `n` 非整数 | 四舍五入（`buildCopies`） | 报错 | 不猜 |
+| 3.9.3 | `across=x/y/z` 与 `axis` 同写 | 忽略 axis（`mirrorIn`） | 报错 | 互斥 |
+| 3.9.5 | 方向规格为零向量 | `unit` 得零向量，继续算 | 报错 | 结果无定义 |
+| 3.3.8 | 多个定位关系 | `on` 优先、其余忽略（`relation`） | 报错（已在 3.3.8 列出） | 1.4.4 |
 
 ## 3.12 本章的错误与警告
 
-<!-- 3.12 -->
+按 01-syntax.md 的 1.10 的格式；"恢复"按 1.1.4（节点退化 = $T = \mathbb 1$、零盒、不参与事实、不渲染，子节点照常）。错误携带文件、行、文案与节点路径（1.10.1）。
+
+| 种类 | 触发条件 | 文案（引号里是必须包含的信息） | 恢复 |
+|---|---|---|---|
+| 互斥 | 写了多个定位关系（3.1.4） | "定位关系只能写一个" | 节点退化 |
+| 类型错误 | 参照物属性的值不是引用也不是集合（3.2.8、3.3） | "`<路径>` 的 `<属性>` 需要引用一个对象，得到 X" | 节点退化 |
+| 类型错误 | 集合为空（3.2.8） | "集合是空的，不能当参照物" | 节点退化 |
+| 类型错误 | 点属性的值不是向量₃ / 引用 / 集合（3.2.9） | "`<路径>` 的 `<属性>` 需要点坐标或锚点" | 节点退化 |
+| 找不到的名字 | 对非曲线写 `[t]` / `start` / `mid` / `end`（3.2.2） | "X 不是曲线，不能用 [t] 取点" | 节点退化 |
+| 找不到的名字 | 对集合取曲线点、曲面锚点或子对象（3.2.8） | "{…} 中没有子对象或锚点 X" | 节点退化 |
+| 互斥 / 类型错误 | `against` 的锚点没有非零法线（3.3.4） | "`<路径>`：against 要指明贴哪个面，如 B.left 或 B.side[90,0.5]" | 节点退化 |
+| 类型错误 | `pin` 不是 origin / 方向 / 三个数（3.4.1） | "pin 写成 origin、方向词或 u,v,w" | 节点退化 |
+| 互斥 | `gap` 写在法线为零的关系上（3.4.2） | "`<路径>`：gap 需要有法线的定位关系（on / under / against，或 at= 带面锚点）" | 节点退化 |
+| 类型错误 | `align` 的项不是面名或 x / y / z（3.4.3） | "align 只接受面名或 x / y / z，如 left,back" | 节点退化 |
+| 互斥 | `align` 没有对齐目标（3.4.3） | "`<路径>`：align 需要参照（on / under / against / inside / at=对象 或 alignto=对象）" | 节点退化 |
+| 互斥 | `alignto` 没有 `align`；`aimwith` 没有 `aim`（1.4.4） | "alignto 需要 align"；"aimwith 需要 aim" | 节点退化 |
+| 类型错误 | `rot` 不是四个数（3.5.3） | "`<路径>` 的 rot 写成 (轴x,轴y,轴z,角度)" | 节点退化 |
+| 类型错误 | `rot` 的轴长度 $< \varepsilon_{\text{len}}$（3.5.3） | "`<路径>` 的 rot 的轴不能是零向量" | 节点退化 |
+| 类型错误 | `aimwith` 不是方向词 / 组合词（3.5.4） | "`<路径>` 的 aimwith 需要方向词，如 front / top / right" | 节点退化 |
+| 求解错误 | `aim` 的目标与起点距离 $< \varepsilon_{\text{len}}$（3.5.4） | "`<路径>`：aim 的目标与自身重合" | 节点退化 |
+| 求解错误 | 定位 / 点 / 曲线属性引用自己或后代（3.6.2） | "`<路径>` 不能相对自己定位" | 节点退化 |
+| 求解错误 | 引用祖先（3.6.2） | "`<路径>` 不能相对包含自己的对象定位" | 节点退化 |
+| 求解错误 | 集合里含自己或上下级（3.6.2） | "`<路径>` 的 `<属性>`：集合里包含它自己或它的上下级" | 节点退化 |
+| 循环 | 依赖图去掉后置边后仍有环（3.6.5） | "循环依赖：`<路径>` 的位置最终依赖于它自己" | 环上每个节点退化，各报一条 |
+| 缺少必填 | repeat 没有 `n`（3.8.1） | "`<路径>` 缺少 n" | 节点退化，不生成实例 |
+| 时机错误 | `n` 不是常量（3.8.1） | "`<路径>` 的 n 必须是常量" | 同上 |
+| 类型错误 | `n` 的分量不是非负整数（容差 $\varepsilon_{\text{int}}$）或不是数 / 向量（3.8.1） | "`<路径>` 的 n 需要非负整数（得到 X）"；"`<路径>` 的 n 需要数或 n_i,n_j,n_k" | 同上 |
+| 几何参数不合法 | 实例总数 $> N_{\max}$（3.8.1） | "repeat 数量过多（N）" | 同上 |
+| 类型错误 | `along` 不是曲线（3.8.4） | "`<路径>` 的 along 需要一条曲线（line / bezier / spline / arc / helix）" | 同上 |
+| 互斥 | `along` 与 `step` / `center` 同写；`orient` 没有 `along`（3.8.4） | "`<路径>`：along 与 step / center 不能同时写"；"`<路径>`：orient 只能和 along 一起写" | 同上 |
+| 类型错误 | `orient` 不是 yaw / full / none；`center` 不是布尔（3.8.6） | "`<路径>` 的 orient 只能是 yaw / full / none"；"`<路径>` 的 center 只能是 true / false" | 同上 |
+| 副本限制 | 副本式 mirror / rotate 写定位 / 朝向属性，或 `rotate … of=` 写 `n`（3.9.1） | "副本跟随原物体，不接受定位属性"；"rotate 写了 of= 就不能再写 n" | 节点退化 |
+| 类型错误 | `of` 不是单个对象路径（3.9.1） | "`<路径>`：of 需要写一个对象名" | 节点退化 |
+| 类型错误 | `rotate` 容器式的 `n` 不是 1..360 的整数（3.9.2） | "`<路径>`：rotate 的 n 需要 1..360 的整数" | 节点退化，不生成副本组 |
+| 类型错误 | `across` 不合法（3.9.3） | "across 写成 x / y / z、点坐标，或对象 / 锚点（如 B、B.right、B.top）" | 节点退化 |
+| 互斥 | `across=x/y/z` 与 `axis` 同写（3.9.3） | "`<路径>`：across 是轴名时不能再写 axis" | 节点退化 |
+| 几何参数不合法 | 镜像面法线为零（3.9.3） | "`<路径>`：镜像面的法线为零" | 节点退化 |
+| 类型错误 | 方向规格不合法（3.9.5） | "`<路径>` 的 `<属性>` 需要方向：x / y / z、方向词、向量，或锚点如 B.front" | 节点退化 |
+| 几何参数不合法 | 方向规格为零向量（3.9.5） | "`<路径>` 的 `<属性>` 不能是零向量" | 节点退化 |
+| 几何参数不合法 | span 的端点、drop、台阶的退化（3.10.1、3.10.2） | 02-geometry.md 的 2.2.8 的文案 | 节点退化 |
+
+副本式节点 $R$ 退化时它的影子子树照常生成但随 $R$ 一起放在 $\mathbb 1$ 处（1.1.4 第 6 条：只影响该副本）；阵列节点退化时不生成实例（3.8.6）。后置（3.6.3）不是错误，不产生诊断。
+
+**警告。** 本章不定义警告。曲面锚点的近似（`mesh.top[u,w]`）的警告在 02-geometry.md 的 2.4.1。
