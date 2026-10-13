@@ -76,4 +76,5 @@
 - **校准序（M2 验收第一项）的实际读数**（原型自己的分数，`scores.json`）：以 corpus 冻结的逆向结果为"逆向"项时，`S_mesh > abs > recon > orig` 在 9 个场景里只有 rotation、semantics 成立——冻结的逆向结果保留了 mesh 引用，而原型（含 `prototype` 标签那一版）的 `MESH_PRICE` 默认按 full（4.5 × 顶点 + 3 × 三角形）计价，basics / curves / spaceport 的 recon 因此高于 abs；换成同一 commit 重新逆向的 `rev`（不再发射 mesh 引用）后 spaceport L0/L1/L2、rotation、curves、semantics 成立，basics 的 rev（284.5）比 abs（267.5）高 17。本版的分数与原型同序。**需要拍板**：验收用哪组输入（见本节末）。
 - **微基准（PLAN 第 8 节）**：自写 BVH 单线程 3.9 µs/次（parry 2.7 µs/次），都未到 1.1 µs 的门槛；评分走自写 BVH（要封顶查询与穿越计数）。全量评分 spaceport.L0 0.5 s（111 个部件）。
 - **未做**：CPU 光栅 compare（原型 `raster.mjs` + PNG，可派便宜模型）、`s3d-render`（wgpu / WebGPU；云端容器没有 GPU，SpaceCenter 预览 60 帧只能在用户机器上测）、hull 条目的 `faces` 输出、E_edit 的权重（决定 7，M3 末）。
+- **已定（2026-10-13，用户）**：(2) 分段差异接受为定义差异，M5 用本版导出重做 GLB；(3) PLAN 第 8 节按实测修订（已写进该节）；(4) `s3d-render`、CPU compare、E_edit 权重派便宜模型，在用户机器上做。
 - **待拍板**：(1) 校准序验收的输入组：a. 改用 `rev`（同一 commit 重新逆向）并接受 basics 的例外；b. 保留冻结 recon、把网格引用按 `ref` 计价核对；c. 等 M3 本版逆向出来再验。(2) 规范分段 48 与原型导出的 40 / 14 的差异：接受为定义差异（已写进 9.6.2），M5 用本版导出重做 GLB。(3) PLAN 第 8 节的最近点门槛（1.1 µs 单线程）：按实测修订还是继续优化（候选：叶子大小、SAH、按空间排序批量查询）。(4) 渲染与 compare 的归属：派便宜模型在用户机器上做。
