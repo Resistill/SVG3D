@@ -57,6 +57,7 @@ struct CompiledRule {
     name: Option<Regex>,
     material: Option<Regex>,
     meta: Vec<(String, Regex)>,
+    rule: crate::intent::Rule,
 }
 
 fn compile_rule(r: &crate::intent::Rule) -> Option<CompiledRule> {
@@ -75,6 +76,7 @@ fn compile_rule(r: &crate::intent::Rule) -> Option<CompiledRule> {
             .iter()
             .map(|(k, v)| re(v).map(|x| (k.clone(), x)))
             .collect::<Option<Vec<_>>>()?,
+        rule: r.clone(),
     })
 }
 
@@ -90,9 +92,17 @@ fn rule_matches(r: &CompiledRule, p: &Part) -> bool {
             return false;
         }
     }
-    r.meta
+    if !r
+        .meta
         .iter()
         .all(|(k, x)| p.meta.get(k).map(|v| x.is_match(v)).unwrap_or(false))
+    {
+        return false;
+    }
+    if r.rule.words.is_some() {
+        return p.name.as_deref().and_then(|n| r.rule.word_role(n)).is_some();
+    }
+    true
 }
 
 /// 一个部件的全部 id：uid、name、from
@@ -177,6 +187,35 @@ pub fn apply_source_decisions(parts: Vec<Part>, intents: &[Intent]) -> (Vec<Sour
             if targets.is_empty() {
                 if sources.is_empty() {
                     report.applied.push((it.id, d.op.clone(), 0));
+                }
+                continue;
+            }
+            // role by-words：角色逐部件取自词表，按角色分成几条待应用的决定
+            if d.op == "role" && d.str_arg("value") == Some("by-words") {
+                let r = match &rule {
+                    Some(r) => r,
+                    None => {
+                        report
+                            .unsatisfied
+                            .push((it.id, d.op.clone(), "by-words 要有 rule.words".into()));
+                        continue;
+                    }
+                };
+                let mut groups: BTreeMap<String, Vec<usize>> = BTreeMap::new();
+                for &pi in &targets {
+                    if let Some(role) = parts[pi].name.as_deref().and_then(|n| r.rule.word_role(n)) {
+                        groups.entry(role).or_default().push(pi);
+                    }
+                }
+                for (role, ps) in groups {
+                    pending.push(Pending {
+                        intent: it.id,
+                        priority: it.priority(),
+                        op: d.op.clone(),
+                        value: role,
+                        args: d.args.clone(),
+                        parts: ps,
+                    });
                 }
                 continue;
             }

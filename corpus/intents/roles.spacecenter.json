@@ -1,5 +1,5 @@
 {
-  "_note": "这是从原型 tools/roles.mjs 的词表翻译出的规则型意图样本（原则 15、PLAN.md 4.5 节）：它是数据，不是代码，只对 SpaceCenter 这套资产的命名习惯有效，换一个美术团队要换一套意图。 正则区分大小写，且不含环视与反向引用（Rust regex 也能执行）；name 是完整节点名（含分组路径，以 “/” 分隔，可带 “@k” 后缀）。 优先级按意图 id：大的压小的（PLAN.md 4.6），所以 id 顺序复刻了原型的判定顺序（碰撞 > 贴花 > 辅助 > 结构 / 装饰 / 地形）。 近似与遗漏：(1) 原型对结构 / 装饰 / 地形取“最后一个有归属的词”，这里只能写成“词落在叶子名末尾（后面仅数字、下划线、@k）”，末尾是无归属的词（如 Wall_A）时原型会回退到前一个有归属的词，规则不会命中； (2) 原型把全大写名按驼峰规则拆词，这里只认首字母大写或全小写的写法；(3) 原型对没有名字线索的部件按几何判（很薄且散成很多块 → decal，其余 → structure），以及“名字是 Cube / Box 等默认名、三角形 ≤ 200、整个包住至少 10 个别的部件 → helper”，这两条依赖几何事实，不是源部件名谓词，没有翻译；无意图时的默认行为见 PLAN.md 第 5 节末； (4) 原型工程目录的 roles.json 额外规则（按材质、按旁路表列）不在样本里。",
+  "_note": "这是从原型 tools/roles.mjs 的词表翻译出的规则型意图样本（原则 15、PLAN.md 4.5 节）：它是数据，不是代码，只对 SpaceCenter 这套资产的命名习惯有效，换一个美术团队要换一套意图。 1 号是词表选择器（rule.words，已定 2026-10-13）：节点名最后一段拆词后取最后一个有归属的词，角色由它所在的列表决定，与原型 roles.mjs 的判定相同；4–8 号是正则选择器（名字里有碰撞 / 贴花 / 辅助类的词就算），id 更大，按 PLAN.md 4.6 压过词表，复刻原型的判定顺序（碰撞 > 贴花 > 辅助 > 结构 / 装饰 / 地形）。2、3 号已并入 1 号，id 不回收。 正则区分大小写，且不含环视与反向引用（Rust regex 也能执行）；name 是完整节点名（含分组路径，以 “/” 分隔，可带 “@k” 后缀）。 仍未翻译的两条是几何回退，不是源部件名谓词：很薄且散成很多块 → decal；名字是 Cube / Box 等默认名、三角形 ≤ 200、整个包住至少 10 个别的部件 → helper（SpaceCenter 的 32 157 个部件里共 58 个）。原型工程目录的 roles.json 额外规则（按材质、按旁路表列）不在样本里。",
   "intents": [
     {
       "id": 1,
@@ -9,57 +9,212 @@
       },
       "selection": {
         "rule": {
-          "name": "(?:Arch|Balcony|Beam|Bridge|Building|Canopy|Ceiling|Column|Corridor|Door|Elevator|Escalator|Exterwall|Facade|Fence|Floor|Frame|Gate|Guardrail|Handrail|Hangar|Hsupport|Interdoor|Interwall|Lift|Parapet|Passage|Pillar|Platform|Rail|Railing|Ramp|Roof|Shed|Slab|Stair|Staircase|Stairs|Step|Steps|Support|Terrace|Tower|Walkway|Wall|Window|(?:^|[^A-Za-z])(?:arch|balcony|beam|bridge|building|canopy|ceiling|column|corridor|door|elevator|escalator|exterwall|facade|fence|floor|frame|gate|guardrail|handrail|hangar|hsupport|interdoor|interwall|lift|parapet|passage|pillar|platform|rail|railing|ramp|roof|shed|slab|stair|staircase|stairs|step|steps|support|terrace|tower|walkway|wall|window))[^A-Za-z/]*$"
-        }
-      },
-      "text": "名字末尾是结构类的词（墙、楼梯、平台、围栏、门……）：楼的结构部件",
-      "formal": {
-        "decisions": [
-          {
-            "op": "role",
-            "value": "structure"
+          "words": {
+            "structure": [
+              "building",
+              "wall",
+              "exterwall",
+              "interwall",
+              "stair",
+              "stairs",
+              "staircase",
+              "step",
+              "steps",
+              "terrace",
+              "pillar",
+              "column",
+              "beam",
+              "roof",
+              "floor",
+              "ceiling",
+              "slab",
+              "fence",
+              "railing",
+              "guardrail",
+              "handrail",
+              "rail",
+              "walkway",
+              "bridge",
+              "support",
+              "hsupport",
+              "frame",
+              "door",
+              "interdoor",
+              "gate",
+              "window",
+              "platform",
+              "ramp",
+              "tower",
+              "facade",
+              "corridor",
+              "passage",
+              "arch",
+              "canopy",
+              "shed",
+              "hangar",
+              "balcony",
+              "parapet",
+              "escalator",
+              "lift",
+              "elevator"
+            ],
+            "decor": [
+              "furniture",
+              "lighting",
+              "light",
+              "lamp",
+              "walllamp",
+              "chandelier",
+              "spotlight",
+              "chair",
+              "table",
+              "sofa",
+              "bed",
+              "cabinet",
+              "cupboard",
+              "shelf",
+              "desk",
+              "computer",
+              "monitor",
+              "monitors",
+              "screen",
+              "keyboard",
+              "machine",
+              "machinery",
+              "server",
+              "container",
+              "crate",
+              "box",
+              "boxlid",
+              "basket",
+              "bin",
+              "dustbin",
+              "trash",
+              "bag",
+              "barrel",
+              "tool",
+              "tools",
+              "vehicle",
+              "car",
+              "van",
+              "vans",
+              "truck",
+              "bike",
+              "plant",
+              "tree",
+              "flower",
+              "flowerpot",
+              "flowerbed",
+              "pot",
+              "bush",
+              "shrub",
+              "grass",
+              "ivy",
+              "vine",
+              "leaf",
+              "moss",
+              "rock",
+              "stone",
+              "sign",
+              "signage",
+              "branding",
+              "poster",
+              "board",
+              "doorplate",
+              "trademark",
+              "logo",
+              "trophy",
+              "cup",
+              "cups",
+              "bottle",
+              "book",
+              "folder",
+              "paper",
+              "newspaper",
+              "kitchen",
+              "microwave",
+              "coffee",
+              "dispenser",
+              "extinguisher",
+              "firebox",
+              "prop",
+              "props",
+              "emissive",
+              "ornament",
+              "decoration",
+              "statue",
+              "cart",
+              "carts",
+              "bench",
+              "umbrella",
+              "awning",
+              "antenna",
+              "conditioner",
+              "conditioners",
+              "airconditioning",
+              "pipe",
+              "pipeline",
+              "cable",
+              "safe",
+              "curtain",
+              "blind",
+              "rug",
+              "carpet",
+              "cushion",
+              "pillow",
+              "lid",
+              "parts",
+              "clock",
+              "fan",
+              "speaker",
+              "camera",
+              "mailbox",
+              "leuchtstabe",
+              "exit",
+              "packingbox",
+              "supplybox",
+              "plasticbox",
+              "bucket",
+              "mop",
+              "sunshade",
+              "stand",
+              "blinds",
+              "instrument",
+              "cloth",
+              "footcloth",
+              "suit",
+              "spacesuit",
+              "dryer",
+              "litter",
+              "cover",
+              "equipment",
+              "engine",
+              "centrifuge",
+              "charger",
+              "armor"
+            ],
+            "terrain": [
+              "terrain",
+              "landscape",
+              "ground",
+              "road",
+              "street",
+              "pavement",
+              "sidewalk",
+              "asphalt",
+              "sand",
+              "soil",
+              "dirt"
+            ]
           }
-        ]
-      }
-    },
-    {
-      "id": 2,
-      "author": "ai",
-      "status": {
-        "state": "accepted"
-      },
-      "selection": {
-        "rule": {
-          "name": "(?:Airconditioning|Antenna|Armor|Awning|Bag|Barrel|Basket|Bed|Bench|Bike|Bin|Blind|Blinds|Board|Book|Bottle|Box|Boxlid|Branding|Bucket|Bush|Cabinet|Cable|Camera|Car|Carpet|Cart|Carts|Centrifuge|Chair|Chandelier|Charger|Clock|Cloth|Coffee|Computer|Conditioner|Conditioners|Container|Cover|Crate|Cup|Cupboard|Cups|Curtain|Cushion|Decoration|Desk|Dispenser|Doorplate|Dryer|Dustbin|Emissive|Engine|Equipment|Exit|Extinguisher|Fan|Firebox|Flower|Flowerbed|Flowerpot|Folder|Footcloth|Furniture|Grass|Instrument|Ivy|Keyboard|Kitchen|Lamp|Leaf|Leuchtstabe|Lid|Light|Lighting|Litter|Logo|Machine|Machinery|Mailbox|Microwave|Monitor|Monitors|Mop|Moss|Newspaper|Ornament|Packingbox|Paper|Parts|Pillow|Pipe|Pipeline|Plant|Plasticbox|Poster|Pot|Prop|Props|Rock|Rug|Safe|Screen|Server|Shelf|Shrub|Sign|Signage|Sofa|Spacesuit|Speaker|Spotlight|Stand|Statue|Stone|Suit|Sunshade|Supplybox|Table|Tool|Tools|Trademark|Trash|Tree|Trophy|Truck|Umbrella|Van|Vans|Vehicle|Vine|Walllamp|(?:^|[^A-Za-z])(?:airconditioning|antenna|armor|awning|bag|barrel|basket|bed|bench|bike|bin|blind|blinds|board|book|bottle|box|boxlid|branding|bucket|bush|cabinet|cable|camera|car|carpet|cart|carts|centrifuge|chair|chandelier|charger|clock|cloth|coffee|computer|conditioner|conditioners|container|cover|crate|cup|cupboard|cups|curtain|cushion|decoration|desk|dispenser|doorplate|dryer|dustbin|emissive|engine|equipment|exit|extinguisher|fan|firebox|flower|flowerbed|flowerpot|folder|footcloth|furniture|grass|instrument|ivy|keyboard|kitchen|lamp|leaf|leuchtstabe|lid|light|lighting|litter|logo|machine|machinery|mailbox|microwave|monitor|monitors|mop|moss|newspaper|ornament|packingbox|paper|parts|pillow|pipe|pipeline|plant|plasticbox|poster|pot|prop|props|rock|rug|safe|screen|server|shelf|shrub|sign|signage|sofa|spacesuit|speaker|spotlight|stand|statue|stone|suit|sunshade|supplybox|table|tool|tools|trademark|trash|tree|trophy|truck|umbrella|van|vans|vehicle|vine|walllamp))[^A-Za-z/]*$"
         }
       },
-      "text": "名字末尾是装饰类的词（家具、灯具、标牌、植被、车……）：装饰部件",
+      "text": "名字里最后一个有归属的词决定角色：英文复合名词的中心词在后面（WallLamp 是灯，ConcreteWall 是墙，Road_FlowerBed 是花坛）；结构类的词（墙、楼梯、平台、围栏、门……）→ structure，装饰类（家具、灯具、标牌、植被、车……）→ decor，地形类（地面、路面……）→ terrain",
       "formal": {
         "decisions": [
           {
             "op": "role",
-            "value": "decor"
-          }
-        ]
-      }
-    },
-    {
-      "id": 3,
-      "author": "ai",
-      "status": {
-        "state": "accepted"
-      },
-      "selection": {
-        "rule": {
-          "name": "(?:Asphalt|Dirt|Ground|Landscape|Pavement|Road|Sand|Sidewalk|Soil|Street|Terrain|(?:^|[^A-Za-z])(?:asphalt|dirt|ground|landscape|pavement|road|sand|sidewalk|soil|street|terrain))[^A-Za-z/]*$"
-        }
-      },
-      "text": "名字末尾是地形类的词（地面、路面……）：地形",
-      "formal": {
-        "decisions": [
-          {
-            "op": "role",
-            "value": "terrain"
+            "value": "by-words"
           }
         ]
       }

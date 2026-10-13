@@ -1,8 +1,8 @@
 //! 规则样本意图（corpus/intents/roles.spacecenter.json）的执行：
 //!   spaceport.L0 的 111 个部件：ground / road → terrain，4 盏 lamp → decor，其余没有意图命中（默认 structure）；
 //!   SpaceCenter（原型 work-snapshot 的 state/source-roles.json，32 157 个部件名；clone 不在时跳过）：
-//!   与原型的角色一致 ≥ 74%，且规则命中的部件全部与原型一致——不一致只来自样本自述的近似
-//!   （规则只认"角色词在名字末尾"，原型取"最后一个有归属的词"并有几何回退）。
+//!   与原型的角色一致 ≥ 99%（词表选择器复刻了"最后一个有归属的词"），且规则命中的部件全部与原型一致；
+//!   不一致只来自原型的几何回退（白模体积 → helper、散成多块的薄片 → decal，共 58 个）。
 
 use s3d_geom::mesh::{load_parts, Material, Part, Split};
 use s3d_project::store::{load_file, problems};
@@ -21,7 +21,7 @@ fn spaceport_roles() {
         root()
     )))
     .unwrap();
-    assert_eq!(intents.len(), 8);
+    assert_eq!(intents.len(), 6);
     assert!(problems(&intents).is_empty());
     let bytes = std::fs::read(format!("{}corpus/exports/spaceport.L0.glb", root())).unwrap();
     let parts = load_parts(&bytes, Split::Auto).unwrap();
@@ -50,7 +50,7 @@ fn spaceport_roles() {
         .iter()
         .find(|s| s.part.name.as_deref() == Some("lights.0.lamp"))
         .unwrap();
-    assert_eq!(lamp.intents, vec![2]);
+    assert_eq!(lamp.intents, vec![1]);
 }
 
 #[test]
@@ -104,7 +104,7 @@ fn spacecenter_roles_against_prototype() {
         }
     }
     let ratio = same as f64 / out.len() as f64;
-    assert!(ratio >= 0.74, "一致率 {:.4}", ratio);
+    assert!(ratio >= 0.99, "一致率 {:.4}", ratio);
     assert!(
         fired_mismatch.is_empty(),
         "规则命中但与原型不同：{:?}",

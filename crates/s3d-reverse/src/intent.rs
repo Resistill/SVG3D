@@ -13,7 +13,9 @@ pub const SHAPES: [&str; 9] = [
     "box", "cyl", "cone", "sphere", "wedge", "plate", "hull", "revolve", "mesh",
 ];
 
-/// 规则选择器：源部件谓词（正则，只在读取部件阶段求值）
+/// 规则选择器：源部件谓词，只在读取部件阶段求值。`name` / `material` / `meta` 是正则；
+/// `words` 是词表（角色 → 词）：节点名的最后一段拆成词（下划线、数字、空格、点分开，驼峰拆开，小写），
+/// 取**最后一个**落在任一列表里的词，命中即选中，`role` 决定写 `"value": "by-words"` 时角色取该词所在的列表
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
 pub struct Rule {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -22,6 +24,57 @@ pub struct Rule {
     pub material: Option<String>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub meta: BTreeMap<String, String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub words: Option<BTreeMap<String, Vec<String>>>,
+}
+
+/// 节点名的最后一段 → 词（小写）：去掉 `@k`，下划线、数字、空格、点分开，驼峰拆开（HLight → h light，WallLamp → wall lamp）
+pub fn name_words(name: &str) -> Vec<String> {
+    let leaf = name.rsplit('/').next().unwrap_or("");
+    let leaf = match leaf.rfind('@') {
+        Some(i) if i + 1 < leaf.len() && leaf[i + 1..].chars().all(|c| c.is_ascii_digit()) => &leaf[..i],
+        _ => leaf,
+    };
+    let cs: Vec<char> = leaf.chars().collect();
+    let mut s1 = String::new();
+    for i in 0..cs.len() {
+        s1.push(cs[i]);
+        if i + 1 < cs.len() && cs[i].is_ascii_lowercase() && cs[i + 1].is_ascii_uppercase() {
+            s1.push(' ');
+        }
+    }
+    let cs: Vec<char> = s1.chars().collect();
+    let mut s2 = String::new();
+    for i in 0..cs.len() {
+        if i > 0
+            && cs[i].is_ascii_uppercase()
+            && cs[i - 1].is_ascii_uppercase()
+            && i + 1 < cs.len()
+            && cs[i + 1].is_ascii_lowercase()
+        {
+            s2.push(' ');
+        }
+        s2.push(cs[i]);
+    }
+    s2.split(|c: char| !c.is_ascii_alphabetic())
+        .filter(|w| !w.is_empty())
+        .map(|w| w.to_ascii_lowercase())
+        .collect()
+}
+
+impl Rule {
+    /// 词表命中：最后一个落在任一列表里的词所在的列表名（角色）
+    pub fn word_role(&self, name: &str) -> Option<String> {
+        let table = self.words.as_ref()?;
+        for w in name_words(name).iter().rev() {
+            for (role, list) in table {
+                if list.iter().any(|x| x == w) {
+                    return Some(role.clone());
+                }
+            }
+        }
+        None
+    }
 }
 
 /// 几何指纹：形状种类 + 尺寸 + 世界位置
@@ -215,11 +268,25 @@ pub fn validate(it: &Intent) -> Vec<String> {
     }
     let sel = &it.selection;
     if let Some(r) = &sel.rule {
-        if r.name.is_none() && r.material.is_none() && r.meta.is_empty() {
+        if r.name.is_none() && r.material.is_none() && r.meta.is_empty() && r.words.is_none() {
             out.push(format!(
-                "意图 {}：rule 选择器要有 name / material / meta 之一",
+                "意图 {}：rule 选择器要有 name / material / meta / words 之一",
                 it.id
             ));
+        }
+        if let Some(t) = &r.words {
+            for (role, list) in t {
+                if !ROLES.contains(&role.as_str()) {
+                    out.push(format!(
+                        "意图 {}：rule.words 的键只能是 {}",
+                        it.id,
+                        ROLES.join(" / ")
+                    ));
+                }
+                if list.is_empty() {
+                    out.push(format!("意图 {}：rule.words.{} 是空的", it.id, role));
+                }
+            }
         }
         for (what, re) in [("name", r.name.as_deref()), ("material", r.material.as_deref())] {
             if let Some(re) = re {
@@ -272,8 +339,13 @@ pub fn validate(it: &Intent) -> Vec<String> {
         match d.op.as_str() {
             "role" => match d.str_arg("value") {
                 Some(v) if ROLES.contains(&v) => {}
+                Some("by-words") if sel.rule.as_ref().map(|r| r.words.is_some()).unwrap_or(false) => {}
+                Some("by-words") => out.push(format!(
+                    "意图 {}：role 写 by-words 时选择器要有 rule.words",
+                    it.id
+                )),
                 _ => out.push(format!(
-                    "意图 {}：role 的 value 只能是 {}",
+                    "意图 {}：role 的 value 只能是 {} 或 by-words",
                     it.id,
                     ROLES.join(" / ")
                 )),
@@ -372,6 +444,29 @@ mod tests {
         assert!(validate(&ok).is_empty());
         let missing = parse(r#"{"id":4,"selection":{"paths":["x"]},"formal":{"decisions":[{"op":"drop"}]}}"#);
         assert_eq!(validate(&missing).len(), 1);
+    }
+
+    #[test]
+    fn words_rule() {
+        assert_eq!(name_words("WallLamp"), vec!["wall", "lamp"]);
+        assert_eq!(name_words("HLight"), vec!["h", "light"]);
+        assert_eq!(name_words("a/b/Road_FlowerBed@3"), vec!["road", "flower", "bed"]);
+        let it = parse(
+            r#"{"id":1,"author":"ai","status":{"state":"accepted"},"selection":{"rule":{"words":{"terrain":["road"],"decor":["bed","lamp"]}}},"formal":{"decisions":[{"op":"role","value":"by-words"}]}}"#,
+        );
+        assert!(validate(&it).is_empty());
+        let r = it.selection.rule.as_ref().unwrap();
+        assert_eq!(r.word_role("Road_FlowerBed").as_deref(), Some("decor"));
+        assert_eq!(r.word_role("Asphalt_Road_Mesh_HD").as_deref(), Some("terrain"));
+        assert_eq!(r.word_role("Pillar_01"), None);
+        let bad = parse(
+            r#"{"id":2,"selection":{"rule":{"name":"x"}},"formal":{"decisions":[{"op":"role","value":"by-words"}]}}"#,
+        );
+        assert_eq!(validate(&bad).len(), 1);
+        let bad2 = parse(
+            r#"{"id":3,"selection":{"rule":{"words":{"wall":["a"]}}},"formal":{"decisions":[{"op":"role","value":"by-words"}]}}"#,
+        );
+        assert_eq!(validate(&bad2).len(), 1);
     }
 
     #[test]

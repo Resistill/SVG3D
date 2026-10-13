@@ -237,7 +237,7 @@ AI：读意图原文 + 选中物体的 inspect + 渲染图 ──▶ 翻译成 f
   "formal": { "decisions": [ { "op": "role", "value": "collision" } ] } }
 ```
 
-工具按规则确定地执行；换一个美术团队，换的是意图，不是代码。原型的 `roles.json` 就是这种意图的雏形。corpus 里带一份 SpaceCenter 的规则型意图样本（`corpus/intents/roles.spacecenter.json`），标明是样本不是代码，M3 验收用它。
+工具按规则确定地执行；换一个美术团队，换的是意图，不是代码。原型的 `roles.json` 就是这种意图的雏形。规则选择器有两种谓词：正则（`rule.name` / `rule.material` / `rule.meta`）和词表（`rule.words`：角色 → 词，节点名最后一段拆词后取最后一个有归属的词，`role` 决定写 `by-words` 时角色取该词所在的列表；**已定 2026-10-13**，为的是把原型"最后一个有归属的词"的判定完整写进数据）。corpus 里带一份 SpaceCenter 的规则型意图样本（`corpus/intents/roles.spacecenter.json`），标明是样本不是代码，M3 验收用它。
 
 ### 4.6 优先级、冲突、撤回
 
