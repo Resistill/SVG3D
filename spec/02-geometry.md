@@ -178,7 +178,7 @@ $$C(t) = \tfrac12\big[\,2P_1 + (P_2 - P_0)\,t + (2P_0 - 5P_1 + 4P_2 - P_3)\,t^2 
 
 多面体类实体（box、wedge、hull、plate、beam、steps、三角网格）的 $E$ 是全部顶点；圆类实体（cyl、cone、rod、revolve）用端面圆（或弧）；sphere 用球心 $\pm r$（三轴各自）。两份实现按同一公式得到同一 $T$。轴对齐（$R$ 是坐标轴的置换与反射）时 $T$ 与局部盒的变换一致。容器与曲线没有紧包围盒（输出为空）；布尔容器的紧包围盒见 2.5.4。
 
-参考输出（corpus/reference）的 `nodes[].tight` 不是按本节算的：原型 `tightBox` 取该节点**凸块**（`localParts`，即 2.2 各节"凸块"一项的原型版本）的顶点经世界变换后的盒。两者对多面体类实体与 sphere 相同；对圆类实体，原型用 12 边内接棱柱的顶点代替圆，所以非轴对齐的 cyl / cone / rod 的参考 `tight` 比本节的 $T$ **小**，每个面的偏差不超过 $R(1 - \cos 15°) \approx 0.034\,R$（轴对齐时相同）；revolve、圆截面 sweep / pipe 与布尔容器的差别更大，见 2.8.2 / 2.8.3。对参考比较 `tight` 时的额外容许量由 09-compat.md 的 9.4 规定。
+参考输出（corpus/reference）的 `nodes[].tight` 不是按本节算的：原型 `tightBox` 取该节点**凸块**（`localParts`，即 2.2 各节"凸块"一项的原型版本）的顶点经世界变换后的盒。两者对多面体类实体与 sphere 相同；对圆类实体，原型用 12 边内接棱柱的顶点代替圆，所以非轴对齐的 cyl / cone / rod 的参考 `tight` 比本节的 $T$ **小**，每个面的偏差不超过 $R(1 - \cos 15°) \approx 0.034\,R$（轴对齐时相同）；revolve、圆截面 sweep / pipe 与布尔容器的差别更大，见 2.8.2 / 2.8.3。对参考比较 `tight` 时的额外容许量与规范化由 09-compat.md 规定：9.4.2 的 $\delta_{\text{tight}}$ / $\delta_{\text{out}}$、9.4.3 的 `tight` 行与 9.4.5 的 N15。
 
 ### 2.1.9 三角化的通用规则
 
@@ -1002,7 +1002,7 @@ group garage { cyl core r=4 h=14; helix rampline r=7 pitch=4.5 turns=3 }       /
 
 ### 2.8.1 方法
 
-脚本（scratchpad 的 `tight2.py`）对 7 个示例的 `corpus/reference/examples/<名>.compile.json`，**只取**参考输出里每个实体条目的 `items[].geom`（原型求出的几何参数）与 `world`，按 2.1.8 与 2.2 各节"紧包围盒"一项重算 $T$，与参考的 `nodes[].tight` 逐分量比（容差 $10^{-9}$）；布尔容器按 2.5.4 组合其操作数的 $T$；并顺带核对 `curves[]` 的点数（2.3.2–2.3.6）、revolve 的 `prof` 长度（2.2.7 的处理步骤）与布尔容器的 `box`（2.5.4）。原型的 `tight` 由 `tightBox` 从凸块顶点算出（2.1.8），所以本节同时是对 2.2 各节凸块顶点集的核对。
+脚本（scratchpad 的 `tight2.py`）对 7 个示例的 `corpus/reference/examples/<名>.compile.json`，**只取**参考输出里每个实体条目的 `items[].geom`（原型求出的几何参数）与 `world`，按 2.1.8 与 2.2 各节"紧包围盒"一项重算 $T$，与参考的 `nodes[].tight` 逐分量比（容差 $10^{-9}$）；节点按 7 个文件逐个计数、不去重（spaceport_blueprint / spaceport_edit 里与 spaceport 相同的节点各算一次），"轴对齐"指 `world.R` 是带符号置换矩阵（坐标轴的置换与反射，每行每列恰一个 $\pm 1$）；布尔容器按 2.5.4 组合其操作数的 $T$；并顺带核对 `curves[]` 的点数（2.3.2–2.3.6）、revolve 的 `prof` 长度（2.2.7 的处理步骤）与布尔容器的 `box`（2.5.4）。原型的 `tight` 由 `tightBox` 从凸块顶点算出（2.1.8），所以本节同时是对 2.2 各节凸块顶点集的核对。
 
 ### 2.8.2 结果
 
@@ -1013,8 +1013,8 @@ group garage { cyl core r=4 h=14; helix rampline r=7 pitch=4.5 turns=3 }       /
 | beam | 10 | 10 | $4 \times 10^{-16}$ | 盒子（含 `dy`） |
 | steps | 15 | 15 | 0 | 每级踏步盒的顶点 |
 | sphere | 47 | 47 | 0 | 球心 $\pm r$（原型 `partBox` 对球同样精确） |
-| cyl（含 cone） | 262 | 175 | $0.00613$ | 87 个非轴对齐节点不同：参考用 12 边棱柱顶点，比端面圆的极值小；最大偏差 $0.00613 = 0.0341\,R$（rotation 的 `pisa.galleries.0.cols.r2.col`，$R = 0.18$），恰为 $R(1 - \cos 15°)$；127 个轴对齐节点相同，另有 48 个非轴对齐节点的轴向极值恰落在棱柱顶点上、也相同 |
-| rod | 73 | 52 | $0.00551$ | 21 个节点不同，同上（最大 $0.025\,R$，$R = 0.22$） |
+| cyl（含 cone） | 262 | 175 | $0.00613$ | 135 个非轴对齐节点（132 个 cyl、3 个 cone）里 87 个不同（84 个 cyl、3 个 cone，后者是 rotation 的 `farm.N.t.tower`，偏差 0.00495）：参考用 12 边棱柱顶点，比端面圆的极值小；最大偏差 $0.00613 = 0.0341\,R$（rotation 的 `pisa.galleries.0.cols.r2.col`，$R = 0.18$），恰为 $R(1 - \cos 15°)$；127 个轴对齐节点相同，另有 48 个非轴对齐节点的轴向极值恰落在棱柱顶点上、也相同 |
+| rod | 73 | 52 | $0.00551$ | 73 个节点都非轴对齐，21 个不同，同上（最大 $0.025\,R$，$R = 0.22$）；52 个的轴向极值恰落在棱柱顶点上、相同 |
 | sweep（含 pipe） | 21 | 19 | $4.3 \times 10^{-6}$ | 不同的 2 个是 spaceport / spaceport_blueprint 的 `feed1`（圆截面沿 Bézier）：原型每环只取 20 点里的 8 个（2.2.9 凸块的取点）算 `tight`，本版取全部 20 个环点 |
 | revolve | 8 | 7 | $1.94$ | 7 个轴对齐节点相同；不同的是 rotation 的 `radar.dish`（倾斜、后置）：原型以 $R_{\max} \times [y_{\min}, y_{\max}]$ 的 12 边棱柱（2.2.7 的凸块）算 `tight`，忽略轮廓形状与 `angle`；本版按轮廓各点的圆极值 |
 | 布尔容器 | 5 | — | — | 参考 `tight` 为 `null`（basics 的 `crate`，spaceport 三个文件的 `hangar.body`，spaceport_edit 的 `hangar2.body`）；它们的 `box` 都等于第一个操作数的盒 $B_0'$（2.5.4） |
@@ -1027,11 +1027,11 @@ group garage { cyl core r=4 h=14; helix rampline r=7 pitch=4.5 turns=3 }       /
 
 ### 2.8.3 因本章定义而预期不同的项
 
-M1 的编译器按本章实现时，与参考输出的差别只有下列情形（第 9 章汇总；比较 `tight` 的额外容许量与规范化由 9.4 规定）：
+M1 的编译器按本章实现时，与参考输出的差别只有下列情形（第 9 章汇总；比较 `tight` 的额外容许量由 09-compat.md 的 9.4.2（$\delta_{\text{tight}}$ / $\delta_{\text{out}}$）与 9.4.3 的 `tight` 行规定，规范化由 9.4.5 的 N15 规定）：
 
 | 节 | 情形 | 原型 | 本版 | 语料 |
 |---|---|---|---|---|
-| 2.1.8、2.2.3、2.2.8 | 非轴对齐 cyl / cone / rod 的 `tight` | `tightBox`：12 边内接棱柱顶点的盒 | 两端面圆的轴向极值 | 87 个 cyl、21 个 rod；参考比本版小，每面偏差 $\le R(1 - \cos 15°)$；cone 顶点处参考另可大 $\le 10^{-4}$（小环） |
+| 2.1.8、2.2.3、2.2.8 | 非轴对齐 cyl / cone / rod 的 `tight` | `tightBox`：12 边内接棱柱顶点的盒 | 两端面圆的轴向极值 | 按 2.8.1 的口径（7 个文件不去重、`world.R` 不是带符号置换矩阵）共 135 个非轴对齐 cyl / cone（132 + 3）与 73 个 rod；其中参考 `tight` 与本版 $T$ **实际不同**（偏差 $> 10^{-9}$）的是 87 个 cyl / cone（84 + 3）、21 个 rod（2.8.2），其余 48 + 52 个的轴向极值恰落在棱柱顶点上、两版相同；参考比本版小，每面偏差 $\le R(1 - \cos 15°)$；cone 顶点处参考另可大 $\le 10^{-4}$（小环） |
 | 2.1.8、2.2.9 | 圆截面 sweep / pipe 的 `tight` | 每环取 8 个点（$0°, 36°, 90°, 126°, 180°, 216°, 270°, 306°$）的盒 | 全部 20 个环点 | 2 个节点（`feed1`），偏差 $4.3 \times 10^{-6}$；一般 $\le r(1 - \cos 27°) \approx 0.109\,r$，参考 ⊆ 本版 |
 | 2.1.8、2.2.7 | 非轴对齐或 `angle` $< 360$ 的 revolve 的 `tight` | 外接 12 边棱柱 $R_{\max} \times [y_{\min}, y_{\max}]$ 的盒 | 轮廓各点的圆 / 弧极值 | 1 个节点（rotation 的 `radar.dish`，参考大 1.94）；参考值可由本版按该棱柱重算核对 |
 | 2.5.4 | 布尔容器的 `tight` | `null`（只对有 `geom` 的叶子算） | 操作数 $T_i$ 按运算组合 | 5 个节点 |
