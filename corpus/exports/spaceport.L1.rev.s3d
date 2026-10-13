@@ -1,0 +1,67 @@
+// 由逆向管线从 spaceport.L1.glb 生成（L1）。~fit 是拟合度，~err 是相对误差；mesh 是拟合不了、直接引用源网格的部件
+
+material steel color=#7f8b96 metal=0.6 rough=0.4 default=true
+material white color=#eceef0 metal=0.05 rough=0.78
+material hazard color=#e0a92e metal=0.05 rough=0.78
+material asphalt color=#3b3d40 metal=0.05 rough=1
+material concrete color=#b8b4aa metal=0.05 rough=0.78
+material ground color=#59604f metal=0.05 rough=1
+material earth color=#8a7a58 metal=0.05 rough=1
+
+box terrain size=200,1,200 at=0,-1,0 mat=ground ~fit=1 ~src="part_0080"
+cyl tank_1 r=2.4 h=20 axis=x on=terrain[-0.45,1,-0.2] mat=white ~fit=0.9227 ~src="part_0029"
+subtract subtract1 on=terrain[-0.45,1,-0.2] mat=concrete ~fit=0.96 ~src="part_0041" {
+  box outer size=34,22,26
+  box cavity size=32.4,22,24.4 at=0,-0.8,0
+  box opening size=11.9,15.4154,2.4 at=0,0,12.6
+  cyl arch r=5.95 h=2.4 axis=z at=0,9.4654,12.6
+}
+repeat tanks n=3 step=10,0,0 on=terrain[0.2,1,0.55] pin=origin {
+  cyl tank r=3.5 h=9 mat=white ~fit=0.9344
+  sphere volume r=3.5 at=tank offset=0,1,0 mat=white ~fit=0.9239
+  cyl slab r=3.6 h=0.6 at=tank offset=0,1.5,0 mat=hazard ~fit=0.8243
+}
+box platform_1 size=26,2,26 on=terrain[0.25,1,0] mat=concrete ~fit=1 ~src="part_0043"
+box volume_1 size=14,8,12 on=terrain[-0.68,1,-0.26] turn=-90 mat=concrete ~fit=1 ~src="part_0056"
+mirror volume_2 of=volume_1 across=tank_1 axis=x
+pipe pipe_1 path=[(40.0021,1.3461,51.4427); (39.8861,1.359,47.7669); (39.5151,1.3989,44.109); (38.8813,1.4548,40.4882); (37.9017,1.5569,36.946); (36.5918,1.6726,33.5123); (34.9907,1.8294,30.2071); (33.2471,1.9919,26.9736); (31.5624,2.1575,23.7084); (30.1685,2.291,20.3108); (29.2776,2.3709,16.7478); (28.9879,2.4002,13.0835)] r=0.3472 smooth=true ~fit=0.3226 ~src="part_0078"
+box volume_3 size=14,5,10 on=terrain[-0.05,1,0.55] turn=30 mat=concrete ~fit=1 ~src="part_0072"
+wedge volume_4 size=7,5,10 on=terrain offset=-14.09,0,60.25 turn=30.000001 mat=earth ~fit=1 ~src="part_0087"
+span span_1 from=-16,8,-26 to=-27,22.8,-26.02 steps=20 section=2.002,0.2 ~fit=0.9914 ~src="part_0047"
+mirror span_2 of=span_1 across=tank_1 axis=x
+span span_3 from=-22,0,-7 to=-22,8,-19 steps=16 section=2.4,0.25 ~fit=1 ~src="part_0045"
+mirror span_4 of=span_3 across=tank_1 axis=x
+helix volume_5_path r=2.0989 pitch=6.234 turns=1 at=-17.9936,1.1204,49.9997 pin=origin turn=-0.169491
+sweep volume_5 path=volume_5_path r=0.0495 ~fit=0.8464 ~src="part_0075"
+pipe pipe_2 path=[(20.9962,2.4019,13.0242); (20.9215,2.3125,19.4267); (20.6673,2.0521,25.8203); (20.3679,1.7328,32.2095); (20.1436,1.503,38.6057); (20.0312,1.3803,45.0075); (20.0031,1.3546,51.4116)] r=0.3475 smooth=true ~fit=0.4585 ~src="part_0074"
+repeat columns_1 n=(2,1,2) step=40,0,40 on=terrain[0.05,1,-0.2] pin=origin {
+  cyl column r=0.4 h=30 ~fit=0.9086
+  box prop size=2.4,1.2,2.4 on=column mat=white ~fit=1
+}
+arc platform_2_path r=47.139 angle=-53.545254,-122.52677 at=-20.2892,0.04,-35.9448 pin=origin
+sweep platform_2 path=platform_2_path section=10.9142,0.08 mat=asphalt ~fit=0.8739 ~src="part_0034"
+repeat steps n=24 step=0,0.2713,0 turn=15.65212 on=terrain[-0.17993,1,0.5] pin=origin {
+  box step size=2,0.12,0.7 at=1.2,0,0 ~fit=0.9999
+}
+cyl column_1 r=0.35 h=6.5 on=steps.0.step[-1.2,1,0] ~fit=0.9126 ~src="part_0050"
+cyl tank_2 r=2.4 h=28 on=platform_1 mat=white ~fit=0.9159 ~src="part_0006"
+repeat columns_2 n=(2,1,2) step=6,0,6 on=platform_1 offset=6.1,0,-12.1 pin=origin {
+  box column size=0.6,48,0.6 ~fit=1
+}
+mirror columns_3 of=columns_2 across=tank_2 axis=x
+rotate walls n=3 angle=90 about=platform_1 {
+  wedge wall size=3.5,6,0.4 on=platform_1 offset=0,0,4.15 turn=90 mat=hazard ~fit=1
+}
+repeat slabs_1 n=8 step=0,6,0 at=columns_2.3.column offset=-3,-18.4,-3 pin=origin {
+  box slab size=7.2,0.4,7.2 ~fit=1
+  cyl member r=0.15 h=7.9398 axis=x at=slab offset=-0.098,-2.913,3 rot=(0.349511,0.936932,0.000002,179.99953) ~fit=0.1678
+}
+mirror slabs_2 of=slabs_1 across=tank_2 axis=x
+cyl column_2 r=0.25 h=7 on=volume_3[0.6,1,0] ~fit=0.912 ~src="part_0103"
+sphere volume_6 r=1.6 on=column_2 mat=white ~fit=0.9239 ~src="part_0094"
+box platform_3 size=36,0.8,28 on=subtract1 ~fit=1 ~src="part_0099"
+cyl platform_4 r=2.45 h=0.8 at=tank_2 offset=0,13.2,0 mat=hazard ~fit=0.8469 ~src="part_0069"
+cyl tank_3 r=2 h=14 on=tank_2 mat=white ~fit=0.9211 ~src="part_0011"
+box slab_1 size=6.0812,0.3,1.6 at=tank_3 offset=-3.35,0.99,-3.35 rot=(0.001644,-0.999991,-0.00397,45.00038) ~fit=1 ~src="part_0030"
+mirror slab_2 of=slab_1 across=tank_2 axis=x
+revolve volume_7 profile=[(2,0); (1.974,1.3125); (1.9114,2.4792); (1.7176,3.9375); (1.4553,5.1042); (1.1276,5.9792); (0.8195,6.5625); (0.5815,6.8542); (0.1611,7)] on=tank_3 mat=white ~fit=0.4184 ~src="part_0042"

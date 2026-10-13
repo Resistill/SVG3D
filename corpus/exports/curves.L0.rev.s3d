@@ -1,0 +1,54 @@
+// 由逆向管线从 curves.L0.glb 生成（L0）。~fit 是拟合度，~err 是相对误差；mesh 是拟合不了、直接引用源网格的部件
+
+material ground color=#6b7360 metal=0.05 rough=1
+material road color=#3d3f43 metal=0.05 rough=1
+material steel color=#7f8b96 metal=0.6 rough=0.4
+material white color=#eef0f2 metal=0.05 rough=0.78
+material stone color=#cfc8b8 metal=0.05 rough=0.78
+material accent color=#e07a3a metal=0.05 rough=0.78
+material water color=#5d93c4 metal=0.05 rough=0.2
+
+box ground size=150,1,150 at=0,-1,0 mat=ground ~fit=1 ~src="ground" ~role="terrain"
+revolve tower2 profile=[(0.8429,0); (0.5168,6.0929); (0.6098,8.2433); (0.7312,8.9601); (1.3054,9.6769); (3.1844,10.3937); (3.7494,11.1105); (4.0273,11.8273); (4.1674,12.5441); (4.2161,13.2609); (4.1436,14.6945); (3.9456,15.4113); (3.5943,16.1282); (3.01,16.845); (1.2932,17.2034)] at=ground offset=-37.538,0.498,-41.27 rot=(0.003659,0.999987,-0.003555,35.762632) mat=white ~fit=0 ~src="tower2"
+revolve tower profile=[(0.8089,0); (0.5247,6.8086); (0.6247,8.242); (0.8084,8.9587); (1.287,9.6754); (3.2044,10.3921); (3.7071,11.1088); (4.0234,11.8255); (4.1665,12.5422); (4.2154,13.2589); (4.1478,14.6923); (3.9517,15.409); (3.5956,16.1257); (3.0044,16.8424); (1.2977,17.2007)] on=ground[0.4999,1,-0.55] mat=white ~fit=0 ~src="tower"
+box canal size=150,0.05,10 on=ground[-0.75,1,0] turn=-90 mat=water ~fit=1 ~src="canal"
+helix garage_ramp_path r=7.0013 pitch=4.484 turns=2.99 at=0.0237,0.2916,0.039 pin=origin turn=5.474137
+sweep garage_ramp path=garage_ramp_path section=5.0813,0.4685 mat=stone ~fit=0.3921 ~src="garage.ramp"
+helix garage_rail_path r=9.3927 pitch=4.5005 turns=2.97 at=-0.0001,1.0691,0.0007 pin=origin turn=5.592398
+sweep garage_rail path=garage_rail_path r=0.0792 mat=accent ~fit=0.9731 ~src="garage.rail"
+cyl garage_core r=4 h=14 on=ground mat=stone ~fit=0.9262 ~src="garage.core"
+arc lane_path r=39.9966 angle=-57.435299,238.676496 at=-0.0374,0.05,0.0368 pin=origin
+sweep lane path=lane_path section=7.9797,0.1 mat=road ~fit=0.9955 ~src="lane"
+repeat houses n=(2,1,2) step=14,0,116 on=ground offset=-7,0,-58 pin=origin {
+  box house size=5,5,5 mat=stone ~fit=1
+}
+arc arch_path r=8.0231 angle=1.000725,177.9154 plane=xy at=-56.2762,-0.0112,0.006 pin=origin turn=-0.518588
+sweep arch path=arch_path section=3.1299,0.7931 mat=stone ~fit=0 ~src="arch"
+wedge gate2_halves_ramp size=3,5,5 on=ground offset=-11,0,-58 turn=180 mat=stone ~fit=1 ~src="gate2.halves.ramp"
+wedge gate2_halves_mirrored_ramp size=3,5,5 on=ground offset=11,0,-58 mat=stone ~fit=1 ~src="gate2.halves.mirrored.ramp"
+wedge gate_halves_mirrored_ramp size=3,5,5 on=ground offset=-11,0,58 turn=180 mat=stone ~fit=1 ~src="gate.halves.mirrored.ramp"
+wedge gate_halves_ramp size=3,5,5 on=ground offset=11,0,58 mat=stone ~fit=1 ~src="gate.halves.ramp"
+span stepsW from=-74.75,0.05,0 to=-65.25,8.5451,0 steps=16 section=3.6,0.25 mat=stone ~fit=1 ~src="stepsW"
+span stepsE from=-37.75,0.05,0 to=-47.25,8.5451,0 steps=16 section=3.6,0.25 mat=stone ~fit=1 ~src="stepsE"
+revolve plaza_basin profile=[(0,0); (5,0); (5.2,0.9); (4.7,0.9); (4.6,0.35); (0,0.35)] on=ground[-0.45,1,0.5] mat=stone ~fit=0.8742 ~src="plaza.basin"
+arc gate_beam_path r=4.9755 angle=-0.113612,179.701594 plane=xy at=-0.0562,0.0705,58.0005 pin=origin turn=0.300818
+sweep gate_beam path=gate_beam_path section=1.0541,0.939 mat=accent ~fit=0 ~src="gate.beam"
+arc gate2_beam_path r=4.9755 angle=-0.113612,179.701594 plane=xy at=0.0562,0.0705,-58.0005 pin=origin turn=-179.699182
+sweep gate2_beam path=gate2_beam_path section=1.0541,0.939 mat=accent ~fit=0 ~src="gate2.beam"
+rotate plaza_benches n=5 angle=60.000002 about=plaza_basin {
+  box seat size=3.2,0.5,0.9 on=ground[-0.45,1,0.6] mat=accent ~fit=1
+}
+rotate p n=10 angle=30 about=ground {
+  cyl pole r=0.18 h=6 on=ground offset=23,0,39.837 mat=steel ~fit=0.908
+}
+rotate plaza_benches_2 n=5 angle=60.000002 about=plaza_basin {
+  box back size=3.2,1,0.2 on=plaza_benches.seat[0,1,0.778] mat=accent ~fit=0.9998
+}
+revolve plaza_spout profile=[(0.5,0); (0.2856,1.3125); (0.2632,1.6875); (0.292,1.9375); (0.3677,2.0625); (0.4968,2.1875); (0.7191,2.3125); (1.3281,2.5625); (1.4,2.6875); (1.3592,2.8125); (0.9636,2.9375); (0.3562,3)] on=plaza_basin mat=white ~fit=0 ~src="plaza.spout"
+repeat flags n=(2,1,2) step=10,0,120 on=houses.0.house[0.8,1,-0.8] pin=origin {
+  box flag size=0.2,7,0.2 mat=accent ~fit=1
+}
+rotate p_2 n=10 angle=30 about=ground {
+  sphere bulb r=0.45 on=p.pole mat=white ~fit=0.9224
+}
+box deck size=18,0.5,3.6 at=stepsW offset=13.75,3.607,0 mat=stone ~fit=1 ~src="deck"

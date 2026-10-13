@@ -30,17 +30,22 @@ jobs:
           set -e
           for f in corpus/examples/*.s3d; do b=$(basename $f .s3d); target/release/s3d verify $f corpus/reference/examples/$b.compile.json | tail -1; done
           for f in corpus/exports/*.s3d; do b=$(basename $f .s3d); r=corpus/reference/exports/$b.compile.json; [ -f $r ] && target/release/s3d verify $f $r | tail -1; done
-      - name: hashes（Linux 原生 + wasm）
+      - name: hashes（Linux 原生 + wasm；编译输出与评分输出）
         run: |
           target/release/s3d hash corpus/examples/*.s3d corpus/exports/*.s3d > hashes-linux.txt
           node tools/wasm-hash.mjs target/wasm32-unknown-unknown/release/s3d_wasm.wasm corpus/examples/*.s3d corpus/exports/*.s3d > hashes-wasm.txt
           diff hashes-linux.txt hashes-wasm.txt
+          target/release/s3d score-hash corpus/exports/*.L?.s3d corpus/exports/*.L?.abs.s3d corpus/exports/*.L?.rev.s3d > score-hashes-linux.txt
+          node tools/wasm-hash.mjs --score target/wasm32-unknown-unknown/release/s3d_wasm.wasm corpus/exports/*.L?.s3d corpus/exports/*.L?.abs.s3d corpus/exports/*.L?.rev.s3d > score-hashes-wasm.txt
+          diff score-hashes-linux.txt score-hashes-wasm.txt
       - uses: actions/upload-artifact@v4
         with:
           name: hashes-linux
           path: |
             hashes-linux.txt
             hashes-wasm.txt
+            score-hashes-linux.txt
+            score-hashes-wasm.txt
   hash-windows:
     runs-on: windows-latest
     steps:
@@ -54,17 +59,22 @@ jobs:
         run: |
           cargo build --release -p s3d-cli
           target/release/s3d.exe hash corpus/examples/*.s3d corpus/exports/*.s3d > hashes-windows.txt
+          target/release/s3d.exe score-hash corpus/exports/*.L?.s3d corpus/exports/*.L?.abs.s3d corpus/exports/*.L?.rev.s3d > score-hashes-windows.txt
       - uses: actions/upload-artifact@v4
         with:
           name: hashes-windows
-          path: hashes-windows.txt
+          path: |
+            hashes-windows.txt
+            score-hashes-windows.txt
   three-way:
     needs: [check, hash-windows]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
-      - name: 三处哈希相同（PLAN 第 9 节 M1 验收）
+      - name: 三处哈希相同（PLAN 第 9 节 M1 验收；M2 加评分输出）
         run: |
           diff hashes-linux/hashes-linux.txt hashes-windows/hashes-windows.txt
           diff hashes-linux/hashes-linux.txt hashes-linux/hashes-wasm.txt
-          echo "three-way hashes identical:"; cat hashes-linux/hashes-linux.txt
+          diff hashes-linux/score-hashes-linux.txt hashes-windows/score-hashes-windows.txt
+          diff hashes-linux/score-hashes-linux.txt hashes-linux/score-hashes-wasm.txt
+          echo "three-way hashes identical:"; cat hashes-linux/hashes-linux.txt hashes-linux/score-hashes-linux.txt

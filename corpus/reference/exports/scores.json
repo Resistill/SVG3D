@@ -1,0 +1,1439 @@
+{
+ "_note": "原型 Resistill/SVG3D-Prototype commit 439abb8 的 tools/score.mjs（SCORE_DEFAULTS，网格引用按 full 计价）在 Linux / Node v22.22.0 上对 corpus/exports/<名>.glb 的分数摘要。recon = corpus/exports/<名>.s3d（冻结的逆向结果），abs = <名>.abs.s3d（同一 commit 的 reverse().absSrc，全坐标版），rev = <名>.rev.s3d（同一 commit 重新逆向的具名版），orig = corpus/examples/<原名>.s3d。spaceport_edit 的 orig 在原型里 import 解析失败（score 脚本没给 resolve），数字无效。",
+ "files": {
+  "basics.L0": {
+   "recon": {
+    "S": 1099.5,
+    "L_stmt": 294,
+    "L_mesh": 805.5,
+    "R_src": 0,
+    "R_recon": 0,
+    "R_vol": 0,
+    "S_mesh": 18733.5,
+    "explain": 0.9413,
+    "unattributed": 38,
+    "droppedLines": 0,
+    "byRole": {
+     "structure": {
+      "S": 1061.5,
+      "L_stmt": 256,
+      "L_mesh": 805.5,
+      "R_src": 0,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 17161,
+      "objects": 16,
+      "sources": 9,
+      "explain": 0.9381
+     },
+     "decor": {
+      "S": 0,
+      "L_stmt": 0,
+      "L_mesh": 0,
+      "R_src": 0,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 1474.5,
+      "objects": 0,
+      "sources": 6,
+      "explain": 1
+     },
+     "decal": {
+      "S": 0,
+      "L_stmt": 0,
+      "L_mesh": 0,
+      "R_src": 0,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 98,
+      "objects": 0,
+      "sources": 1,
+      "explain": 1
+     }
+    }
+   },
+   "abs": {
+    "S": 267.5,
+    "L_stmt": 267.5,
+    "L_mesh": 0,
+    "R_src": 0,
+    "R_recon": 0,
+    "R_vol": 0,
+    "S_mesh": 18733.5,
+    "explain": 0.9857,
+    "unattributed": 38,
+    "droppedLines": 0,
+    "byRole": {
+     "structure": {
+      "S": 122.5,
+      "L_stmt": 122.5,
+      "L_mesh": 0,
+      "R_src": 0,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 17161,
+      "objects": 9,
+      "sources": 9,
+      "explain": 0.9929
+     },
+     "decor": {
+      "S": 88,
+      "L_stmt": 88,
+      "L_mesh": 0,
+      "R_src": 0,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 1474.5,
+      "objects": 6,
+      "sources": 6,
+      "explain": 0.9403
+     },
+     "decal": {
+      "S": 19,
+      "L_stmt": 19,
+      "L_mesh": 0,
+      "R_src": 0,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 98,
+      "objects": 1,
+      "sources": 1,
+      "explain": 0.8061
+     }
+    }
+   },
+   "rev": {
+    "S": 284.5,
+    "L_stmt": 284.5,
+    "L_mesh": 0,
+    "R_src": 0,
+    "R_recon": 0,
+    "R_vol": 0,
+    "S_mesh": 18733.5,
+    "explain": 0.9848,
+    "unattributed": 38,
+    "droppedLines": 0,
+    "byRole": {
+     "structure": {
+      "S": 132.5,
+      "L_stmt": 132.5,
+      "L_mesh": 0,
+      "R_src": 0,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 17161,
+      "objects": 9,
+      "sources": 9,
+      "explain": 0.9923
+     },
+     "decor": {
+      "S": 94.5,
+      "L_stmt": 94.5,
+      "L_mesh": 0,
+      "R_src": 0,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 1474.5,
+      "objects": 6,
+      "sources": 6,
+      "explain": 0.9359
+     },
+     "decal": {
+      "S": 19.5,
+      "L_stmt": 19.5,
+      "L_mesh": 0,
+      "R_src": 0,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 98,
+      "objects": 1,
+      "sources": 1,
+      "explain": 0.801
+     }
+    }
+   },
+   "orig": {
+    "S": 258.5,
+    "L_stmt": 258.5,
+    "L_mesh": 0,
+    "R_src": 0,
+    "R_recon": 0,
+    "R_vol": 0,
+    "S_mesh": 18733.5,
+    "explain": 0.9862,
+    "unattributed": 18,
+    "droppedLines": 0,
+    "byRole": {
+     "structure": {
+      "S": 240.5,
+      "L_stmt": 240.5,
+      "L_mesh": 0,
+      "R_src": 0,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 17161,
+      "objects": 16,
+      "sources": 9,
+      "explain": 0.986
+     },
+     "decor": {
+      "S": 0,
+      "L_stmt": 0,
+      "L_mesh": 0,
+      "R_src": 0,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 1474.5,
+      "objects": 0,
+      "sources": 6,
+      "explain": 1
+     },
+     "decal": {
+      "S": 0,
+      "L_stmt": 0,
+      "L_mesh": 0,
+      "R_src": 0,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 98,
+      "objects": 0,
+      "sources": 1,
+      "explain": 1
+     }
+    }
+   }
+  },
+  "curves.L0": {
+   "recon": {
+    "S": 150464,
+    "L_stmt": 590,
+    "L_mesh": 149874,
+    "R_src": 0,
+    "R_recon": 0,
+    "R_vol": 0,
+    "S_mesh": 251135,
+    "explain": 0.4009,
+    "unattributed": 64.5,
+    "droppedLines": 0,
+    "byRole": {
+     "structure": {
+      "S": 150399.5,
+      "L_stmt": 525.5,
+      "L_mesh": 149874,
+      "R_src": 0,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 251045,
+      "objects": 62,
+      "sources": 61,
+      "explain": 0.4009
+     },
+     "terrain": {
+      "S": 0,
+      "L_stmt": 0,
+      "L_mesh": 0,
+      "R_src": 0,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 90,
+      "objects": 0,
+      "sources": 1,
+      "explain": 1
+     }
+    }
+   },
+   "abs": {
+    "S": 5368.77,
+    "L_stmt": 1287.5,
+    "L_mesh": 0,
+    "R_src": 1868.01,
+    "R_recon": 2042.22,
+    "R_vol": 171.03,
+    "S_mesh": 251135,
+    "explain": 0.9786,
+    "unattributed": 229.5,
+    "droppedLines": 0,
+    "byRole": {
+     "terrain": {
+      "S": 12,
+      "L_stmt": 12,
+      "L_mesh": 0,
+      "R_src": 0,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 90,
+      "objects": 1,
+      "sources": 1,
+      "explain": 0.8667
+     },
+     "structure": {
+      "S": 5127.27,
+      "L_stmt": 1046,
+      "L_mesh": 0,
+      "R_src": 1868.01,
+      "R_recon": 2042.22,
+      "R_vol": 171.03,
+      "S_mesh": 251045,
+      "objects": 61,
+      "sources": 61,
+      "explain": 0.9796
+     }
+    }
+   },
+   "rev": {
+    "S": 4943.67,
+    "L_stmt": 863,
+    "L_mesh": 0,
+    "R_src": 1868.15,
+    "R_recon": 2041.48,
+    "R_vol": 171.05,
+    "S_mesh": 251135,
+    "explain": 0.9803,
+    "unattributed": 229.5,
+    "droppedLines": 0,
+    "byRole": {
+     "terrain": {
+      "S": 12,
+      "L_stmt": 12,
+      "L_mesh": 0,
+      "R_src": 0,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 90,
+      "objects": 1,
+      "sources": 1,
+      "explain": 0.8667
+     },
+     "structure": {
+      "S": 4702.17,
+      "L_stmt": 621.5,
+      "L_mesh": 0,
+      "R_src": 1868.15,
+      "R_recon": 2041.48,
+      "R_vol": 171.05,
+      "S_mesh": 251045,
+      "objects": 61,
+      "sources": 61,
+      "explain": 0.9813
+     }
+    }
+   },
+   "orig": {
+    "S": 409,
+    "L_stmt": 409,
+    "L_mesh": 0,
+    "R_src": 0,
+    "R_recon": 0,
+    "R_vol": 0,
+    "S_mesh": 251135,
+    "explain": 0.9984,
+    "unattributed": 94,
+    "droppedLines": 0,
+    "byRole": {
+     "structure": {
+      "S": 315,
+      "L_stmt": 315,
+      "L_mesh": 0,
+      "R_src": 0,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 251045,
+      "objects": 62,
+      "sources": 61,
+      "explain": 0.9987
+     },
+     "terrain": {
+      "S": 0,
+      "L_stmt": 0,
+      "L_mesh": 0,
+      "R_src": 0,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 90,
+      "objects": 0,
+      "sources": 1,
+      "explain": 1
+     }
+    }
+   }
+  },
+  "rotation.L0": {
+   "recon": {
+    "S": 18417,
+    "L_stmt": 984,
+    "L_mesh": 17433,
+    "R_src": 0,
+    "R_recon": 0,
+    "R_vol": 0,
+    "S_mesh": 199474.5,
+    "explain": 0.9077,
+    "unattributed": 86.5,
+    "droppedLines": 0,
+    "byRole": {
+     "structure": {
+      "S": 18330.5,
+      "L_stmt": 897.5,
+      "L_mesh": 17433,
+      "R_src": 0,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 199384.5,
+      "objects": 321,
+      "sources": 320,
+      "explain": 0.9081
+     },
+     "terrain": {
+      "S": 0,
+      "L_stmt": 0,
+      "L_mesh": 0,
+      "R_src": 0,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 90,
+      "objects": 0,
+      "sources": 1,
+      "explain": 1
+     }
+    }
+   },
+   "abs": {
+    "S": 22284.48,
+    "L_stmt": 20648,
+    "L_mesh": 0,
+    "R_src": 476.12,
+    "R_recon": 620.43,
+    "R_vol": 539.92,
+    "S_mesh": 199474.5,
+    "explain": 0.8883,
+    "unattributed": 54.5,
+    "droppedLines": 0,
+    "byRole": {
+     "terrain": {
+      "S": 12,
+      "L_stmt": 12,
+      "L_mesh": 0,
+      "R_src": 0,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 90,
+      "objects": 1,
+      "sources": 1,
+      "explain": 0.8667
+     },
+     "structure": {
+      "S": 22217.98,
+      "L_stmt": 20581.5,
+      "L_mesh": 0,
+      "R_src": 476.12,
+      "R_recon": 620.43,
+      "R_vol": 539.92,
+      "S_mesh": 199384.5,
+      "objects": 625,
+      "sources": 320,
+      "explain": 0.8886
+     }
+    }
+   },
+   "rev": {
+    "S": 15128.54,
+    "L_stmt": 13510,
+    "L_mesh": 0,
+    "R_src": 469.36,
+    "R_recon": 609.23,
+    "R_vol": 539.95,
+    "S_mesh": 199474.5,
+    "explain": 0.9242,
+    "unattributed": 86.5,
+    "droppedLines": 0,
+    "byRole": {
+     "terrain": {
+      "S": 12,
+      "L_stmt": 12,
+      "L_mesh": 0,
+      "R_src": 0,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 90,
+      "objects": 1,
+      "sources": 1,
+      "explain": 0.8667
+     },
+     "structure": {
+      "S": 15030.04,
+      "L_stmt": 13411.5,
+      "L_mesh": 0,
+      "R_src": 469.36,
+      "R_recon": 609.23,
+      "R_vol": 539.95,
+      "S_mesh": 199384.5,
+      "objects": 625,
+      "sources": 320,
+      "explain": 0.9246
+     }
+    }
+   },
+   "orig": {
+    "S": 489.5,
+    "L_stmt": 489.5,
+    "L_mesh": 0,
+    "R_src": 0,
+    "R_recon": 0,
+    "R_vol": 0,
+    "S_mesh": 199474.5,
+    "explain": 0.9975,
+    "unattributed": 77,
+    "droppedLines": 0,
+    "byRole": {
+     "structure": {
+      "S": 412.5,
+      "L_stmt": 412.5,
+      "L_mesh": 0,
+      "R_src": 0,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 199384.5,
+      "objects": 321,
+      "sources": 320,
+      "explain": 0.9979
+     },
+     "terrain": {
+      "S": 0,
+      "L_stmt": 0,
+      "L_mesh": 0,
+      "R_src": 0,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 90,
+      "objects": 0,
+      "sources": 1,
+      "explain": 1
+     }
+    }
+   }
+  },
+  "semantics.L0": {
+   "recon": {
+    "S": 862,
+    "L_stmt": 862,
+    "L_mesh": 0,
+    "R_src": 0,
+    "R_recon": 0,
+    "R_vol": 0,
+    "S_mesh": 177055.5,
+    "explain": 0.9951,
+    "unattributed": 94.5,
+    "droppedLines": 0,
+    "byRole": {
+     "structure": {
+      "S": 767.5,
+      "L_stmt": 767.5,
+      "L_mesh": 0,
+      "R_src": 0,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 175342.5,
+      "objects": 142,
+      "sources": 122,
+      "explain": 0.9956
+     },
+     "terrain": {
+      "S": 0,
+      "L_stmt": 0,
+      "L_mesh": 0,
+      "R_src": 0,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 1623,
+      "objects": 0,
+      "sources": 19,
+      "explain": 1
+     },
+     "decor": {
+      "S": 0,
+      "L_stmt": 0,
+      "L_mesh": 0,
+      "R_src": 0,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 90,
+      "objects": 0,
+      "sources": 1,
+      "explain": 1
+     }
+    }
+   },
+   "abs": {
+    "S": 2106,
+    "L_stmt": 2106,
+    "L_mesh": 0,
+    "R_src": 0,
+    "R_recon": 0,
+    "R_vol": 0,
+    "S_mesh": 177055.5,
+    "explain": 0.9881,
+    "unattributed": 94.5,
+    "droppedLines": 0,
+    "byRole": {
+     "terrain": {
+      "S": 255,
+      "L_stmt": 255,
+      "L_mesh": 0,
+      "R_src": 0,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 1623,
+      "objects": 19,
+      "sources": 19,
+      "explain": 0.8429
+     },
+     "structure": {
+      "S": 1744.5,
+      "L_stmt": 1744.5,
+      "L_mesh": 0,
+      "R_src": 0,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 175342.5,
+      "objects": 122,
+      "sources": 122,
+      "explain": 0.9901
+     },
+     "decor": {
+      "S": 12,
+      "L_stmt": 12,
+      "L_mesh": 0,
+      "R_src": 0,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 90,
+      "objects": 1,
+      "sources": 1,
+      "explain": 0.8667
+     }
+    }
+   },
+   "rev": {
+    "S": 862.5,
+    "L_stmt": 862.5,
+    "L_mesh": 0,
+    "R_src": 0,
+    "R_recon": 0,
+    "R_vol": 0,
+    "S_mesh": 177055.5,
+    "explain": 0.9951,
+    "unattributed": 94.5,
+    "droppedLines": 0,
+    "byRole": {
+     "terrain": {
+      "S": 256,
+      "L_stmt": 256,
+      "L_mesh": 0,
+      "R_src": 0,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 1623,
+      "objects": 19,
+      "sources": 19,
+      "explain": 0.8423
+     },
+     "structure": {
+      "S": 500,
+      "L_stmt": 500,
+      "L_mesh": 0,
+      "R_src": 0,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 175342.5,
+      "objects": 122,
+      "sources": 122,
+      "explain": 0.9971
+     },
+     "decor": {
+      "S": 12,
+      "L_stmt": 12,
+      "L_mesh": 0,
+      "R_src": 0,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 90,
+      "objects": 1,
+      "sources": 1,
+      "explain": 0.8667
+     }
+    }
+   },
+   "orig": {
+    "S": 568.5,
+    "L_stmt": 568.5,
+    "L_mesh": 0,
+    "R_src": 0,
+    "R_recon": 0,
+    "R_vol": 0,
+    "S_mesh": 177055.5,
+    "explain": 0.9968,
+    "unattributed": 140.5,
+    "droppedLines": 10,
+    "byRole": {
+     "structure": {
+      "S": 428,
+      "L_stmt": 428,
+      "L_mesh": 0,
+      "R_src": 0,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 175342.5,
+      "objects": 142,
+      "sources": 122,
+      "explain": 0.9976
+     },
+     "terrain": {
+      "S": 0,
+      "L_stmt": 0,
+      "L_mesh": 0,
+      "R_src": 0,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 1623,
+      "objects": 0,
+      "sources": 19,
+      "explain": 1
+     },
+     "decor": {
+      "S": 0,
+      "L_stmt": 0,
+      "L_mesh": 0,
+      "R_src": 0,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 90,
+      "objects": 0,
+      "sources": 1,
+      "explain": 1
+     }
+    }
+   }
+  },
+  "spaceport.L0": {
+   "recon": {
+    "S": 46796.15,
+    "L_stmt": 839.5,
+    "L_mesh": 45835.5,
+    "R_src": 71.21,
+    "R_recon": 49.94,
+    "R_vol": 0,
+    "S_mesh": 133164.5,
+    "explain": 0.6486,
+    "unattributed": 64.5,
+    "droppedLines": 0,
+    "byRole": {
+     "structure": {
+      "S": 46731.65,
+      "L_stmt": 775,
+      "L_mesh": 45835.5,
+      "R_src": 71.21,
+      "R_recon": 49.94,
+      "R_vol": 0,
+      "S_mesh": 131124,
+      "objects": 111,
+      "sources": 105,
+      "explain": 0.6436
+     },
+     "terrain": {
+      "S": 0,
+      "L_stmt": 0,
+      "L_mesh": 0,
+      "R_src": 0,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 1680.5,
+      "objects": 0,
+      "sources": 2,
+      "explain": 1
+     },
+     "decor": {
+      "S": 0,
+      "L_stmt": 0,
+      "L_mesh": 0,
+      "R_src": 0,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 360,
+      "objects": 0,
+      "sources": 4,
+      "explain": 1
+     }
+    }
+   },
+   "abs": {
+    "S": 2825.94,
+    "L_stmt": 2107.5,
+    "L_mesh": 0,
+    "R_src": 254.89,
+    "R_recon": 426.24,
+    "R_vol": 37.32,
+    "S_mesh": 133164.5,
+    "explain": 0.9788,
+    "unattributed": 114,
+    "droppedLines": 0,
+    "byRole": {
+     "terrain": {
+      "S": 277.33,
+      "L_stmt": 23,
+      "L_mesh": 0,
+      "R_src": 34.54,
+      "R_recon": 182.48,
+      "R_vol": 37.32,
+      "S_mesh": 1680.5,
+      "objects": 2,
+      "sources": 2,
+      "explain": 0.835
+     },
+     "structure": {
+      "S": 2386.61,
+      "L_stmt": 1922.5,
+      "L_mesh": 0,
+      "R_src": 220.35,
+      "R_recon": 243.76,
+      "R_vol": 0,
+      "S_mesh": 131124,
+      "objects": 105,
+      "sources": 105,
+      "explain": 0.9818
+     },
+     "decor": {
+      "S": 48,
+      "L_stmt": 48,
+      "L_mesh": 0,
+      "R_src": 0,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 360,
+      "objects": 4,
+      "sources": 4,
+      "explain": 0.8667
+     }
+    }
+   },
+   "rev": {
+    "S": 1600.94,
+    "L_stmt": 882.5,
+    "L_mesh": 0,
+    "R_src": 254.89,
+    "R_recon": 426.24,
+    "R_vol": 37.32,
+    "S_mesh": 133164.5,
+    "explain": 0.988,
+    "unattributed": 114,
+    "droppedLines": 0,
+    "byRole": {
+     "terrain": {
+      "S": 277.33,
+      "L_stmt": 23,
+      "L_mesh": 0,
+      "R_src": 34.54,
+      "R_recon": 182.48,
+      "R_vol": 37.32,
+      "S_mesh": 1680.5,
+      "objects": 2,
+      "sources": 2,
+      "explain": 0.835
+     },
+     "structure": {
+      "S": 1199.61,
+      "L_stmt": 735.5,
+      "L_mesh": 0,
+      "R_src": 220.35,
+      "R_recon": 243.76,
+      "R_vol": 0,
+      "S_mesh": 131124,
+      "objects": 105,
+      "sources": 105,
+      "explain": 0.9909
+     },
+     "decor": {
+      "S": 10,
+      "L_stmt": 10,
+      "L_mesh": 0,
+      "R_src": 0,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 360,
+      "objects": 4,
+      "sources": 4,
+      "explain": 0.9722
+     }
+    }
+   },
+   "orig": {
+    "S": 719.5,
+    "L_stmt": 719.5,
+    "L_mesh": 0,
+    "R_src": 0,
+    "R_recon": 0,
+    "R_vol": 0,
+    "S_mesh": 133164.5,
+    "explain": 0.9946,
+    "unattributed": 167,
+    "droppedLines": 0,
+    "byRole": {
+     "structure": {
+      "S": 552.5,
+      "L_stmt": 552.5,
+      "L_mesh": 0,
+      "R_src": 0,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 131124,
+      "objects": 111,
+      "sources": 105,
+      "explain": 0.9958
+     },
+     "terrain": {
+      "S": 0,
+      "L_stmt": 0,
+      "L_mesh": 0,
+      "R_src": 0,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 1680.5,
+      "objects": 0,
+      "sources": 2,
+      "explain": 1
+     },
+     "decor": {
+      "S": 0,
+      "L_stmt": 0,
+      "L_mesh": 0,
+      "R_src": 0,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 360,
+      "objects": 0,
+      "sources": 4,
+      "explain": 1
+     }
+    }
+   }
+  },
+  "spaceport.L1": {
+   "recon": {
+    "S": 73923,
+    "L_stmt": 769.5,
+    "L_mesh": 73153.5,
+    "R_src": 0,
+    "R_recon": 0,
+    "R_vol": 0,
+    "S_mesh": 133164.5,
+    "explain": 0.4449,
+    "unattributed": 64.5,
+    "droppedLines": 0,
+    "byRole": {
+     "structure": {
+      "S": 73858.5,
+      "L_stmt": 705,
+      "L_mesh": 73153.5,
+      "R_src": 0,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 133164.5,
+      "objects": 111,
+      "sources": 111,
+      "explain": 0.4454
+     }
+    }
+   },
+   "abs": {
+    "S": 2876.39,
+    "L_stmt": 2109,
+    "L_mesh": 0,
+    "R_src": 248.35,
+    "R_recon": 432.28,
+    "R_vol": 86.76,
+    "S_mesh": 133164.5,
+    "explain": 0.9784,
+    "unattributed": 114,
+    "droppedLines": 0,
+    "byRole": {
+     "structure": {
+      "S": 2762.39,
+      "L_stmt": 1995,
+      "L_mesh": 0,
+      "R_src": 248.35,
+      "R_recon": 432.28,
+      "R_vol": 86.76,
+      "S_mesh": 133164.5,
+      "objects": 111,
+      "sources": 111,
+      "explain": 0.9793
+     }
+    }
+   },
+   "rev": {
+    "S": 1629.16,
+    "L_stmt": 885.5,
+    "L_mesh": 0,
+    "R_src": 248.35,
+    "R_recon": 422.45,
+    "R_vol": 72.86,
+    "S_mesh": 133164.5,
+    "explain": 0.9878,
+    "unattributed": 114,
+    "droppedLines": 0,
+    "byRole": {
+     "structure": {
+      "S": 1515.16,
+      "L_stmt": 771.5,
+      "L_mesh": 0,
+      "R_src": 248.35,
+      "R_recon": 422.45,
+      "R_vol": 72.86,
+      "S_mesh": 133164.5,
+      "objects": 111,
+      "sources": 111,
+      "explain": 0.9886
+     }
+    }
+   },
+   "orig": {
+    "S": 719.5,
+    "L_stmt": 719.5,
+    "L_mesh": 0,
+    "R_src": 0,
+    "R_recon": 0,
+    "R_vol": 0,
+    "S_mesh": 133164.5,
+    "explain": 0.9946,
+    "unattributed": 167,
+    "droppedLines": 0,
+    "byRole": {
+     "structure": {
+      "S": 552.5,
+      "L_stmt": 552.5,
+      "L_mesh": 0,
+      "R_src": 0,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 133164.5,
+      "objects": 111,
+      "sources": 111,
+      "explain": 0.9959
+     }
+    }
+   }
+  },
+  "spaceport.L2": {
+   "recon": {
+    "S": 8694.03,
+    "L_stmt": 1588.5,
+    "L_mesh": 0,
+    "R_src": 2878.91,
+    "R_recon": 2169.61,
+    "R_vol": 2057,
+    "S_mesh": 134116.5,
+    "explain": 0.9352,
+    "unattributed": 64.5,
+    "droppedLines": 0,
+    "byRole": {
+     "structure": {
+      "S": 8629.53,
+      "L_stmt": 1524,
+      "L_mesh": 0,
+      "R_src": 2878.91,
+      "R_recon": 2169.61,
+      "R_vol": 2057,
+      "S_mesh": 134116.5,
+      "objects": 172,
+      "sources": 172,
+      "explain": 0.9357
+     }
+    }
+   },
+   "abs": {
+    "S": 4079.72,
+    "L_stmt": 3382,
+    "L_mesh": 0,
+    "R_src": 255.1,
+    "R_recon": 372.2,
+    "R_vol": 70.42,
+    "S_mesh": 134116.5,
+    "explain": 0.9696,
+    "unattributed": 114,
+    "droppedLines": 0,
+    "byRole": {
+     "structure": {
+      "S": 3965.72,
+      "L_stmt": 3268,
+      "L_mesh": 0,
+      "R_src": 255.1,
+      "R_recon": 372.2,
+      "R_vol": 70.42,
+      "S_mesh": 134116.5,
+      "objects": 194,
+      "sources": 172,
+      "explain": 0.9704
+     }
+    }
+   },
+   "rev": {
+    "S": 1812.59,
+    "L_stmt": 1115,
+    "L_mesh": 0,
+    "R_src": 255.11,
+    "R_recon": 379.59,
+    "R_vol": 62.89,
+    "S_mesh": 134116.5,
+    "explain": 0.9865,
+    "unattributed": 114,
+    "droppedLines": 0,
+    "byRole": {
+     "structure": {
+      "S": 1698.59,
+      "L_stmt": 1001,
+      "L_mesh": 0,
+      "R_src": 255.11,
+      "R_recon": 379.59,
+      "R_vol": 62.89,
+      "S_mesh": 134116.5,
+      "objects": 126,
+      "sources": 172,
+      "explain": 0.9873
+     }
+    }
+   },
+   "orig": {
+    "S": 719.5,
+    "L_stmt": 719.5,
+    "L_mesh": 0,
+    "R_src": 0,
+    "R_recon": 0,
+    "R_vol": 0,
+    "S_mesh": 134116.5,
+    "explain": 0.9946,
+    "unattributed": 167,
+    "droppedLines": 0,
+    "byRole": {
+     "structure": {
+      "S": 552.5,
+      "L_stmt": 552.5,
+      "L_mesh": 0,
+      "R_src": 0,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 134116.5,
+      "objects": 111,
+      "sources": 172,
+      "explain": 0.9959
+     }
+    }
+   }
+  },
+  "spaceport_edit.L0": {
+   "recon": {
+    "S": 76026,
+    "L_stmt": 957,
+    "L_mesh": 75069,
+    "R_src": 0,
+    "R_recon": 0,
+    "R_vol": 0,
+    "S_mesh": 155385,
+    "explain": 0.5107,
+    "unattributed": 77.5,
+    "droppedLines": 0,
+    "byRole": {
+     "structure": {
+      "S": 75948.5,
+      "L_stmt": 879.5,
+      "L_mesh": 75069,
+      "R_src": 0,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 153434.5,
+      "objects": 125,
+      "sources": 120,
+      "explain": 0.505
+     },
+     "terrain": {
+      "S": 0,
+      "L_stmt": 0,
+      "L_mesh": 0,
+      "R_src": 0,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 1680.5,
+      "objects": 0,
+      "sources": 2,
+      "explain": 1
+     },
+     "decor": {
+      "S": 0,
+      "L_stmt": 0,
+      "L_mesh": 0,
+      "R_src": 0,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 270,
+      "objects": 0,
+      "sources": 3,
+      "explain": 1
+     }
+    }
+   },
+   "abs": {
+    "S": 3237.16,
+    "L_stmt": 2338,
+    "L_mesh": 0,
+    "R_src": 410.89,
+    "R_recon": 450.96,
+    "R_vol": 37.32,
+    "S_mesh": 155385,
+    "explain": 0.9792,
+    "unattributed": 124,
+    "droppedLines": 0,
+    "byRole": {
+     "terrain": {
+      "S": 274.05,
+      "L_stmt": 23,
+      "L_mesh": 0,
+      "R_src": 31.25,
+      "R_recon": 182.48,
+      "R_vol": 37.32,
+      "S_mesh": 1680.5,
+      "objects": 2,
+      "sources": 2,
+      "explain": 0.8369
+     },
+     "structure": {
+      "S": 2803.12,
+      "L_stmt": 2155,
+      "L_mesh": 0,
+      "R_src": 379.63,
+      "R_recon": 268.48,
+      "R_vol": 0,
+      "S_mesh": 153434.5,
+      "objects": 120,
+      "sources": 120,
+      "explain": 0.9817
+     },
+     "decor": {
+      "S": 36,
+      "L_stmt": 36,
+      "L_mesh": 0,
+      "R_src": 0,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 270,
+      "objects": 3,
+      "sources": 3,
+      "explain": 0.8667
+     }
+    }
+   },
+   "rev": {
+    "S": 1969.66,
+    "L_stmt": 1070.5,
+    "L_mesh": 0,
+    "R_src": 410.89,
+    "R_recon": 450.96,
+    "R_vol": 37.32,
+    "S_mesh": 155385,
+    "explain": 0.9873,
+    "unattributed": 127,
+    "droppedLines": 0,
+    "byRole": {
+     "terrain": {
+      "S": 274.05,
+      "L_stmt": 23,
+      "L_mesh": 0,
+      "R_src": 31.25,
+      "R_recon": 182.48,
+      "R_vol": 37.32,
+      "S_mesh": 1680.5,
+      "objects": 2,
+      "sources": 2,
+      "explain": 0.8369
+     },
+     "structure": {
+      "S": 1558.62,
+      "L_stmt": 910.5,
+      "L_mesh": 0,
+      "R_src": 379.63,
+      "R_recon": 268.48,
+      "R_vol": 0,
+      "S_mesh": 153434.5,
+      "objects": 120,
+      "sources": 120,
+      "explain": 0.9898
+     },
+     "decor": {
+      "S": 10,
+      "L_stmt": 10,
+      "L_mesh": 0,
+      "R_src": 0,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 270,
+      "objects": 3,
+      "sources": 3,
+      "explain": 0.963
+     }
+    }
+   },
+   "orig": {
+    "S": 89360.21,
+    "L_stmt": 35,
+    "L_mesh": 0,
+    "R_src": 89325.21,
+    "R_recon": 0,
+    "R_vol": 0,
+    "S_mesh": 155385,
+    "explain": 0.4249,
+    "unattributed": 35,
+    "droppedLines": 0,
+    "byRole": {
+     "terrain": {
+      "S": 1967.51,
+      "L_stmt": 0,
+      "L_mesh": 0,
+      "R_src": 1967.51,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 1680.5,
+      "objects": 0,
+      "sources": 2,
+      "explain": -0.1708
+     },
+     "structure": {
+      "S": 85302.49,
+      "L_stmt": 0,
+      "L_mesh": 0,
+      "R_src": 85302.49,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 153434.5,
+      "objects": 0,
+      "sources": 120,
+      "explain": 0.444
+     },
+     "decor": {
+      "S": 2055.21,
+      "L_stmt": 0,
+      "L_mesh": 0,
+      "R_src": 2055.21,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 270,
+      "objects": 0,
+      "sources": 3,
+      "explain": -6.6119
+     }
+    }
+   }
+  },
+  "spaceport_edit.L1": {
+   "recon": {
+    "S": 75880.5,
+    "L_stmt": 811.5,
+    "L_mesh": 75069,
+    "R_src": 0,
+    "R_recon": 0,
+    "R_vol": 0,
+    "S_mesh": 155385,
+    "explain": 0.5117,
+    "unattributed": 77.5,
+    "droppedLines": 0,
+    "byRole": {
+     "structure": {
+      "S": 75803,
+      "L_stmt": 734,
+      "L_mesh": 75069,
+      "R_src": 0,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 155385,
+      "objects": 125,
+      "sources": 125,
+      "explain": 0.5122
+     }
+    }
+   },
+   "abs": {
+    "S": 3282.5,
+    "L_stmt": 2351.5,
+    "L_mesh": 0,
+    "R_src": 391.22,
+    "R_recon": 453.02,
+    "R_vol": 86.76,
+    "S_mesh": 155385,
+    "explain": 0.9789,
+    "unattributed": 124,
+    "droppedLines": 0,
+    "byRole": {
+     "structure": {
+      "S": 3158.5,
+      "L_stmt": 2227.5,
+      "L_mesh": 0,
+      "R_src": 391.22,
+      "R_recon": 453.02,
+      "R_vol": 86.76,
+      "S_mesh": 155385,
+      "objects": 125,
+      "sources": 125,
+      "explain": 0.9797
+     }
+    }
+   },
+   "rev": {
+    "S": 1847.23,
+    "L_stmt": 951.5,
+    "L_mesh": 0,
+    "R_src": 391.22,
+    "R_recon": 442.42,
+    "R_vol": 62.1,
+    "S_mesh": 155385,
+    "explain": 0.9881,
+    "unattributed": 127,
+    "droppedLines": 0,
+    "byRole": {
+     "structure": {
+      "S": 1720.23,
+      "L_stmt": 824.5,
+      "L_mesh": 0,
+      "R_src": 391.22,
+      "R_recon": 442.42,
+      "R_vol": 62.1,
+      "S_mesh": 155385,
+      "objects": 125,
+      "sources": 125,
+      "explain": 0.9889
+     }
+    }
+   },
+   "orig": {
+    "S": 89360.21,
+    "L_stmt": 35,
+    "L_mesh": 0,
+    "R_src": 89325.21,
+    "R_recon": 0,
+    "R_vol": 0,
+    "S_mesh": 155385,
+    "explain": 0.4249,
+    "unattributed": 35,
+    "droppedLines": 0,
+    "byRole": {
+     "structure": {
+      "S": 89325.21,
+      "L_stmt": 0,
+      "L_mesh": 0,
+      "R_src": 89325.21,
+      "R_recon": 0,
+      "R_vol": 0,
+      "S_mesh": 155385,
+      "objects": 0,
+      "sources": 125,
+      "explain": 0.4251
+     }
+    }
+   }
+  }
+ }
+}

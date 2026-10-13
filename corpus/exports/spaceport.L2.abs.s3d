@@ -1,0 +1,220 @@
+// 由逆向管线从 spaceport.L2.glb 生成（L2）。~fit 是拟合度，~err 是相对误差；mesh 是拟合不了、直接引用源网格的部件
+
+material ground color=#59604f metal=0.05 rough=1
+material concrete color=#b8b4aa metal=0.05 rough=0.78
+material white color=#eceef0 metal=0.05 rough=0.78
+material hazard color=#e0a92e metal=0.05 rough=0.78
+material steel color=#7f8b96 metal=0.6 rough=0.4 default=true
+material asphalt color=#3b3d40 metal=0.05 rough=1
+material earth color=#8a7a58 metal=0.05 rough=1
+
+box box1 size=200,1,200 at=0,-1,0 mat=ground ~fit=1 ~src="merged_0#0"
+box box2 size=26,2,26 at=25,0,0 mat=concrete ~fit=1 ~src="merged_1#0"
+group group1 at=-45,-0.0005,-19.9313 mat=concrete ~fit=0.96 ~src="merged_1#1" {
+  box wall_3 size=26,22.1,0.8 at=16.6,0,-0.0688 turn=-90
+  box wall_7 size=14,8.05,0.1 at=28.95,0,-6.0688 turn=-90
+  box slab_3 size=13.4125,0.1,13.05 at=-22.475,0,-5.6375 turn=-90
+  box slab_2 size=58,0.1,0.725 at=0,0,-12.7063
+  box slab_7 size=31.9,0.1,1.0875 at=0,0,12.4874
+  box slab_5 size=11.9625,0.1,1.0875 at=-16.4937,0,7.0499 turn=-90
+  box wall size=58,7.975,0.8 at=0,0,-12.6688
+  box wall_5 size=11.9625,7.975,0.1 at=-23.0187,0,0.8812
+  box slab_8 size=14.1375,0.1,11.9625 at=-23.0187,7.9,-6 turn=-90
+  box wall_2 size=34.075,14.1375,0.8 at=0,7.975,-12.6688
+  box slab size=34,0.8,26.1375 at=0,21.2,0
+  box wall_4 size=26,22.1,0.8 at=slab offset=-16.6,-21.6,-0.069 turn=-90
+  box slab_4 size=13.4125,0.1,13.05 at=wall_3 offset=5.875,-11.05,-5.569 turn=-90
+  box slab_6 size=11.9625,0.1,1.0875 against=slab_4[1,0,0.917]
+  box slab_9 size=14.1375,0.1,11.9625 at=23.0188,7.9,-6 turn=-90
+  box wall_6 size=11.9625,7.975,0.1 at=slab_4[0.972,-1,-0.0833]
+  box wall_8 size=14,8.05,0.1 at=wall offset=-28.95,-3.988,6.6 turn=-90
+  subtract wall_5_2 at=0,0,12.5312 {
+    box body size=34,22.1,0.8
+    box hole size=11.9,15.3,2.4
+    cyl arch r=5.95 h=2.4 axis=z at=0,9.35,0
+  }
+}
+box box3 size=14,5,10 at=-5,0,55 turn=30 mat=concrete ~fit=1 ~src="merged_1#2"
+group group2 at=25,2,0 mat=white ~fit=0.025 ~src="merged_2#0" {
+  cyl cyl r=2.4 h=28
+  cyl cyl_2 r=2 h=14 at=0,28,0
+  revolve revolve profile=[(2,0); (1.9657,1.6042); (1.9109,2.4792); (1.7639,3.6458); (1.5355,4.8125); (1.2551,5.6875); (1.1314,5.9792); (0.813,6.5625); (0.5456,6.8542); (0.157,7)] at=0,42,0
+}
+box box4 size=2.4,1.2,2.4 at=5,30,-20 mat=white ~fit=1 ~src="merged_2#1"
+box box5 size=2.4,1.2,2.4 at=45,30,-20 mat=white ~fit=1 ~src="merged_2#2"
+box box6 size=2.4,1.2,2.4 at=5,30,20 mat=white ~fit=1 ~src="merged_2#3"
+box box7 size=2.4,1.2,2.4 at=45,30,20 mat=white ~fit=1 ~src="merged_2#4"
+cyl cyl1 r=2.4 h=20 axis=x at=-45,0,-20 mat=white ~fit=0.9194 ~src="merged_2#5"
+group group3 at=20,0,55 mat=white ~fit=1 ~src="merged_2#6" {
+  cyl cyl r=3.5 h=9
+  sphere sphere r=3.5 at=0,5.5,0
+}
+group group4 at=30,0,55 mat=white ~fit=1 ~src="merged_2#7" {
+  cyl cyl r=3.5 h=9
+  sphere sphere r=3.5 at=0,5.5,0
+}
+group group5 at=40,0,55 mat=white ~fit=1 ~src="merged_2#8" {
+  cyl cyl r=3.5 h=9
+  sphere sphere r=3.5 at=0,5.5,0
+}
+sphere sphere1 r=1.6 at=-1.3627,12,52.9 mat=white ~fit=0.9253 ~src="merged_2#9"
+cyl cyl2 r=2.45 h=0.8 at=25,29.2,0 mat=hazard ~fit=0.8826 ~src="merged_3#0"
+wedge wedge1 size=3.5,6,0.4 at=29.15,2,0 turn=180 mat=hazard ~fit=1 ~src="merged_3#1"
+wedge wedge2 size=3.5,6,0.4 at=25,2,-4.15 turn=-90 mat=hazard ~fit=1 ~src="merged_3#2"
+wedge wedge3 size=3.5,6,0.4 at=20.85,2,0 mat=hazard ~fit=1 ~src="merged_3#3"
+wedge wedge4 size=3.5,6,0.4 at=25,2,4.15 turn=90 mat=hazard ~fit=1 ~src="merged_3#4"
+cyl cyl3 r=3.6 h=0.6 at=20,6,55 mat=hazard ~fit=0.8586 ~src="merged_3#5"
+cyl cyl4 r=3.6 h=0.6 at=30,6,55 mat=hazard ~fit=0.8455 ~src="merged_3#6"
+cyl cyl5 r=3.6 h=0.6 at=40,6,55 mat=hazard ~fit=0.8219 ~src="merged_3#7"
+box box8 size=0.6,48,0.6 at=12.9,2,-12.1 ~fit=1 ~src="merged_4#0"
+box box9 size=0.6,48,0.6 at=18.9,2,-12.1 ~fit=1 ~src="merged_4#1"
+box box10 size=0.6,48,0.6 at=12.9,2,-6.1 ~fit=1 ~src="merged_4#2"
+box box11 size=0.6,48,0.6 at=18.9,2,-6.1 ~fit=1 ~src="merged_4#3"
+box box12 size=7.2,0.4,7.2 at=15.9,7.6,-9.1 ~fit=1 ~src="merged_4#4"
+cyl cyl6 r=0.15 h=7.9398 axis=x at=15.9983,4.8866,-6.1 rot=(0.000001,0.000004,1,40.914936) ~fit=0.192 ~src="merged_4#5"
+box box13 size=7.2,0.4,7.2 at=15.9,13.6,-9.1 ~fit=1 ~src="merged_4#6"
+cyl cyl7 r=0.15 h=7.9398 axis=x at=15.9982,10.8866,-6.1 rot=(0,0.000001,1,40.914544) ~fit=0.2153 ~src="merged_4#7"
+box box14 size=7.2,0.4,7.2 at=15.9,19.6,-9.1 ~fit=1 ~src="merged_4#8"
+cyl cyl8 r=0.15 h=7.9398 axis=x at=15.9982,16.8866,-6.1 rot=(0.000001,0.000001,1,40.914577) ~fit=0.1935 ~src="merged_4#9"
+box box15 size=7.2,0.4,7.2 at=15.9,25.6,-9.1 ~fit=1 ~src="merged_4#10"
+cyl cyl9 r=0.15 h=7.9398 axis=x at=15.9982,22.8866,-6.1 rot=(-0.000002,-0.000005,1,40.914473) ~fit=0.1919 ~src="merged_4#11"
+box box16 size=7.2,0.4,7.2 at=15.9,31.6,-9.1 ~fit=1 ~src="merged_4#12"
+cyl cyl10 r=0.15 h=7.9398 axis=x at=15.9982,28.8866,-6.1 rot=(-0.000002,-0.000005,1,40.914473) ~fit=0.1773 ~src="merged_4#13"
+box box17 size=7.2,0.4,7.2 at=15.9,37.6,-9.1 ~fit=1 ~src="merged_4#14"
+cyl cyl11 r=0.1501 h=7.9398 axis=x at=15.9983,34.8865,-6.1 rot=(-0.000015,-0.00004,1,40.912765) ~fit=0.1529 ~src="merged_4#15"
+box box18 size=7.2,0.4,7.2 at=15.9,43.6,-9.1 ~fit=1 ~src="merged_4#16"
+cyl cyl12 r=0.1501 h=7.9398 axis=x at=15.9983,40.8865,-6.1 rot=(-0.000015,-0.00004,1,40.912765) ~fit=0.1461 ~src="merged_4#17"
+box box19 size=7.2,0.4,7.2 at=15.9,49.6,-9.1 ~fit=1 ~src="merged_4#18"
+cyl cyl13 r=0.1501 h=7.9398 axis=x at=15.9983,46.8865,-6.1 rot=(-0.000015,-0.00004,1,40.912765) ~fit=0.1515 ~src="merged_4#19"
+box box20 size=6.0812,0.3,1.6 at=21.65,37.99,-3.35 rot=(0.001644,-0.999991,-0.00397,45.00038) ~fit=1 ~src="merged_4#20"
+box box21 size=0.6,48,0.6 at=37.1,2,-12.1 ~fit=1 ~src="merged_4#21"
+box box22 size=0.6,48,0.6 at=31.1,2,-12.1 ~fit=1 ~src="merged_4#22"
+box box23 size=0.6,48,0.6 at=37.1,2,-6.1 ~fit=1 ~src="merged_4#23"
+box box24 size=0.6,48,0.6 at=31.1,2,-6.1 ~fit=1 ~src="merged_4#24"
+box box25 size=7.2,0.4,7.2 at=34.1,7.6,-9.1 ~fit=1 ~src="merged_4#25"
+cyl cyl14 r=0.15 h=7.9398 axis=x at=34.0017,4.8866,-6.1 rot=(0.349511,0.936932,0.000002,179.99953) ~fit=0.1656 ~src="merged_4#26"
+box box26 size=7.2,0.4,7.2 at=34.1,13.6,-9.1 ~fit=1 ~src="merged_4#27"
+cyl cyl15 r=0.15 h=7.9398 axis=x at=34.0017,10.8866,-6.1 rot=(0.34951,0.936933,0.000001,179.999668) ~fit=0.1925 ~src="merged_4#28"
+box box27 size=7.2,0.4,7.2 at=34.1,19.6,-9.1 ~fit=1 ~src="merged_4#29"
+cyl cyl16 r=0.15 h=7.9398 axis=x at=34.0017,16.8866,-6.1 rot=(0.34951,0.936933,0.000001,179.999673) ~fit=0.2023 ~src="merged_4#30"
+box box28 size=7.2,0.4,7.2 at=34.1,25.6,-9.1 ~fit=1 ~src="merged_4#31"
+cyl cyl17 r=0.15 h=7.9398 axis=x at=34.0018,22.8866,-6.1 rot=(0.349508,0.936933,0,179.999906) ~fit=0.2015 ~src="merged_4#32"
+box box29 size=7.2,0.4,7.2 at=34.1,31.6,-9.1 ~fit=1 ~src="merged_4#33"
+cyl cyl18 r=0.15 h=7.9398 axis=x at=34.0018,28.8866,-6.1 rot=(0.349508,0.936933,0,179.999906) ~fit=0.1954 ~src="merged_4#34"
+box box30 size=7.2,0.4,7.2 at=34.1,37.6,-9.1 ~fit=1 ~src="merged_4#35"
+cyl cyl19 r=0.15 h=7.9398 axis=x at=34.0017,34.8866,-6.1 rot=(0.349512,0.936932,0.000002,179.999492) ~fit=0.2018 ~src="merged_4#36"
+box box31 size=7.2,0.4,7.2 at=34.1,43.6,-9.1 ~fit=1 ~src="merged_4#37"
+cyl cyl20 r=0.15 h=7.9398 axis=x at=34.0017,40.8866,-6.1 rot=(0.349512,0.936932,0.000002,179.999492) ~fit=0.1895 ~src="merged_4#38"
+box box32 size=7.2,0.4,7.2 at=34.1,49.6,-9.1 ~fit=1 ~src="merged_4#39"
+cyl cyl21 r=0.15 h=7.9398 axis=x at=34.0017,46.8866,-6.1 rot=(0.349512,0.936932,0.000002,179.999492) ~fit=0.184 ~src="merged_4#40"
+box box33 size=6.0812,0.3,1.6 at=28.35,37.99,-3.35 rot=(0.001644,0.999991,0.00397,45.00038) ~fit=1 ~src="merged_4#41"
+cyl cyl22 r=0.4 h=30 at=5,0,-20 ~fit=0.9093 ~src="merged_4#42"
+cyl cyl23 r=0.4 h=30 at=45,0,-20 ~fit=0.9102 ~src="merged_4#43"
+cyl cyl24 r=0.4 h=30 at=5,0,20 ~fit=0.9104 ~src="merged_4#44"
+cyl cyl25 r=0.4 h=30 at=45,0,20 ~fit=0.9108 ~src="merged_4#45"
+box box34 size=36,0.8,28 at=-45,22,-20 ~fit=1 ~src="merged_4#46"
+box box35 size=2.4,0.25,0.75 at=-22,0.25,-7.375 ~fit=1 ~src="merged_4#47"
+box box36 size=2.4,0.25,0.75 at=-22,0.75,-8.125 ~fit=1 ~src="merged_4#48"
+box box37 size=2.4,0.25,0.75 at=-22,1.25,-8.875 ~fit=1 ~src="merged_4#49"
+box box38 size=2.4,0.25,0.75 at=-22,1.75,-9.625 ~fit=1 ~src="merged_4#50"
+box box39 size=2.4,0.25,0.75 at=-22,2.25,-10.375 ~fit=1 ~src="merged_4#51"
+box box40 size=2.4,0.25,0.75 at=-22,2.75,-11.125 ~fit=1 ~src="merged_4#52"
+box box41 size=2.4,0.25,0.75 at=-22,3.25,-11.875 ~fit=1 ~src="merged_4#53"
+box box42 size=2.4,0.25,0.75 at=-22,3.75,-12.625 ~fit=1 ~src="merged_4#54"
+box box43 size=2.4,0.25,0.75 at=-22,4.25,-13.375 ~fit=1 ~src="merged_4#55"
+box box44 size=2.4,0.25,0.75 at=-22,4.75,-14.125 ~fit=1 ~src="merged_4#56"
+box box45 size=2.4,0.25,0.75 at=-22,5.25,-14.875 ~fit=1 ~src="merged_4#57"
+box box46 size=2.4,0.25,0.75 at=-22,5.75,-15.625 ~fit=1 ~src="merged_4#58"
+box box47 size=2.4,0.25,0.75 at=-22,6.25,-16.375 ~fit=1 ~src="merged_4#59"
+box box48 size=2.4,0.25,0.75 at=-22,6.75,-17.125 ~fit=1 ~src="merged_4#60"
+box box49 size=2.4,0.25,0.75 at=-22,7.25,-17.875 ~fit=1 ~src="merged_4#61"
+box box50 size=2.4,0.25,0.75 at=-22,7.75,-18.625 ~fit=1 ~src="merged_4#62"
+box box51 size=2,0.2,0.55 at=-16.275,8.54,-26.0005 turn=-90.104147 ~fit=0.9999 ~src="merged_4#63"
+box box52 size=2,0.2,0.55 at=-16.825,9.28,-26.0015 turn=-90.104147 ~fit=0.9999 ~src="merged_4#64"
+box box53 size=2,0.2,0.55 at=-17.375,10.02,-26.0025 turn=-90.104147 ~fit=1 ~src="merged_4#65"
+box box54 size=2,0.2,0.55 at=-17.925,10.76,-26.0035 turn=-90.104201 ~fit=0.9999 ~src="merged_4#66"
+box box55 size=2,0.2,0.55 at=-18.475,11.5,-26.0045 turn=-90.104147 ~fit=0.9999 ~src="merged_4#67"
+box box56 size=2,0.2,0.55 at=-19.025,12.24,-26.0055 turn=-90.104147 ~fit=0.9999 ~src="merged_4#68"
+box box57 size=2,0.2,0.55 at=-19.575,12.98,-26.0065 turn=-90.104201 ~fit=0.9999 ~src="merged_4#69"
+box box58 size=2,0.2,0.55 at=-20.125,13.72,-26.0075 turn=-90.104147 ~fit=1 ~src="merged_4#70"
+box box59 size=2,0.2,0.55 at=-20.675,14.46,-26.0085 turn=-90.104201 ~fit=0.9999 ~src="merged_4#71"
+box box60 size=2,0.2,0.55 at=-21.225,15.2,-26.0095 turn=-90.104147 ~fit=0.9999 ~src="merged_4#72"
+box box61 size=2,0.2,0.55 at=-21.775,15.94,-26.0105 turn=-90.104147 ~fit=0.9999 ~src="merged_4#73"
+box box62 size=2,0.2,0.55 at=-22.325,16.68,-26.0115 turn=-90.104147 ~fit=0.9999 ~src="merged_4#74"
+box box63 size=2,0.2,0.55 at=-22.875,17.42,-26.0125 turn=-90.104147 ~fit=1 ~src="merged_4#75"
+box box64 size=2,0.2,0.55 at=-23.425,18.16,-26.0135 turn=-90.104147 ~fit=0.9999 ~src="merged_4#76"
+box box65 size=2,0.2,0.55 at=-23.975,18.9,-26.0145 turn=-90.104147 ~fit=0.9999 ~src="merged_4#77"
+box box66 size=2,0.2,0.55 at=-24.525,19.64,-26.0155 turn=-90.104201 ~fit=0.9999 ~src="merged_4#78"
+box box67 size=2,0.2,0.55 at=-25.075,20.38,-26.0165 turn=-90.104201 ~fit=0.9999 ~src="merged_4#79"
+box box68 size=2,0.2,0.55 at=-25.625,21.12,-26.0175 turn=-90.104147 ~fit=1 ~src="merged_4#80"
+box box69 size=2,0.2,0.55 at=-26.175,21.86,-26.0185 turn=-90.104201 ~fit=0.9999 ~src="merged_4#81"
+box box70 size=2,0.2,0.55 at=-26.725,22.6,-26.0195 turn=-90.104147 ~fit=0.9999 ~src="merged_4#82"
+box box71 size=2.4,0.25,0.75 at=-68,0.25,-7.375 ~fit=1 ~src="merged_4#83"
+box box72 size=2.4,0.25,0.75 at=-68,0.75,-8.125 ~fit=1 ~src="merged_4#84"
+box box73 size=2.4,0.25,0.75 at=-68,1.25,-8.875 ~fit=1 ~src="merged_4#85"
+box box74 size=2.4,0.25,0.75 at=-68,1.75,-9.625 ~fit=1 ~src="merged_4#86"
+box box75 size=2.4,0.25,0.75 at=-68,2.25,-10.375 ~fit=1 ~src="merged_4#87"
+box box76 size=2.4,0.25,0.75 at=-68,2.75,-11.125 ~fit=1 ~src="merged_4#88"
+box box77 size=2.4,0.25,0.75 at=-68,3.25,-11.875 ~fit=1 ~src="merged_4#89"
+box box78 size=2.4,0.25,0.75 at=-68,3.75,-12.625 ~fit=1 ~src="merged_4#90"
+box box79 size=2.4,0.25,0.75 at=-68,4.25,-13.375 ~fit=1 ~src="merged_4#91"
+box box80 size=2.4,0.25,0.75 at=-68,4.75,-14.125 ~fit=1 ~src="merged_4#92"
+box box81 size=2.4,0.25,0.75 at=-68,5.25,-14.875 ~fit=1 ~src="merged_4#93"
+box box82 size=2.4,0.25,0.75 at=-68,5.75,-15.625 ~fit=1 ~src="merged_4#94"
+box box83 size=2.4,0.25,0.75 at=-68,6.25,-16.375 ~fit=1 ~src="merged_4#95"
+box box84 size=2.4,0.25,0.75 at=-68,6.75,-17.125 ~fit=1 ~src="merged_4#96"
+box box85 size=2.4,0.25,0.75 at=-68,7.25,-17.875 ~fit=1 ~src="merged_4#97"
+box box86 size=2.4,0.25,0.75 at=-68,7.75,-18.625 ~fit=1 ~src="merged_4#98"
+box box87 size=2,0.2,0.55 at=-73.725,8.54,-26.0005 turn=-89.895882 ~fit=0.9998 ~src="merged_4#99"
+box box88 size=2,0.2,0.55 at=-73.175,9.28,-26.0015 turn=-89.895744 ~fit=1 ~src="merged_4#100"
+box box89 size=2,0.2,0.55 at=-72.625,10.02,-26.0025 turn=-89.895744 ~fit=1 ~src="merged_4#101"
+box box90 size=2,0.2,0.55 at=-72.075,10.76,-26.0035 turn=-89.895744 ~fit=1 ~src="merged_4#102"
+box box91 size=2,0.2,0.55 at=-71.525,11.5,-26.0045 turn=-89.895882 ~fit=0.9997 ~src="merged_4#103"
+box box92 size=2,0.2,0.55 at=-70.975,12.24,-26.0055 turn=-89.895882 ~fit=0.9997 ~src="merged_4#104"
+box box93 size=2,0.2,0.55 at=-70.425,12.98,-26.0065 turn=-89.895744 ~fit=1 ~src="merged_4#105"
+box box94 size=2,0.2,0.55 at=-69.875,13.72,-26.0075 turn=-89.895744 ~fit=1 ~src="merged_4#106"
+box box95 size=2,0.2,0.55 at=-69.325,14.46,-26.0085 turn=-89.895744 ~fit=1 ~src="merged_4#107"
+box box96 size=2,0.2,0.55 at=-68.775,15.2,-26.0095 turn=-89.895884 ~fit=0.9998 ~src="merged_4#108"
+box box97 size=2,0.2,0.55 at=-68.225,15.94,-26.0105 turn=-89.895882 ~fit=0.9998 ~src="merged_4#109"
+box box98 size=2,0.2,0.55 at=-67.675,16.68,-26.0115 turn=-89.895744 ~fit=1 ~src="merged_4#110"
+box box99 size=2,0.2,0.55 at=-67.125,17.42,-26.0125 turn=-89.895744 ~fit=1 ~src="merged_4#111"
+box box100 size=2,0.2,0.55 at=-66.575,18.16,-26.0135 turn=-89.895744 ~fit=1 ~src="merged_4#112"
+box box101 size=2,0.2,0.55 at=-66.025,18.9,-26.0145 turn=-89.895884 ~fit=0.9998 ~src="merged_4#113"
+box box102 size=2,0.2,0.55 at=-65.475,19.64,-26.0155 turn=-89.895744 ~fit=0.9997 ~src="merged_4#114"
+box box103 size=2,0.2,0.55 at=-64.925,20.38,-26.0165 turn=-89.895744 ~fit=1 ~src="merged_4#115"
+box box104 size=2,0.2,0.55 at=-64.375,21.12,-26.0175 turn=-89.895744 ~fit=1 ~src="merged_4#116"
+box box105 size=2,0.2,0.55 at=-63.825,21.86,-26.0185 turn=-89.895853 ~fit=0.9998 ~src="merged_4#117"
+box box106 size=2,0.2,0.55 at=-63.275,22.6,-26.0195 turn=-89.895853 ~fit=0.9999 ~src="merged_4#118"
+pipe pipe1 path=[(20.9865,2.3948,13.0037); (20.9596,2.3594,17.8132); (20.8177,2.1988,22.6184); (20.593,1.9751,27.4181); (20.3586,1.7323,32.2164); (20.1843,1.5475,37.0195); (20.0713,1.4408,41.8268); (20.0185,1.3695,46.6361); (20.0007,1.3555,51.4462)] r=0.3471 smooth=true ~fit=0.4541 ~src="merged_4#119"
+pipe pipe2 path=[(40.0105,1.3542,51.479); (39.8282,1.358,46.9809); (39.2922,1.4193,42.5121); (38.2651,1.518,38.1322); (36.7566,1.6618,33.8952); (34.8179,1.8461,29.837); (32.6693,2.0478,25.8861); (30.726,2.235,21.831); (29.4332,2.3607,17.528); (28.979,2.414,13.0542)] r=0.347 smooth=true ~fit=0.089 ~src="merged_4#120"
+cyl cyl26 r=0.25 h=7 at=-1.3627,5,52.9 ~fit=0.9131 ~src="merged_4#121"
+cyl cyl27 r=0.35 h=6.5 at=-17.9928,0.12,50 ~fit=0.9118 ~src="merged_4#122"
+box box107 size=2,0.12,0.7 at=-16.7928,0,50 ~fit=1 ~src="merged_4#123"
+box box108 size=2,0.12,0.7 at=-16.8373,0.2713,49.6762 turn=15.652144 ~fit=1 ~src="merged_4#124"
+box box109 size=2,0.12,0.7 at=-16.9675,0.5426,49.3765 turn=31.304373 ~fit=0.9999 ~src="merged_4#125"
+box box110 size=2,0.12,0.7 at=-17.1738,0.8139,49.123 turn=-133.043449 ~fit=1 ~src="merged_4#126"
+box box111 size=2,0.12,0.7 at=-17.4408,1.0852,48.9345 turn=-117.391325 ~fit=1 ~src="merged_4#127"
+box box112 size=2,0.12,0.7 at=-17.7487,1.3565,48.8251 turn=-101.739126 ~fit=1 ~src="merged_4#128"
+box box113 size=2,0.12,0.7 at=-18.0747,1.6278,48.8028 turn=-86.086978 ~fit=1 ~src="merged_4#129"
+box box114 size=2,0.12,0.7 at=-18.3947,1.8991,48.8693 turn=-70.434765 ~fit=1 ~src="merged_4#130"
+box box115 size=2,0.12,0.7 at=-18.6849,2.1704,49.0196 turn=-54.782646 ~fit=1 ~src="merged_4#131"
+box box116 size=2,0.12,0.7 at=-18.9237,2.4417,49.2427 turn=-39.130423 ~fit=0.9999 ~src="merged_4#132"
+box box117 size=2,0.12,0.7 at=-19.0935,2.713,49.5219 turn=-23.478265 ~fit=1 ~src="merged_4#133"
+box box118 size=2,0.12,0.7 at=-19.1817,2.9843,49.8366 turn=-7.826025 ~fit=0.9999 ~src="merged_4#134"
+box box119 size=2,0.12,0.7 at=-19.1817,3.2557,50.1634 turn=7.826025 ~fit=0.9999 ~src="merged_4#135"
+box box120 size=2,0.12,0.7 at=-19.0935,3.527,50.4781 turn=23.478265 ~fit=1 ~src="merged_4#136"
+box box121 size=2,0.12,0.7 at=-18.9237,3.7983,50.7573 turn=39.130423 ~fit=1 ~src="merged_4#137"
+box box122 size=2,0.12,0.7 at=-18.6849,4.0696,50.9804 turn=-125.217354 ~fit=1 ~src="merged_4#138"
+box box123 size=2,0.12,0.7 at=-18.3947,4.3409,51.1307 turn=-109.565235 ~fit=1 ~src="merged_4#139"
+box box124 size=2,0.12,0.7 at=-18.0747,4.6122,51.1972 turn=-93.913022 ~fit=1 ~src="merged_4#140"
+box box125 size=2,0.12,0.7 at=-17.7487,4.8835,51.1749 turn=-78.260874 ~fit=1 ~src="merged_4#141"
+box box126 size=2,0.12,0.7 at=-17.4408,5.1548,51.0655 turn=-62.608675 ~fit=1 ~src="merged_4#142"
+box box127 size=2,0.12,0.7 at=-17.1738,5.4261,50.877 turn=-46.956551 ~fit=1 ~src="merged_4#143"
+box box128 size=2,0.12,0.7 at=-16.9675,5.6974,50.6235 turn=-31.304373 ~fit=0.9999 ~src="merged_4#144"
+box box129 size=2,0.12,0.7 at=-16.8373,5.9687,50.3238 turn=-15.652144 ~fit=1 ~src="merged_4#145"
+box box130 size=2,0.12,0.7 at=-16.7928,6.24,50 ~fit=1 ~src="merged_4#146"
+helix sweep1_path r=2.0989 pitch=6.234 turns=1 at=-17.9936,1.1204,49.9997 pin=origin turn=-0.169491
+sweep sweep1 path=sweep1_path r=0.0495 ~fit=0.8464 ~src="merged_4#147"
+arc sweep2_path r=47.139 angle=-53.545254,-122.52677 at=-20.2892,0.04,-35.9448 pin=origin
+sweep sweep2 path=sweep2_path section=10.9142,0.08 mat=asphalt ~fit=0.8739 ~src="merged_5#0"
+wedge wedge5 size=7,5,10 at=-14.0933,0,60.25 turn=30.000001 mat=earth ~fit=1 ~src="merged_6#0"

@@ -17,6 +17,44 @@ pub const N_CYL: usize = 48;
 pub const N_SPH_LON: usize = 48;
 pub const N_SPH_LAT: usize = 24;
 
+/// 分段参数：规范（2.1.9）全部 48；`PROTOTYPE` 是原型导出用的 three.js 默认分段（圆柱 40、杆 14、球 40 × 20、旋转体 48），
+/// 只用于对拍原型导出的参考网格
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct TriParams {
+    pub n_cyl: usize,
+    pub n_rod: usize,
+    pub n_sph_lon: usize,
+    pub n_sph_lat: usize,
+    pub n_rev: usize,
+    /// 杆的第一个环点相对 ŷ 的相位（度）：规范 0；原型（three.js 的 CylinderGeometry 转到 x 轴）为 90
+    pub rod_phase: f64,
+}
+
+impl TriParams {
+    pub const SPEC: TriParams = TriParams {
+        n_cyl: N_CYL,
+        n_rod: N_CYL,
+        n_sph_lon: N_SPH_LON,
+        n_sph_lat: N_SPH_LAT,
+        n_rev: N_CYL,
+        rod_phase: 0.0,
+    };
+    pub const PROTOTYPE: TriParams = TriParams {
+        n_cyl: 40,
+        n_rod: 14,
+        n_sph_lon: 40,
+        n_sph_lat: 20,
+        n_rev: 48,
+        rod_phase: 90.0,
+    };
+}
+
+impl Default for TriParams {
+    fn default() -> TriParams {
+        TriParams::SPEC
+    }
+}
+
 /// 四边形规则：从外面看逆时针的 (a, b, c, d) → (a, b, c)、(a, c, d)
 fn quad(out: &mut Vec<Tri>, a: Vec3, b: Vec3, c: Vec3, d: Vec3) {
     out.push([a, b, c]);
@@ -43,19 +81,27 @@ pub fn box_tris(b: &Aabb, out: &mut Vec<Tri>) {
         Vec3::new(hi.x, hi.y, hi.z),
         Vec3::new(lo.x, hi.y, hi.z),
     ];
-    for f in [[0, 1, 2, 3], [4, 7, 6, 5], [0, 3, 7, 4], [1, 5, 6, 2], [0, 4, 5, 1], [3, 2, 6, 7]] {
+    for f in [
+        [0, 1, 2, 3],
+        [4, 7, 6, 5],
+        [0, 3, 7, 4],
+        [1, 5, 6, 2],
+        [0, 4, 5, 1],
+        [3, 2, 6, 7],
+    ] {
         quad(out, v[f[0]], v[f[1]], v[f[2]], v[f[3]]);
     }
 }
 
-/// 圆柱 / 圆台（2.2.3）：轴系 (c0, a, u0)，半径 r1 → r2，高 h
-pub fn frustum_tris(c0: Vec3, a: Vec3, u0: Vec3, r1: f64, r2: f64, h: f64, out: &mut Vec<Tri>) {
+/// 圆柱 / 圆台（2.2.3）：轴系 (c0, a, u0)，半径 r1 → r2，高 h，周向 n 段
+#[allow(clippy::too_many_arguments)]
+pub fn frustum_tris(c0: Vec3, a: Vec3, u0: Vec3, r1: f64, r2: f64, h: f64, n: usize, out: &mut Vec<Tri>) {
     let w = a.cross(u0);
     let dir = |th: f64| u0 * math::cos_deg(th) + w * math::sin_deg(th);
     let c1 = c0 + a * h;
-    let n = N_CYL;
-    let bot: Vec<Vec3> = (0..n).map(|i| c0 + dir(7.5 * i as f64) * r1).collect();
-    let top: Vec<Vec3> = (0..n).map(|i| c1 + dir(7.5 * i as f64) * r2).collect();
+    let step = 360.0 / n as f64;
+    let bot: Vec<Vec3> = (0..n).map(|i| c0 + dir(step * i as f64) * r1).collect();
+    let top: Vec<Vec3> = (0..n).map(|i| c1 + dir(step * i as f64) * r2).collect();
     if r1 > 0.0 {
         for i in 0..n {
             out.push([c0, bot[(i + 1) % n], bot[i]]);
@@ -78,8 +124,7 @@ pub fn frustum_tris(c0: Vec3, a: Vec3, u0: Vec3, r1: f64, r2: f64, h: f64, out: 
 }
 
 /// 球（2.2.4）：中心 c、半径 r
-pub fn sphere_tris(c: Vec3, r: f64, out: &mut Vec<Tri>) {
-    let (nlon, nlat) = (N_SPH_LON, N_SPH_LAT);
+pub fn sphere_tris(c: Vec3, r: f64, nlon: usize, nlat: usize, out: &mut Vec<Tri>) {
     let v = |j: usize, i: usize| {
         let phi = -90.0 + 180.0 * j as f64 / nlat as f64;
         let th = 360.0 * (i % nlon) as f64 / nlon as f64;
@@ -110,8 +155,13 @@ fn positive(q: &[[f64; 2]]) -> Vec<[f64; 2]> {
     }
 }
 
-/// 实体的三角化（局部系）。退化（耳切失败等）时返回空网格。
+/// 实体的三角化（局部系，规范分段）。退化（耳切失败等）时返回空网格。
 pub fn triangulate(s: &Solid) -> Vec<Tri> {
+    triangulate_with(s, &TriParams::SPEC)
+}
+
+/// 实体的三角化（局部系），分段按 `tp`
+pub fn triangulate_with(s: &Solid, tp: &TriParams) -> Vec<Tri> {
     let mut out = Vec::new();
     match s {
         Solid::Box { .. } | Solid::Beam { .. } | Solid::Mesh { .. } => box_tris(&s.local_box(), &mut out),
@@ -138,10 +188,22 @@ pub fn triangulate(s: &Solid) -> Vec<Tri> {
                 Axis::X => (Vec3::new(-h / 2.0, rr, 0.0), Vec3::X, Vec3::Y),
                 Axis::Z => (Vec3::new(0.0, rr, -h / 2.0), Vec3::Z, Vec3::Y),
             };
-            frustum_tris(c0, a, u0, *r1, *r2, *h, &mut out);
+            frustum_tris(c0, a, u0, *r1, *r2, *h, tp.n_cyl, &mut out);
         }
-        Solid::Rod { l, r } => frustum_tris(Vec3::new(-l / 2.0, 0.0, 0.0), Vec3::X, Vec3::Y, *r, *r, *l, &mut out),
-        Solid::Sphere { r } => sphere_tris(Vec3::new(0.0, *r, 0.0), *r, &mut out),
+        Solid::Rod { l, r } => {
+            let u0 = Vec3::Y * math::cos_deg(tp.rod_phase) + Vec3::Z * math::sin_deg(tp.rod_phase);
+            frustum_tris(
+                Vec3::new(-l / 2.0, 0.0, 0.0),
+                Vec3::X,
+                u0,
+                *r,
+                *r,
+                *l,
+                tp.n_rod,
+                &mut out,
+            )
+        }
+        Solid::Sphere { r } => sphere_tris(Vec3::new(0.0, *r, 0.0), *r, tp.n_sph_lon, tp.n_sph_lat, &mut out),
         Solid::Plate { points, h } => {
             let q = positive(points);
             let tris = match poly2::earcut(&q) {
@@ -170,7 +232,7 @@ pub fn triangulate(s: &Solid) -> Vec<Tri> {
                 }
             }
         }
-        Solid::Revolve { profile, angle, .. } => revolve_tris(profile, *angle, &mut out),
+        Solid::Revolve { profile, angle, .. } => revolve_tris(profile, *angle, tp.n_rev, &mut out),
         Solid::Steps { h_span, dy, n, w, t } => {
             let nn = *n as f64;
             for i in 0..*n {
@@ -210,10 +272,18 @@ pub fn triangulate(s: &Solid) -> Vec<Tri> {
                     let f0 = &frames[0];
                     let f1 = &frames[n - 1];
                     for t in &tris {
-                        out.push([at(f0, profile[t[0]]), at(f0, profile[t[1]]), at(f0, profile[t[2]])]);
+                        out.push([
+                            at(f0, profile[t[0]]),
+                            at(f0, profile[t[1]]),
+                            at(f0, profile[t[2]]),
+                        ]);
                     }
                     for t in &tris {
-                        out.push([at(f1, profile[t[0]]), at(f1, profile[t[2]]), at(f1, profile[t[1]])]);
+                        out.push([
+                            at(f1, profile[t[0]]),
+                            at(f1, profile[t[2]]),
+                            at(f1, profile[t[1]]),
+                        ]);
                     }
                 }
             }
@@ -223,13 +293,13 @@ pub fn triangulate(s: &Solid) -> Vec<Tri> {
 }
 
 /// 旋转体（2.2.7）：轮廓 Q（已处理）绕 y 轴转 angle 度
-fn revolve_tris(profile: &[[f64; 2]], angle: f64, out: &mut Vec<Tri>) {
+fn revolve_tris(profile: &[[f64; 2]], angle: f64, n_rev: usize, out: &mut Vec<Tri>) {
     let q = positive(profile);
     let full = angle >= 360.0;
     let n = if full {
-        N_CYL
+        n_rev
     } else {
-        ((N_CYL as f64 * angle / 360.0).ceil() as usize).max(1)
+        ((n_rev as f64 * angle / 360.0).ceil() as usize).max(1)
     };
     let dir = |th: f64| Vec3::new(math::cos_deg(th), 0.0, -math::sin_deg(th));
     let theta = |j: usize| angle * j as f64 / n as f64;
@@ -348,13 +418,7 @@ mod tests {
         };
         assert!((closed_volume(&triangulate(&p)) - 1.0).abs() < 1e-12);
         let h = Solid::Hull {
-            points: vec![
-                Vec3::ZERO,
-                Vec3::X,
-                Vec3::Y,
-                Vec3::Z,
-                Vec3::new(1.0, 1.0, 1.0),
-            ],
+            points: vec![Vec3::ZERO, Vec3::X, Vec3::Y, Vec3::Z, Vec3::new(1.0, 1.0, 1.0)],
         };
         assert!(closed_volume(&triangulate(&h)) > 0.0);
         let r = Solid::Revolve {

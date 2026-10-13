@@ -1062,6 +1062,10 @@ impl Compiler {
         let kind = self.scene.nodes[n].kind.clone();
         let path = self.scene.path(n);
         let rel = self.relation(n, parent)?;
+        self.scene.nodes[n].placement_ref = match &rel.target {
+            Some(Value::Ref(r)) => Some(r.node),
+            _ => None,
+        };
         // 朝向
         let mut r_base = if rel.inherit { rel.r_base } else { Mat3::IDENTITY };
         if rel.inherit && r_base.determinant() < 0.0 {

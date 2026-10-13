@@ -18,6 +18,8 @@ pub struct FileRecord {
     pub header_line: Option<u32>,
     /// 导入它的 import 语句：(文件序号, 行, 元数据)；主文件为 None
     pub import: Option<(u32, u32, Vec<Prop>)>,
+    /// 原文（评分的描述长度用）
+    pub text: String,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -113,6 +115,7 @@ pub fn load_program(
         header: ast.header.clone(),
         header_line: ast.header_line,
         import: None,
+        text: main_text.to_string(),
     });
     if lang_ok {
         let mut out = Vec::new();
@@ -228,6 +231,7 @@ fn inline(
             header: ast.header.clone(),
             header_line: ast.header_line,
             import: Some((file_index, line, metas)),
+            text: text.clone(),
         });
         if check_header(&ast, new_index, &new_display, diags) {
             let sub_dir = dir_of(&identity).to_string();

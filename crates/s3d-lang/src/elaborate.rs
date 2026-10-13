@@ -590,6 +590,7 @@ impl Compiler {
             pos: vec![],
             dropped: false,
             concepts: vec![],
+            placement_ref: None,
         };
         let id = self.scene.add(parent, node);
         if let Some(n) = name {
@@ -1056,6 +1057,7 @@ impl Compiler {
                         pos: vec![],
                         dropped: false,
                         concepts: vec![],
+                        placement_ref: None,
                     };
                     let inst_id = self.scene.add(id, inst);
                     self.scene.nodes[inst_id].depth = depth;
@@ -1275,6 +1277,7 @@ impl Compiler {
                         pos: vec![],
                         dropped: false,
                         concepts: vec![],
+                        placement_ref: None,
                     };
                     let gid = self.scene.add(root, g);
                     for &c in &originals {
@@ -1370,6 +1373,7 @@ impl Compiler {
             pos: vec![],
             dropped: false,
             concepts: vec![],
+            placement_ref: None,
         };
         let sid = self.scene.add(p, s);
         let kids = self.scene.nodes[o].children.clone();

@@ -88,6 +88,8 @@ pub struct Node {
     pub dropped: bool,
     /// 命中的概念名（7.4.4）
     pub concepts: Vec<String>,
+    /// 主定位关系的参照物（3.3；`at=` 坐标或没有定位属性时为 None）。评分的坐标依赖（E_edit）用
+    pub placement_ref: Option<NodeId>,
 }
 
 impl Node {
@@ -134,6 +136,7 @@ impl Scene {
             pos: vec![],
             dropped: false,
             concepts: vec![],
+            placement_ref: None,
         };
         Scene { nodes: vec![root] }
     }

@@ -8,6 +8,7 @@ rust-version.workspace = true
 
 [dependencies]
 s3d-lang = { path = "../s3d-lang" }
+s3d-geom = { path = "../s3d-geom" }
 indexmap = { workspace = true }
 serde_json = { workspace = true }
 regex = { workspace = true }

@@ -7,6 +7,7 @@ pub mod elaborate;
 pub mod env;
 pub mod eval;
 pub mod facts;
+pub mod items;
 pub mod lexer;
 pub mod material;
 pub mod modify;

@@ -110,7 +110,9 @@ impl Bvh {
         idx.sort_by(|&a, &b| {
             let ca = centroid(&tris[a as usize])[axis];
             let cb = centroid(&tris[b as usize])[axis];
-            ca.partial_cmp(&cb).unwrap_or(std::cmp::Ordering::Equal).then(a.cmp(&b))
+            ca.partial_cmp(&cb)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then(a.cmp(&b))
         });
         let mid = idx.len() / 2;
         let (l, r) = idx.split_at_mut(mid);
@@ -131,7 +133,7 @@ impl Bvh {
         let mut best_tri: Option<(usize, Vec3)> = None;
         let mut stack: Vec<(u32, f64)> = vec![(0, -1.0)];
         while let Some((ni, s)) = stack.pop() {
-            if s >= 0.0 && !(s < best) {
+            if s >= 0.0 && s >= best {
                 continue;
             }
             let n = self.nodes[ni as usize];
@@ -306,7 +308,7 @@ mod tests {
                 .fold(f64::INFINITY, f64::min);
             let (_, d, _) = bvh.closest(p, f64::INFINITY).unwrap();
             assert!((d - brute).abs() < 1e-12, "{} vs {}", d, brute);
-            assert_eq!(bvh.closest(p, brute * 0.5).is_some(), false);
+            assert!(bvh.closest(p, brute * 0.5).is_none());
         }
     }
 

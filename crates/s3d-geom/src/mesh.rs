@@ -297,7 +297,10 @@ fn material_of(doc: &serde_json::Value, idx: Option<u64>) -> Material {
     let pbr = &m["pbrMetallicRoughness"];
     let bc = pbr["baseColorFactor"].as_array();
     let rgb = [0, 1, 2].map(|k| bc.and_then(|a| a.get(k)).and_then(|x| x.as_f64()).unwrap_or(1.0));
-    let name = m["name"].as_str().filter(|s| !s.is_empty()).map(|s| s.to_string());
+    let name = m["name"]
+        .as_str()
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string());
     Material {
         name,
         color: hex_color(rgb),
@@ -364,7 +367,10 @@ pub fn load_parts(bytes: &[u8], split: Split) -> Result<Vec<Part>, String> {
                             )
                         };
                         let mut tris: Vec<Tri> = Vec::new();
-                        match prim["indices"].as_u64().and_then(|ii| accessor(&doc, bin, ii as usize)) {
+                        match prim["indices"]
+                            .as_u64()
+                            .and_then(|ii| accessor(&doc, bin, ii as usize))
+                        {
                             Some(ix) => {
                                 let mut k = 0;
                                 while k + 2 < ix.count {
@@ -385,7 +391,10 @@ pub fn load_parts(bytes: &[u8], split: Split) -> Result<Vec<Part>, String> {
                             }
                         }
                         parts.push(Part {
-                            name: node["name"].as_str().filter(|s| !s.is_empty()).map(|s| s.to_string()),
+                            name: node["name"]
+                                .as_str()
+                                .filter(|s| !s.is_empty())
+                                .map(|s| s.to_string()),
                             uid: None,
                             from: None,
                             tris,
@@ -429,9 +438,12 @@ pub fn load_parts(bytes: &[u8], split: Split) -> Result<Vec<Part>, String> {
     let do_split = match split {
         Split::Components => true,
         Split::None => false,
-        Split::Auto => parts
-            .iter()
-            .any(|p| p.name.as_deref().map(|n| n.starts_with("merged_")).unwrap_or(false)),
+        Split::Auto => parts.iter().any(|p| {
+            p.name
+                .as_deref()
+                .map(|n| n.starts_with("merged_"))
+                .unwrap_or(false)
+        }),
     };
     if do_split {
         let mut out = Vec::new();

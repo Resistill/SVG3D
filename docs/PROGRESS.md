@@ -63,3 +63,16 @@
 - **C1 货场**：`corpus/examples/depot.s3d`，5031 节点 / 2577 条目 / 7594 事实，本版与原型逐项一致，原型输出收进参考包（`depot.compile.json`），CI 的 verify 与哈希步骤自动覆盖它。
 - **M1 验收（PLAN 第 9 节）**：examples 全部编译 ✓；事实在参考输出包的容差内一致、不一致逐条列出并解释 ✓（verify 的报告 + 9.5.3 回填）；三处哈希 ✓（CI 任务，Linux 与 wasm 已在本机确认）；最近点微基准 ✗（未达标，待 M2 前修订）。
 - 遗留清单见 `docs/spec-open-items.md` 第 4 节（hull 条目 `faces`、影子覆盖在求解侧生效、皮肤里的副本树、copy 块内修改的展开序）。
+
+## M2 评分 + 渲染
+
+### 2026-10-13：M2.1 几何支撑、M2.2 自评分数、校准对拍
+
+- **几何（`s3d-geom`）**：`tri`（全部 12 种实体按 2.1.9 与各节的三角化，分段参数 `TriParams`，默认规范、另有 `PROTOTYPE` 预设只作对拍）、`csg`（BSP 网格布尔，2.5.3）、`bvh`（静态 BVH：带封顶的最近点、带符号的射线穿越计数）、`mesh::load_parts`（GLB 按节点 × 图元出部件：材质 sRGB 颜色、`名字@k`、享元键、`merged_` 连通分量拆分）。hull 条目的 `faces` 所需的面片枚举顺带补齐（`convex::hull_faces`），条目输出仍待接。
+- **评分（`s3d-score`）**：`score`（原型 `tools/score.mjs` 的移植：L_stmt 的词计价与换形折扣、L_mesh 的享元与角色计价、R_src / R_recon / R_vol、S_mesh 基线、byRole、worst、`unattributedLines`；增量缓存 `ScoreCache`：源侧只算一次，R_recon 按"路径 + 颜色 + 几何哈希"缓存，R_src 逐点只重算受影响的点，与全量逐位相同）、`edit`（E_edit 报告：按 PLAN 第 6 节基于事实的坐标依赖定义，权重默认 0、只报告）、`roles`、`sample`、`surfaces`、`volume`、`objects`（条目树 → 世界三角形，mesh 引用取源部件、布尔体走网格布尔）。`s3d-lang` 新增 `items`（条目树与节点摘要，不经 JSON）、节点的 `placement_ref`。CLI：`s3d score`（`--glb`、常数、`--segments prototype`、`--full`）、`s3d score-hash`、`s3d objects`（调试）、`s3d bench-bvh`；wasm 新增 `s3d_score`；`tools/wasm-hash.mjs --score`。
+- **对原型核对**（`corpus/reference/exports/scores.json`，原型 commit 439abb8 对 9 个场景 × 4 个输入；输入里新收的 `<名>.abs.s3d` / `<名>.rev.s3d` 见 corpus/reference/MANIFEST.md）：用原型分段时 L_stmt / L_mesh / S_mesh 逐位相同，R_src 绝大多数逐位相同、其余 ≤ 3.4%，R_recon ≤ 7%，R_vol 本版高 30–36%（原型 `insideMesh` 漏判，本版按绕数交叉验证）；差异全部写进 spec/09 的 9.5.6 与 9.6.2。回归测试 `crates/s3d-score/tests/corpus_score.rs`（含增量 = 全量）。
+- **评分三处哈希**：Linux 原生与 wasm 对 27 个输入（9 × recon / abs / rev）逐个相同；Windows 由 CI 的 `hash-windows` / `three-way` 任务覆盖（本次提交起）。
+- **校准序（M2 验收第一项）的实际读数**（原型自己的分数，`scores.json`）：以 corpus 冻结的逆向结果为"逆向"项时，`S_mesh > abs > recon > orig` 在 9 个场景里只有 rotation、semantics 成立——冻结的逆向结果保留了 mesh 引用，而原型（含 `prototype` 标签那一版）的 `MESH_PRICE` 默认按 full（4.5 × 顶点 + 3 × 三角形）计价，basics / curves / spaceport 的 recon 因此高于 abs；换成同一 commit 重新逆向的 `rev`（不再发射 mesh 引用）后 spaceport L0/L1/L2、rotation、curves、semantics 成立，basics 的 rev（284.5）比 abs（267.5）高 17。本版的分数与原型同序。**需要拍板**：验收用哪组输入（见本节末）。
+- **微基准（PLAN 第 8 节）**：自写 BVH 单线程 3.9 µs/次（parry 2.7 µs/次），都未到 1.1 µs 的门槛；评分走自写 BVH（要封顶查询与穿越计数）。全量评分 spaceport.L0 0.5 s（111 个部件）。
+- **未做**：CPU 光栅 compare（原型 `raster.mjs` + PNG，可派便宜模型）、`s3d-render`（wgpu / WebGPU；云端容器没有 GPU，SpaceCenter 预览 60 帧只能在用户机器上测）、hull 条目的 `faces` 输出、E_edit 的权重（决定 7，M3 末）。
+- **待拍板**：(1) 校准序验收的输入组：a. 改用 `rev`（同一 commit 重新逆向）并接受 basics 的例外；b. 保留冻结 recon、把网格引用按 `ref` 计价核对；c. 等 M3 本版逆向出来再验。(2) 规范分段 48 与原型导出的 40 / 14 的差异：接受为定义差异（已写进 9.6.2），M5 用本版导出重做 GLB。(3) PLAN 第 8 节的最近点门槛（1.1 µs 单线程）：按实测修订还是继续优化（候选：叶子大小、SAH、按空间排序批量查询）。(4) 渲染与 compare 的归属：派便宜模型在用户机器上做。

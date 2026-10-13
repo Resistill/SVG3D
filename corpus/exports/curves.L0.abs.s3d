@@ -1,0 +1,78 @@
+// 由逆向管线从 curves.L0.glb 生成（L0）。~fit 是拟合度，~err 是相对误差；mesh 是拟合不了、直接引用源网格的部件
+
+material ground color=#6b7360 metal=0.05 rough=1
+material road color=#3d3f43 metal=0.05 rough=1
+material steel color=#7f8b96 metal=0.6 rough=0.4
+material white color=#eef0f2 metal=0.05 rough=0.78
+material stone color=#cfc8b8 metal=0.05 rough=0.78
+material accent color=#e07a3a metal=0.05 rough=0.78
+material water color=#5d93c4 metal=0.05 rough=0.2
+
+box ground size=150,1,150 at=0,-1,0 mat=ground ~fit=1 ~src="ground" ~role="terrain"
+arc lane_path r=39.9966 angle=-57.435299,238.676496 at=-0.0374,0.05,0.0368 pin=origin
+sweep lane path=lane_path section=7.9797,0.1 mat=road ~fit=0.9955 ~src="lane"
+cyl p_0_pole r=0.18 h=6 at=23,0,39.8372 mat=steel ~fit=0.9158 ~src="lamps.0.pole"
+sphere p_0_bulb r=0.45 at=23,6,39.8372 mat=white ~fit=0.9231 ~src="lamps.0.bulb"
+cyl p_1_pole r=0.18 h=6 at=39.8372,0,23 mat=steel ~fit=0.9091 ~src="lamps.1.pole"
+sphere p_1_bulb r=0.45 at=39.8372,6,23 mat=white ~fit=0.924 ~src="lamps.1.bulb"
+cyl p_2_pole r=0.18 h=6 at=46,0,0 mat=steel ~fit=0.9124 ~src="lamps.2.pole"
+sphere p_2_bulb r=0.45 at=46,6,0 mat=white ~fit=0.9245 ~src="lamps.2.bulb"
+cyl p_3_pole r=0.18 h=6 at=39.8372,0,-23 mat=steel ~fit=0.9166 ~src="lamps.3.pole"
+sphere p_3_bulb r=0.45 at=39.8372,6,-23 mat=white ~fit=0.9245 ~src="lamps.3.bulb"
+cyl p_4_pole r=0.18 h=6 at=23,0,-39.8372 mat=steel ~fit=0.9116 ~src="lamps.4.pole"
+sphere p_4_bulb r=0.45 at=23,6,-39.8372 mat=white ~fit=0.9234 ~src="lamps.4.bulb"
+cyl p_5_pole r=0.18 h=6 at=0,0,-46 mat=steel ~fit=0.9139 ~src="lamps.5.pole"
+sphere p_5_bulb r=0.45 at=0,6,-46 mat=white ~fit=0.9252 ~src="lamps.5.bulb"
+cyl p_6_pole r=0.18 h=6 at=-23,0,-39.8372 mat=steel ~fit=0.908 ~src="lamps.6.pole"
+sphere p_6_bulb r=0.45 at=-23,6,-39.8372 mat=white ~fit=0.9258 ~src="lamps.6.bulb"
+cyl p_7_pole r=0.18 h=6 at=-39.8372,0,-23 mat=steel ~fit=0.909 ~src="lamps.7.pole"
+sphere p_7_bulb r=0.45 at=-39.8372,6,-23 mat=white ~fit=0.9257 ~src="lamps.7.bulb"
+cyl p_8_pole r=0.18 h=6 at=-46,0,0 mat=steel ~fit=0.9112 ~src="lamps.8.pole"
+sphere p_8_bulb r=0.45 at=-46,6,0 mat=white ~fit=0.9224 ~src="lamps.8.bulb"
+cyl p_9_pole r=0.18 h=6 at=-39.8372,0,23 mat=steel ~fit=0.9119 ~src="lamps.9.pole"
+sphere p_9_bulb r=0.45 at=-39.8372,6,23 mat=white ~fit=0.9237 ~src="lamps.9.bulb"
+cyl p_10_pole r=0.18 h=6 at=-23,0,39.8372 mat=steel ~fit=0.9105 ~src="lamps.10.pole"
+sphere p_10_bulb r=0.45 at=-23,6,39.8372 mat=white ~fit=0.9255 ~src="lamps.10.bulb"
+cyl garage_core r=4 h=14 at=0,0,0 mat=stone ~fit=0.9262 ~src="garage.core"
+helix garage_ramp_path r=7.0013 pitch=4.484 turns=2.99 at=0.0237,0.2916,0.039 pin=origin turn=5.474137
+sweep garage_ramp path=garage_ramp_path section=5.0813,0.4685 mat=stone ~fit=0.3921 ~src="garage.ramp"
+helix garage_rail_path r=9.3927 pitch=4.5005 turns=2.97 at=-0.0001,1.0691,0.0007 pin=origin turn=5.592398
+sweep garage_rail path=garage_rail_path r=0.0792 mat=accent ~fit=0.9731 ~src="garage.rail"
+box canal size=150,0.05,10 at=-56.25,0,0 turn=-90 mat=water ~fit=1 ~src="canal"
+arc arch_path r=8.0231 angle=1.000725,177.9154 plane=xy at=-56.2762,-0.0112,0.006 pin=origin turn=-0.518588
+sweep arch path=arch_path section=3.1299,0.7931 mat=stone ~fit=0 ~src="arch"
+box deck size=18,0.5,3.6 at=-56.25,8.0451,0 mat=stone ~fit=1 ~src="deck"
+span stepsW from=-74.75,0.05,0 to=-65.25,8.5451,0 steps=16 section=3.6,0.25 mat=stone ~fit=1 ~src="stepsW"
+span stepsE from=-37.75,0.05,0 to=-47.25,8.5451,0 steps=16 section=3.6,0.25 mat=stone ~fit=1 ~src="stepsE"
+revolve tower profile=[(0.8089,0); (0.5247,6.8086); (0.6247,8.242); (0.8084,8.9587); (1.287,9.6754); (3.2044,10.3921); (3.7071,11.1088); (4.0234,11.8255); (4.1665,12.5422); (4.2154,13.2589); (4.1478,14.6923); (3.9517,15.409); (3.5956,16.1257); (3.0044,16.8424); (1.2977,17.2007)] at=37.4914,-0.0005,-41.2526 mat=white ~fit=0 ~src="tower"
+revolve tower2 profile=[(0.8429,0); (0.5168,6.0929); (0.6098,8.2433); (0.7312,8.9601); (1.3054,9.6769); (3.1844,10.3937); (3.7494,11.1105); (4.0273,11.8273); (4.1674,12.5441); (4.2161,13.2609); (4.1436,14.6945); (3.9456,15.4113); (3.5943,16.1282); (3.01,16.845); (1.2932,17.2034)] at=-37.538,-0.0024,-41.2701 rot=(0.003659,0.999987,-0.003555,35.762632) mat=white ~fit=0 ~src="tower2"
+revolve plaza_basin profile=[(0,0); (5,0); (5.2,0.9); (4.7,0.9); (4.6,0.35); (0,0.35)] at=-33.75,0,37.5 mat=stone ~fit=0.8742 ~src="plaza.basin"
+revolve plaza_spout profile=[(0.5,0); (0.2856,1.3125); (0.2632,1.6875); (0.292,1.9375); (0.3677,2.0625); (0.4968,2.1875); (0.7191,2.3125); (1.3281,2.5625); (1.4,2.6875); (1.3592,2.8125); (0.9636,2.9375); (0.3562,3)] at=-33.75,0.9,37.5 mat=white ~fit=0 ~src="plaza.spout"
+box plaza_benches_seat size=3.2,0.5,0.9 at=-33.75,0,45 mat=accent ~fit=1 ~src="plaza.benches.seat"
+box plaza_benches_back size=3.2,1,0.2 at=-33.75,0.5,45.35 mat=accent ~fit=1 ~src="plaza.benches.back"
+box plaza_benches_r1_seat size=3.2,0.5,0.9 at=-27.2548,0,41.25 turn=-119.999998 mat=accent ~fit=1 ~src="plaza.benches.r1.seat"
+box plaza_benches_r1_back size=3.2,1,0.2 at=-26.9517,0.5,41.425 turn=-119.999998 mat=accent ~fit=0.9998 ~src="plaza.benches.r1.back"
+box plaza_benches_r2_seat size=3.2,0.5,0.9 at=-27.2548,0,33.75 turn=-60.000002 mat=accent ~fit=1 ~src="plaza.benches.r2.seat"
+box plaza_benches_r2_back size=3.2,1,0.2 at=-26.9517,0.5,33.575 turn=-60.000002 mat=accent ~fit=0.9998 ~src="plaza.benches.r2.back"
+box plaza_benches_r3_seat size=3.2,0.5,0.9 at=-33.75,0,30 mat=accent ~fit=1 ~src="plaza.benches.r3.seat"
+box plaza_benches_r3_back size=3.2,1,0.2 at=-33.75,0.5,29.65 mat=accent ~fit=1 ~src="plaza.benches.r3.back"
+box plaza_benches_r4_seat size=3.2,0.5,0.9 at=-40.2452,0,33.75 turn=-119.999968 mat=accent ~fit=1 ~src="plaza.benches.r4.seat"
+box plaza_benches_r4_back size=3.2,1,0.2 at=-40.5483,0.5,33.575 turn=-119.999968 mat=accent ~fit=0.9998 ~src="plaza.benches.r4.back"
+box plaza_benches_r5_seat size=3.2,0.5,0.9 at=-40.2452,0,41.25 turn=-60.000032 mat=accent ~fit=1 ~src="plaza.benches.r5.seat"
+box plaza_benches_r5_back size=3.2,1,0.2 at=-40.5483,0.5,41.425 turn=-59.999998 mat=accent ~fit=0.9998 ~src="plaza.benches.r5.back"
+box gate_halves_house size=5,5,5 at=7,0,58 mat=stone ~fit=1 ~src="gate.halves.house"
+wedge gate_halves_ramp size=3,5,5 at=11,0,58 mat=stone ~fit=1 ~src="gate.halves.ramp"
+box gate_halves_flag size=0.2,7,0.2 at=5,5,60 mat=accent ~fit=1 ~src="gate.halves.flag"
+box gate_halves_mirrored_house size=5,5,5 at=-7,0,58 mat=stone ~fit=1 ~src="gate.halves.mirrored.house"
+wedge gate_halves_mirrored_ramp size=3,5,5 at=-11,0,58 turn=180 mat=stone ~fit=1 ~src="gate.halves.mirrored.ramp"
+box gate_halves_mirrored_flag size=0.2,7,0.2 at=-5,5,60 mat=accent ~fit=1 ~src="gate.halves.mirrored.flag"
+arc gate_beam_path r=4.9755 angle=-0.113612,179.701594 plane=xy at=-0.0562,0.0705,58.0005 pin=origin turn=0.300818
+sweep gate_beam path=gate_beam_path section=1.0541,0.939 mat=accent ~fit=0 ~src="gate.beam"
+box gate2_halves_house size=5,5,5 at=-7,0,-58 mat=stone ~fit=1 ~src="gate2.halves.house"
+wedge gate2_halves_ramp size=3,5,5 at=-11,0,-58 turn=180 mat=stone ~fit=1 ~src="gate2.halves.ramp"
+box gate2_halves_flag size=0.2,7,0.2 at=-5,5,-60 mat=accent ~fit=1 ~src="gate2.halves.flag"
+box gate2_halves_mirrored_house size=5,5,5 at=7,0,-58 mat=stone ~fit=1 ~src="gate2.halves.mirrored.house"
+wedge gate2_halves_mirrored_ramp size=3,5,5 at=11,0,-58 mat=stone ~fit=1 ~src="gate2.halves.mirrored.ramp"
+box gate2_halves_mirrored_flag size=0.2,7,0.2 at=5,5,-60 mat=accent ~fit=1 ~src="gate2.halves.mirrored.flag"
+arc gate2_beam_path r=4.9755 angle=-0.113612,179.701594 plane=xy at=0.0562,0.0705,-58.0005 pin=origin turn=-179.699182
+sweep gate2_beam path=gate2_beam_path section=1.0541,0.939 mat=accent ~fit=0 ~src="gate2.beam"
