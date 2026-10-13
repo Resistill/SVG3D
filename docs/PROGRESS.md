@@ -76,7 +76,7 @@
 - **校准序（M2 验收第一项）的实际读数**（原型自己的分数，`scores.json`）：以 corpus 冻结的逆向结果为"逆向"项时，`S_mesh > abs > recon > orig` 在 9 个场景里只有 rotation、semantics 成立——冻结的逆向结果保留了 mesh 引用，而原型（含 `prototype` 标签那一版）的 `MESH_PRICE` 默认按 full（4.5 × 顶点 + 3 × 三角形）计价，basics / curves / spaceport 的 recon 因此高于 abs；换成同一 commit 重新逆向的 `rev`（不再发射 mesh 引用）后 spaceport L0/L1/L2、rotation、curves、semantics 成立，basics 的 rev（284.5）比 abs（267.5）高 17。本版的分数与原型同序。**需要拍板**：验收用哪组输入（见本节末）。
 - **微基准（PLAN 第 8 节）**：自写 BVH 单线程 3.9 µs/次（parry 2.7 µs/次），都未到 1.1 µs 的门槛；评分走自写 BVH（要封顶查询与穿越计数）。全量评分 spaceport.L0 0.5 s（111 个部件）。
 - **未做**：CPU 光栅 compare（原型 `raster.mjs` + PNG，可派便宜模型）、`s3d-render`（wgpu / WebGPU；云端容器没有 GPU，SpaceCenter 预览 60 帧只能在用户机器上测）、hull 条目的 `faces` 输出、E_edit 的权重（决定 7，M3 末）。
-- **已定（2026-10-13，用户）**：(2) 分段差异接受为定义差异，M5 用本版导出重做 GLB；(3) PLAN 第 8 节按实测修订（已写进该节）；(4) `s3d-render`、CPU compare、E_edit 权重派便宜模型，在用户机器上做。
+- **已定（2026-10-13，用户）**：(2) 分段差异接受为定义差异，M5 用本版导出重做 GLB；(3) PLAN 第 8 节按实测修订：BVH 查询改用固定栈（原先每次查询分配一个 Vec，多线程下互相争锁、4 线程反而比单线程慢），封顶 dMax 的查询单线程 0.69 µs/次、4 线程 0.18 µs/次，原门槛在评分的真实负载下达标，于是数字不改、改工作负载的定义（写进第 8 节）；(4) `s3d-render`、CPU compare、E_edit 权重派便宜模型，在用户机器上做。
 - **已定（2026-10-13，用户）**：(1) 校准序验收改用同一 commit 重新逆向的 `rev` 作"逆向"项，basics 记为已知例外，M3 再用本版逆向复验（PLAN 第 9 节 M2 行已改）。
 - **M2 验收（PLAN 第 9 节）的本版读数**（`s3d score --segments prototype`，与 `scores.json` 的原型读数同序）：
 

@@ -133,17 +133,55 @@ fn main() {
                         )
                 })
                 .collect();
-            let t1 = std::time::Instant::now();
-            let mut sum = 0.0;
-            for p in &pts {
-                sum += bvh.closest(*p, f64::INFINITY).map(|x| x.1).unwrap_or(0.0);
+            // --cap d：封顶距离（评分里是 dMax）；--sort：查询点先按 Morton 码排序（缓存友好；结果逐点不变，只改累加顺序）
+            let opt = |name: &str| {
+                args.iter()
+                    .position(|a| a == name)
+                    .and_then(|i| args.get(i + 1))
+                    .cloned()
+            };
+            let cap: f64 = opt("--cap").and_then(|v| v.parse().ok()).unwrap_or(f64::INFINITY);
+            let mut pts = pts;
+            if args.iter().any(|a| a == "--sort") {
+                let key = |p: &s3d_geom::Vec3| -> u64 {
+                    let q = (*p - b.min) / ext.max(s3d_geom::Vec3::splat(1e-9));
+                    let mut code = 0u64;
+                    for i in 0..21 {
+                        for (k, c) in [q.x, q.y, q.z].iter().enumerate() {
+                            let bit = (((c.clamp(0.0, 1.0) * ((1u64 << 21) as f64)) as u64) >> (20 - i)) & 1;
+                            code |= bit << (3 * (20 - i) + (2 - k));
+                        }
+                    }
+                    code
+                };
+                pts.sort_by_key(key);
             }
+            // --threads n：静态分块 + 按块号顺序归约（原则 18）
+            let threads: usize = opt("--threads").and_then(|v| v.parse().ok()).unwrap_or(1);
+            let t1 = std::time::Instant::now();
+            let chunk = pts.len().div_ceil(threads.max(1));
+            let partial: Vec<f64> = std::thread::scope(|sc| {
+                let hs: Vec<_> = pts
+                    .chunks(chunk.max(1))
+                    .map(|c| {
+                        let bvh = &bvh;
+                        sc.spawn(move || {
+                            c.iter()
+                                .map(|p| bvh.closest(*p, cap).map(|x| x.1).unwrap_or(cap.min(1e9)))
+                                .sum::<f64>()
+                        })
+                    })
+                    .collect();
+                hs.into_iter().map(|h| h.join().unwrap()).collect()
+            });
+            let sum: f64 = partial.iter().sum();
             let dt = t1.elapsed();
             println!(
-                "{} 个三角形，建树 {:.3} s；{} 次查询单线程 {:.3} s（{:.2} µs/次）校验和 {:.6}",
+                "{} 个三角形，建树 {:.3} s；{} 次查询 {} 线程 {:.3} s（{:.2} µs/次）校验和 {:.6}",
                 tris.len(),
                 built.as_secs_f64(),
                 n,
+                threads,
                 dt.as_secs_f64(),
                 dt.as_secs_f64() * 1e6 / n as f64,
                 sum

@@ -131,8 +131,13 @@ impl Bvh {
         }
         let mut best = max * max;
         let mut best_tri: Option<(usize, Vec3)> = None;
-        let mut stack: Vec<(u32, f64)> = vec![(0, -1.0)];
-        while let Some((ni, s)) = stack.pop() {
+        // 固定大小的栈（树是中位切分的，深度远小于 64），不在查询里分配堆内存
+        let mut stack = [(0u32, 0.0f64); 64];
+        let mut sp = 1usize;
+        stack[0] = (0, -1.0);
+        while sp > 0 {
+            sp -= 1;
+            let (ni, s) = stack[sp];
             if s >= 0.0 && s >= best {
                 continue;
             }
@@ -153,12 +158,13 @@ impl Bvh {
             let s2 = box_dist2(&self.nodes[c2 as usize], p);
             // 先压远的，后压近的（近的先出栈）
             if s2 < s1 {
-                stack.push((c1, s1));
-                stack.push((c2, s2));
+                stack[sp] = (c1, s1);
+                stack[sp + 1] = (c2, s2);
             } else {
-                stack.push((c2, s2));
-                stack.push((c1, s1));
+                stack[sp] = (c2, s2);
+                stack[sp + 1] = (c1, s1);
             }
+            sp += 2;
         }
         best_tri.map(|(i, c)| (self.order[i] as usize, math::sqrt(best), c))
     }
@@ -170,8 +176,11 @@ impl Bvh {
         }
         let inv = Vec3::new(1.0 / d.x, 1.0 / d.y, 1.0 / d.z);
         let mut sum = 0;
-        let mut stack: Vec<u32> = vec![0];
-        while let Some(ni) = stack.pop() {
+        let mut stack = [0u32; 64];
+        let mut sp = 1usize;
+        while sp > 0 {
+            sp -= 1;
+            let ni = stack[sp];
             let n = self.nodes[ni as usize];
             if !ray_hits_box(&n, o, inv) {
                 continue;
@@ -182,8 +191,9 @@ impl Bvh {
                 }
                 continue;
             }
-            stack.push(n.right);
-            stack.push(n.first);
+            stack[sp] = n.right;
+            stack[sp + 1] = n.first;
+            sp += 2;
         }
         sum
     }
