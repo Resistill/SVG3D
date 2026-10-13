@@ -106,6 +106,7 @@
 | 1.3.8 | `over a: box`（冒号不带空白） | `makeStmt` 只认独立的 `:` 词，`a:` 交给 `parseValue` 报"无法识别的字符 “:”" | 合法 |
 | 1.3.10 | pattern 关系约束两侧是带空白的表达式（`kind(box) where h > 1 on y`） | 两侧各只能是一个无空白的词（`makePattern` 的 `\S+`） | 两侧是任意表达式 |
 | 1.3.12、1.3.13 | style / variant 的选择器含空白（`style a \| b mat=m`） | 选择器只能是一个词（`words[1]`），其余报"style 只接受 key=value，看不懂 “\|”" | 选择器到第一个 `k=` / `~k=` 为止 |
+| 4.3.5 | `copy` 的原件在另一条 `copy` 的子树里且写在它之前（`copy c3 of=g.c1` 写在生成 `g.c1` 的 copy 之前） | 只在 `of` 首段是待展开 copy 的名字时推迟，否则报"copy 找不到原对象"（`expandCopies`） | 按轮次推迟并展开（4.3.5） |
 
 ## 9.3 行为变化清单
 
@@ -161,7 +162,7 @@
 | 1.6.6、5.3.2 | 同级重名（同一父节点下两个具名子节点段相同；跨文件的最外层同名亦然） | `elaborate` 不检查，产生两个同路径的节点（`c9/t_misc.s3d`：`g.a` 两次，无错误） | 报错"同级重名 X"，报在后出现的语句上，后者连同块不生成节点，引用得到先出现的 | D18；路径必须唯一地标识节点（1.6.10） | 无 |
 | 1.8、5.2.3 | 同一文件第二次 import | `loadProgram` 只有加载链 `stack`，不在链上的已加载文件再次 import 时静默重复内联（13 个节点、路径两两重复） | 报错"文件 X 已经 import 过"，不导入；不做 include-once | D19；重复内联必然造成同级重名并压掉中间的定义 | 无（每个文件至多一条 import） |
 | 5.2.3 | import 成环且根文件在环上 | 链不含根文件，a → b → a 时 a 的语句被读入两次才报错 | 根文件始终在链上，第一次重复即报"import 形成了循环"，不重复任何语句 | 5.1.3 等价原则 | 无 |
-| 5.2.2、1.8 | import 路径 `..` 越出根目录；路径用 `\` | `joinPath` 保留多出的 `..`、接受 `\` | 分别报错"import 路径越出根目录"、"import 路径用 / 分隔" | 1.8 已定 | 无 |
+| 5.2.2、1.8 | import 路径越出文件系统的根；路径用 `\` | `joinPath` 保留开头多出的 `..`（从不报错）、接受 `\` | 先把写 import 的文件目录绝对化再拼接、规范化，只有越出文件系统的根才报错"import 路径越出根目录"（以 `..` 开头的相对路径如 `../lib/semantics.s3d` 合法，结果不取决于宿主给根文件的是相对还是绝对路径）；`\` 报错"import 路径用 / 分隔" | 1.8 已定 | 无 |
 | 5.2.1 | 块内的 import | 报"未知的类型 import" | 报"import 只能写在最外层"（位置错误） | 1.3.15 | 无 |
 | 5.1.4、9.1.3 | 被 import 的文件带 `~lang=`，值不是 2 | `loadProgram` 不检查 `lang`（文件头本身在原型里报"未知的类型"，9.2.1） | 报错"不支持的语言版本"，只有该文件不编译、仍算已加载；按文件独立判定 | 8.1.5 | 无（语料没有文件头） |
 | 10.1.1、5.3.4、1.3.7 | 块内、模板体内的 `material` | `elaborate` 的 `one` 静默忽略（`c9/t_misc.s3d`：`group g { material inner … }`，无错误、材质表里没有 inner） | 报错"material 只能写在最外层"，语句无效（不登记） | D6 | 无 |
@@ -200,7 +201,7 @@
 | 节 | 情形 | 原型（函数） | 本版 | 理由 | 语料 |
 |---|---|---|---|---|---|
 | 4.5.1 | 没有属性也没有块的 `over 选择器` | 静默接受为空操作（`elaborate` / `applyOpinions`；`c9/t_misc.s3d` 确认） | 报错"over 需要属性或块"，语句无效 | 没有含义的语句不该静默 | 无 |
-| 4.6.1 | 容器 → 实体的保名换形 | 交给重新展开，因"box 不能有子语句"失败而使节点**消失**（`applyOpinions`） | 换形前拒绝：报错"不能把容器 X 换成 T：它的子物体会丢失，先 drop 再新建"，该成员不变 | D11 | 无 |
+| 4.6.1 | 容器 → 实体的保名换形 | 交给重新展开：报"box 不能有子语句"，但节点已按目标实体建成（`over gg : box size=2,2,2` 得到 2×2×2 的盒子）、子节点丢失（`applyOpinions`；`t3_retype.s3d` 实测） | 换形前拒绝：报错"不能把容器 X 换成 T：它的子物体会丢失，先 drop 再新建"，该成员不变 | D11 | 无 |
 | 4.6.2 | 模板 → 模板换形，参数不在目标参数表 | 保留全部参数，重新展开时报"模板 X 没有参数 k"，节点仍按目标模板重建、多余的参数被忽略（`applyOpinions`；`c9/a_tt.s3d`：`over x : U w=3` 报错后 `x.b` 仍是 1 宽） | 派生链上保留目标参数表里有的；否则按名字匹配，多余的报错"模板 T 没有参数 k（换形自 X）"，该成员不被修改 | D11 | 无 |
 | 4.4.4 | 对影子写 `repeat` 的 `n` | 不拦截（`applyOpinions` 对影子只拒绝换形与模板参数；孪生体与原件共享子节点，结果不自洽） | 报错"X 是副本，不能单独改阵列数量：请改用 copy" | 副本是原件的函数（4.4.2） | 无 |
 | 4.3.3、1.3.14 | copy 语句上既不是 P 组也不是模板参数的键（`copy b of=a size=2,2,2`） | 静默写进新语句并生效（`expandCopies`：得到 2 × 2 × 2） | 报错"copy 没有属性 k"，该 copy 无效 | 不猜（4.8.5） | 无（语料的 copy 只换 `on=`） |
@@ -237,7 +238,7 @@
 
 | 节 | 情形 | 原型（函数） | 本版 | 理由 | 语料 |
 |---|---|---|---|---|---|
-| 10.2、1.1.4 第 6 条 | `mat=` 引用未定义的材质 | `materialOf` 抛 S3DError，`buildItems` 中断，一个未定义材质清空**全部**输出条目 | 报错"未定义的材质 X"，该节点按没写 `mat` 处理、不退化，其他节点与条目不受影响 | D16 | 无 |
+| 10.2、1.1.4 第 6 条 | `mat=` 引用未定义的材质 | `materialOf` 抛 S3DError，`buildItems` 中断，一个未定义材质清空**全部**输出条目 | 报错"未定义的材质 X"，该节点按没写 `mat` 处理、不退化，其他节点与条目不受影响；`mat=a.b`、`mat=1` 这类不是材质名的值按类型错误报"mat 需要材质名"、节点退化（10.7；原型报"未定义的材质 (无效写法)"并同样清空全部条目） | D16 | 无 |
 | 4.4.2、1.1.4 第 6 条 | 副本依赖成环（`mirror a of=b` 与 `mirror b of=a`） | `buildCopies` 的 `ensure` 抛错后停止**全部**后续副本生成 | 只有环上的副本根报错"复制关系形成循环：X"并退化，其他副本根照常 | D16 | 无 |
 | 7.8.3 第 7 条 | 一个皮肤体内的错误 | 挂载循环的 try / catch 按宿主隔离（相同） | 相同，写成规则 | — | 无 |
 
@@ -250,12 +251,14 @@
 | 4.3.6、8.3.5 | copy 语句带元数据 | 有元数据时**整体替换**原语句的元数据（`expandCopies`：`s.meta?.size ? s.meta : A.stmt.meta`） | 逐键合并，copy 自己的覆盖同名键 | 8.3.5 已定 | 无（语料的 copy 没有元数据） |
 | 4.6.2 | 容器 → 容器的保名换形 | 保留源语句的块（`over gg : group { box j }` 得到 inner 与 j） | 丢弃源语句的子语句，只有 over 块里写的 | D11（PLAN 第 3 节第 4 条） | 无（语料没有换形） |
 | 4.1.3、4.5.4 | 重建型修改前对该节点自身的就地修改 | 丢弃（用 `m.stmt.props` 重建） | 保留（按有效语句重建） | 就地修改是节点状态的一部分 | 无 |
+| 4.2.5、1.5.8 | 派生链上基体最外层的 `let` 在派生体里的可见性 | `elaborate` 的 `walk` 为每个体各建一个子 Env，基体的 `let` 在派生体里不可见（`scratchpad/01/t53.s3d`：报"向量分量必须是数字，得到 s"） | 派生链全部体共用一个模板体帧，基体的 `let` 在派生体里可见 | 派生体是基体的延续（4.2.5） | 无（语料的派生模板不读基体的 let） |
 | 6.2.2、6.5.1 | 一方是布尔容器的事实的 `approx` | `localParts` 对没有 `geom` 的节点返回 `approx: false`，事实不标 approx | 布尔容器的代理盒按 2.5.6 是 `approx=true`，事实输出 `approx: true` | 2.5.6；近似几何由 approx 标出（6.2.2） | **命中** 19 条：basics 2、spaceport 5、spaceport_blueprint 5、spaceport_edit 7（9.5） |
 | 6.5.4 | `inside` 的容器 $B$ 是近似的单凸块（revolve、mesh、布尔容器、凹截面扫掠段） | `insideTest` 要求 `B.convex`（精确单块）；revolve / mesh 作 $B$ 时不判 inside，得 `intersects` / `touching` | $B$ 只需恰有一个凸块（可近似），成立时输出 `inside` 并标 `approx: true`，gap 不变 | 与 2.5.6 对布尔容器的要求一致；近似几何参与全部判定 | **命中**：rotation 的 `radar.feed intersects radar.dish` → `inside`（1 条，6.8.3）；exports 里 mesh 作 $B$ 的 `intersects` 预计有 1 + 1 + 13 + 249 + 11 × 4 = 308 条改为 `inside`（9.5.3，按参考盒预测，M1 逐条确认） |
 | 6.5.3 | mesh 外包络、布尔容器代理盒的贴面 | `boxy` 要求凸块精确，mesh 只能得到 `touching`（approx） | 盒类，可得到 `against`，事实标 `approx: true` | 贴面是外包络层面的陈述 | 示例无；exports 预计 1 + 2 + 4 + 6 + 8 + 8 + 8 = 37 条 `touching` 改为 `against`（9.5.3） |
 | 6.2.3、6.4.3 | 对象盒 / 块盒恰好相距 $\varepsilon$ | `broadPairs` 的 y / z 用 `> -margin`（排除恰好相等）、x 用 `>=`，`gapBetween` 用 `< -eps` 跳过（保留恰好相等），三处不一致；`against` 的轴对齐判定 `isAxisAligned` 用严格的 `< 1e-6` | 三处统一为重叠量 $\ge -\varepsilon$ 保留；轴对齐用 $\le \varepsilon_{\text{dir}}$（6.5.3） | 边界只按一条不等式（2.1.4） | 无（只在恰好相等时不同：`box exact on=ground gap=0.02` 原型无事实、本版 `touching` 0.02；6.8.4 的 `exact` / `ax2`） |
 | 10.3.2 | 节点或样式只写 `color` | `color` 把整个材质换成只有颜色的匿名材质（metal、rough 回到缺省、name 丢失；条目输出 `{color}`） | 只覆盖 color 分量，name / metal / rough / opacity 保留（`where mat == steel` 仍为真） | 10.3.2 | **命中** 3 个条目：spaceport_blueprint 的 `wings.annex`、`wings.mirrored.annex`（concrete 改色）、spaceport_edit 的 `hangar2.roof`（steel 改色）；变换、包围盒、事实不变 |
 | 10.3.1、10.4.1 | 副本式 `mirror R of=A mat=…`，$A$ 是容器 | $R$ 的 `mat` 只对原件是实体时生效，对容器原件的影子被忽略 | $R$ 的 `mat` / `color` 插在原件 $A$ 之前，对沿链到 $A$ 之间没有自有外观属性的影子生效 | 统一规则 | 无（语料的副本式语句没有外观属性） |
+| 10.3.1 | 对容器影子的几何时机覆盖（`over tower2.legs mat=rust turn=0`） | `materialOf` 从影子直接跳到原件（s3d.js:2104），覆盖的 `mat` / `color` 不传给该影子下面的影子 | 影子的链沿副本树向上，覆盖传给其下的影子与真实子节点 | 影子覆盖是副本树上的自有属性，与原件上的 `mat` 同等传播（10.3.1） | 无（`scratchpad/10/t8_prop.s3d` 实测） |
 | 10.3.3 | 同一条样式里 `mat` 写在 `color` 之后 | `mat` 丢掉 `color` | `mat` 先于 `color` 应用，与书写顺序无关 | 10.3.3 | 无 |
 | 10.3.3 | 直接选中副本的样式与原件的样式 | 直接选中副本的无条件压过原件的（不看顺序） | 按语句顺序一起应用，后写的赢 | 7.7.3 | 无（两者不同时出现） |
 | 10.1.3、5.4.1 | 外观层新增或删除材质**名字** | 无区分 | `material` 属外观层，但材质名的集合对几何时机可见（`mat=` 未定义报错、`where mat` 是静态量），所以新增 / 删除名字可以改变几何时机的选择器与错误；只重定义已有名字不改阶段 1–7 的任何量 | 5.4.4 的保证按此表述 | spaceport_blueprint 只重定义已有名字，不受影响 |
@@ -294,7 +297,7 @@
 | 4.4.2、1.6.7 | 影子的 `kind`（原件是阵列实例或副本组） | shadow 建成 `group` 节点，输出 `group`（`tower2.legs.0`、`gate2.halves.mirrored`） | `instance` / `mirror` / `rotate`（影子种类 = 原件种类） | 否则 `kind(instance)` 漏掉副本里的实例 | **命中**：curves 1、spaceport 12、spaceport_blueprint 12、spaceport_edit 14；exports 共 102 |
 | 4.3.2、5.2.5 | copy 节点的 `file` / `line` | 源语句的（`expandCopies`） | copy 语句自己的；子节点仍归各自源语句 | 节点的名字与位置来自 copy 语句 | **命中** 2 个节点：spaceport_edit 的 `hangar2`（参考 spaceport.s3d:68 → spaceport_edit.s3d:13）、semantics 的 `watch2`（参考 :62 → :143） |
 | 4.7、5.2.5、7.8.3 | 皮肤节点 `skin` 的 `file` | `null`（`compileOnce` 建皮肤语句时不带 file） | 变体语句的文件与行 | 不允许没有文件归属的输出 | **命中** 3 个节点：semantics 的 `slab.skin`（:130）、`street.h4.skin`（:131）、spaceport_blueprint 的 `hangar.roof.skin`（:19） |
-| 5.2.5、1.10.1 | 错误的 `file` | 根文件的解析错误、style / variant / 几何 over 的选择器错误、事实提供者错误的 `file` 为空 | 一律带文件 | 1.10.1 | 无（语料无错误） |
+| 5.2.5、1.10.1 | 错误的 `file` | 根文件的解析错误、style / variant / 几何 over 的选择器错误、事实提供者错误的 `file` 为空 | 一律带文件；事实提供者错误没有对应语句，归根文件（文件序号 0）、行 0、不带节点路径（5.2.5、6.9） | 1.10.1 | 无（语料无错误） |
 | 6.6.1 | `facts[].gap` 的精度 | 四舍五入到 4 位小数（`+gap.toFixed(4)`） | 完整双精度 | 小单位场景下 4 位不够；确定性按逐位 | 全部 1414 + 2408 条事实（对拍用 9.4.2 的 $\tau_{\text{gap}}^{\text{ref}}$） |
 | 6.6.1 | `facts[].approx` | 只在为真时出现 | 总是输出布尔 | 形状固定 | 全部事实（规范化 N7） |
 | 6.6.1、6.5.6 | 事实的输出顺序与 $a$ / $b$ 的平局 | 按 `broadPairs` 的扫描顺序产出、`boxVol(P) <= boxVol(Q) ? [P,Q] : [Q,P]`（未成文） | 写成可判定规则：候选对 $(\sigma(P), \sigma(Q))$ 的字典序；平局 $a$ = 扫描序靠后者 | 确定性 | 参考输出 1414 条零处违反、13 对平局一致（6.8.3）——相同 |
@@ -318,6 +321,7 @@
 | 8.1.3、8.1.6 | 元数据某一键求值失败时同一语句的其他键 | 整条语句的元数据全部丢失（`staticMeta`：`~a=1 ~s=all()` 得 `{}`） | 只有出错的键不存在 | 8.1.6 | 无 |
 | 10.6 | `items[].material` | 只输出写了的分量（`{name, color, metal?, rough?}`），颜色覆盖时 `{color}` | 统一五键 `{name, color, metal, rough, opacity}`，无名材质 `name: ""` | 形状固定 | 全部条目（规范化 N11） |
 | 10.6、10.1.3 | `materials` | 只输出写了的键 | 五个分量与 `default` 总是都有 | 形状固定 | 全部文件（规范化 N11） |
+| 10.1.2、10.6 | 颜色的输出形式 | 按源码原样输出（`#FFF` 输出 `#FFF`；`String(evalStatic(ast))`） | 一律 6 位小写、不含 alpha（`#ffffff`） | 形状固定 | 无（语料颜色全是 6 位小写） |
 | 4.2.7、8.4.3 | `defs` | 模板名的字符串数组 `[...defs.keys()]`（`compile`） | 对象条目 `{name, line, file, params: [{name, required, default}], base, meta}` 的数组，`name` 的序列与原型数组相同 | 4.2.7；8.4.3 要求每个条目带 `meta` | **命中** 有 def 的 5 个文件：semantics（4 个模板）、spaceport 与 spaceport_edit（2 个）、spaceport_blueprint（3 个）、rotation（1 个）；规范化 N16，对参考只比 `name` 序列 |
 | 3.9.7、4.4.5 | 影子的 `late` | `buildCopies` 的 `shadow` 不复制标记，影子一律 `false` | 照抄原件的 | 副本的包络等于原件的包络 | 无（语料里没有后置节点被复制，3.11.5） |
 | 2.1.11、2.2.5 | plate 条目的 `geom.pts` | 未规整的输入点（`buildItems`） | 规整后的轮廓 | 2.2.5 的规整是定义的一部分 | 无（语料没有 plate） |
@@ -331,7 +335,7 @@
 
 | 节 | 警告 | 触发 | 语料 |
 |---|---|---|---|
-| 1.6.9 | "节点名 X 与保留名相同，作为路径的后续段时不能按名字引用" | 节点名是软保留名（语句种类词、方向词、`w h d x y z`、`start mid end side surface origin`、内置函数名与常量、关系词） | **命中** 4 处：basics.s3d:8 与 basics.L0.s3d:8 的 `box floor`（`floor` 是内置函数名）、curves.s3d:54 与 curves.L0.s3d:38 的 `box back`（方向词）。这些节点作为路径**首段**仍可引用（1.6.5 第 5 步："首段不受后缀保留词的限制"），basics.s3d 里的 `on=floor[…]` 照常解析；只是不能作为后续段（`g.floor`）引用 |
+| 1.6.9 | 两条文案：节点名是**后缀保留词**（方向词、`w h d x y z`、`start mid end side surface origin`）时 "节点名 X 与保留名相同，作为路径的后续段时不能按名字引用"；节点名是语句种类词、内置函数名与常量、关系词时 "节点名 X 与保留名相同" | 节点名是软保留名 | **命中** 4 处：basics.s3d:8 与 basics.L0.s3d:8 的 `box floor`（`floor` 是内置函数名）、curves.s3d:54 与 curves.L0.s3d:38 的 `box back`（方向词）。这些节点作为路径**首段**仍可引用（1.6.5 第 5 步："首段不受后缀保留词的限制"），basics.s3d 里 6 处 `on=floor[…]` 照常解析；`floor` 属第二组（`g.floor` 作为后续段也能按名字到达，1.6.5 第 5 步只对后缀保留词停止下降），`back` 属第一组（`bench.back` 是锚点，不是子节点） |
 | 1.6.5 第 4 步、8.2.2 | "没有节点带元数据 X" | `where` 里读了整个场景没有任何节点带的元数据键 | 无 |
 | 8.1.4 | "元数据键 X 与 where 字段同名，在 where 里读不到"；"lang 只在文件头有意义" | 元数据键叫 `w h d x y z top bottom kind name mat it`；节点语句上写 `~lang=` | 无 |
 | 1.5.6 | "kind() 不认识 X" | `kind()` 的参数既不是内置种类词也不是已定义模板 | 无（lib/semantics.s3d 的 `kind(…)` 列出的 15 个都是内置种类词） |
@@ -379,6 +383,206 @@
 | 10.3（D8） | 材质继承顺序 style > color > mat > 父级 > default > 内置；任何作用于节点或其祖先的样式压过节点自己的 `mat` / `color` |
 | 10.3.1、10.4.1 | 副本式节点与影子走**原件**的材质链，$R$ 所在位置的祖先不参与；`group G mat=rust { mirror R of=A }` 的 rust 对 $R$ 无效 |
 | 10.1.4 | 内置缺省分量 metal 0.05、rough 0.78、opacity 1、color `#c9c9c9` |
+
+### 9.3.6 各章差异表的逐行转引
+
+9.3.1–9.3.5 是按类别整理的摘要。**完整清单以本节为准**：下面的表由 `spec/tools/collect-diffs.py` 从各章末尾的差异表逐行转引（不改一字），各章的表是定义处，本节随之再生成；读者在 9.3.1–9.3.5 里找不到的项到这里查。第 10 章没有单独的表，它的差异已逐条写进 9.3.1–9.3.5。
+共 153 行。
+
+
+**01-syntax.md 的 1.11**（40 行）
+
+| 节 | 情形 / 项 | 原型 | 本版 | 类 |
+|---|---|---|---|---|
+| 1.2.1 | 其他 Unicode 空白（如 U+00A0）出现在属性值里 | `exprTokens` 用 `\s` 当空白跳过 | 报错"无法识别的字符" | B |
+| 1.2.1、1.3.3 | 属性值里记号之间有空白（`size=1, 1, 1`、`at=a.top + (0,1,0)`、`on=kind(box) where …`） | `lexStatements` 在深度 0 按空白切词，值被截断（"表达式不完整：1,"、"无法理解 “+”"、"无法理解 “where”"） | 合法：值延伸到第一个不能继续表达式的记号（1.5.1） | A |
+| 1.2.3 | `1.`（小数点后没有数字） | 数字正则 `\d+\.?\d*` 接受为 1 | 语法错误 | B |
+| 1.2.4 | 单引号字符串 `'x'` | `exprTokens` 接受 `'` 作定界符 | "无法识别的字符" | B |
+| 1.2.4 | 转义 `\"`、`\\`、`\n` | 没有转义：`"a\"b"` 在 `\"` 处结束，报"字符串缺少结束引号" | 三种转义合法 | A |
+| 1.2.6 | 组合词含 `center`、同轴重复、超过 3 个方向词（`top-center`、`left-right`、`top-left-front-back`） | `mergeDirs` 只要求每个词是方向词，`dirWord` 把向量相加（`top-center` = `top`，`left-right` = 零向量） | 报错"方向组合词矛盾" | B |
+| 1.2.6、1.5.4 | 坐标后缀后的分量 `B[0.5].y`、`B.top[0,0].x` | `exprTokens`：`]` 后的 `.` 报"无法识别的字符 “.”" | 合法 | A |
+| 1.3.2 | `{` 单独起一行 | `parseProgram` 报"“{” 前缺少语句"后只跳过 `{`，块内语句按外层语句解析并生成节点，配对的 `}` 再报"多余的 “}”" | 报错一次，整块到配对的 `}` 丢弃 | C |
+| 1.3.2 | 文件结束时块没有关闭 | 报"缺少 “}”"，行号是文件末行 | 行号是 `{` 所在行 | D |
+| 1.3.3 | 名字不紧跟种类词（`box #t a`、`box size=1,1,1 c`） | `makeStmt` 把第一个不是 `k=v`、不以 `#` / `~` 开头的词当名字 | 报错"名字要写在种类词之后" | B |
+| 1.3.3、1.9 | 同一语句里重复的属性 / 元数据键 / 标签 | `Map.set` 后写的覆盖先写的；标签数组重复 | 报错"重复的属性 / 元数据 / 标签"，节点退化 | B |
+| 1.3.3、1.3.15 | 模板实例语句带块 | `elaborate` 的模板分支不读 `s.children`，块静默丢弃 | 报错"X 不能有子语句" | B |
+| 1.3.15 | 实体、曲线、副本式 mirror / rotate 带**空**块 `{ }`；material、let、check、style、variant 带块 | 只在 `children.length > 0` 时报错（`elaborate`）；material / check / style / variant 的块静默丢弃 | 报错（空块也报） | B |
+| 1.3.4、1.3.15 | `def X` 没有块 | 接受为空体 | 报错"def 需要块" | B |
+| 1.3.4 | 参数名与 P 组属性名或 `use` 同名（`def f(gap=1)`、`def f(turn=0)`） | 允许，参数优先于同名定位属性（`elaborate` 的 `isPlacement`） | 报错"参数名与属性名重名" | B |
+| 1.3.8 | `over a: box`（冒号不带空白） | `makeStmt` 只认独立的 `:` 词，`a:` 交给 `parseValue` 报"无法识别的字符 “:”" | 合法 | A |
+| 1.3.10 | 关系约束两侧是带空白的表达式（`kind(box) where h > 1 on y`）；约束块里出现 `{` | 两侧各只能是一个无空白的词（`makePattern` 的 `\S+`）；`{` 被静默跳过 | 两侧是任意表达式；`{` 报错 | A / B |
+| 1.3.11 | 没有说明的 check 的 `message` | 词之间的空白规整为单个空格（`words.join(' ')`） | 表达式原文（首尾空白去掉） | D |
+| 1.3.12、1.3.13 | style / variant 的选择器含空白（`style a \| b mat=m`） | 选择器只能是一个词（`words[1]`），其余报"style 只接受 key=value，看不懂 “\|”" | 选择器到第一个 `k=` / `~k=` 为止 | A |
+| 1.4.2、1.4.3 | 名字字面量类型的值碰巧是某个节点的名字（场景里有节点 `x` 时写 `mirror m of=c across=x`、`cyl … axis=x`） | `evalPath` 先做名字查找：`across=x` 解析成节点 `x`，镜像面过该节点（小例子：副本 t = 15 而不是 −3） | 字面量不做名字查找：`across=x` 是坐标面 | C |
+| 1.4.4、3.10.5 | line / bezier / spline 写定位 / 朝向属性；span / sweep / pipe 写 `pin` `mat` `color` 之外的 P 组属性；arc / helix 写 `mat` / `color` | `KIND_PROPS ∪ PLACEMENT` 全部接受，`local` 的 `PATH_CURVES` / `LINKS` 分支不读它们（静默无效） | 报错"X 没有属性 k"，节点退化 | B |
+| 1.4.4 | `alignto` 没有 `align`；`aimwith` 没有 `aim` | 静默忽略（`local` 只在有 `align` 时读 `alignto`；`orientation` 只在有 `aim` 时读 `aimwith`） | 报错"alignto 需要 align" / "aimwith 需要 aim"，节点退化 | B |
+| 1.4.5、3.8.1 | `repeat` 没写 `n` | 缺省 1 个实例（`elaborate`） | 报错"`<路径>` 缺少 n"，节点退化 | B |
+| 1.4.5、1.4.3 | span 的 `pin` 不是 `bottom` / `top` / `center` | `Solver.sym` 退回缺省 `center` | 报错"…只能是 bottom / top / center" | B |
+| 1.5.1 | 一元 `+`（`size=+2,1,1`） | `unary` 接受并忽略 | 语法错误 | B |
+| 1.5.2 | 除以零、结果不是有限数（`1/0`、`sqrt(-1)`） | 得到 Infinity / NaN，节点的盒与位置输出 null，不报错 | 报错"除以零" / "结果不是有限数"，节点退化 | B |
+| 1.5.5 | 向量相等 `(1,2) == (1,2)` | `same` 对数组按引用比较，恒为假 | 逐分量比较，为真 | C |
+| 1.5.5 | `kind == box`、`name == a`、`mat == steel` 的右侧碰巧是某个节点的名字 | 右侧先做名字查找，解析成引用后与字符串比较恒为假（小例子：场景里有 `box box` 时 `all() where kind == box` 为空） | 右侧单段裸标识符按名字字面量 | C |
+| 1.5.5 | `and` / `or` / `not` 的操作数是集合或数（`kind(box) or kind(cyl)`、`not kind(box)`）；`where` 的条件不是布尔（`where 1`） | `or` / `and` 对集合做并 / 交（与 `\|` `&` 同一分支），`asBool` 把非零数、非空集合当真 | 报错"需要真假值，得到 X" / "where 的条件需要真假值"；集合运算只用 `\|` `&` `-` | B |
+| 1.5.6 | `round` 恰好 .5 | `Math.round`：向 $+\infty$ 取整（$\mathrm{round}(-2.5) = -2$） | 远离零（$-3$） | C |
+| 1.5.6 | `kind()`、`min()`、`max()` 没有参数 | `kind()` 得空集；`min()` 得 Infinity | 报错"X() 需要 N 个参数" | B |
+| 1.5.8 | 同一块里重复的 `let X` | 后写的覆盖先写的 | 报错"重复定义 X" | B |
+| 1.5.8 | 属性值（或它读到的 `let`）用了 `where` 的尺寸字段、关系谓词、概念 | `let tall = kind(box) where h > 1.5` 后 `on=tall` 可用，结果取决于求解缓存 | 时机错误，节点退化 | B |
+| 1.6.1 | 匿名模板实例的段 | `group#i`（`elaborate` 用 `group` 建实例节点） | `模板名#i` | D |
+| 1.6.1 | 匿名段的计数 $i$ | 取创建时的子节点下标，drop 之后新建的匿名节点会重用编号（`drop g.a` 后 over 块新建的匿名 box 与已有的 `g.box#1` 同路径） | 按此前已创建的总数，永不回收 | C |
+| 1.5.4、1.6.5 | 路径下降时遇到后缀保留词（`g.top` 而 g 下有名为 `top` 的子节点） | `Solver.find` 的 `descend` 先按子节点名匹配，`g.top` 解析到子节点 | 后缀词永远按后缀解释，`g.top` 是锚点 | C |
+| 1.6.7 | `kind(group)`、`kind(instance)`、`kind(mirror)` 与 `where kind` 对阵列实例、副本组 | 实例与副本组内部是 `group` 节点：`kind(group)` 选中它们，`kind(instance)` 为空，`where kind == "group"` 为真（输出的 `nodes[].kind` 却是 `instance` / `mirror`） | 种类是 `instance` / `mirror` / `rotate`，`kind(group)` 只选 `group` 语句生成的节点 | C |
+| 1.6.7 | `where kind` 对原件是模板实例的副本式节点与影子 | `evalAst` 取 `m.template ?? K(m)`，得到 `group`（`kind(hut)` 却选中它们） | 模板名（与 `kind(hut)` 一致） | C |
+| 1.6.7、4.4.5 | 副本式 `mirror R of=A` 的标签 | 只有 R 自己写的标签（`elaborate`：`new Node(…, s.tags, …)`），`#w` 选不中 `A` 的副本 | $A$ 的标签 ∪ R 自己写的 | C |
+| 1.1.5 | 错误的排序 | 只按行号排序（`compileOnce` 的 `errors.sort`），不分文件 | 文件序号、行号、发现先后 | D |
+
+**02-geometry.md 的 2.8.3**（16 行）
+
+| 节 | 情形 / 项 | 原型 | 本版 | 语料 |
+|---|---|---|---|---|
+| 2.1.8、2.2.3、2.2.8 | 非轴对齐 cyl / cone / rod 的 `tight` | `tightBox`：12 边内接棱柱顶点的盒 | 两端面圆的轴向极值 | 按 2.8.1 的口径（7 个文件不去重、`world.R` 不是带符号置换矩阵）共 135 个非轴对齐 cyl / cone（132 + 3）与 73 个 rod；其中参考 `tight` 与本版 $T$ **实际不同**（偏差 $> 10^{-9}$）的是 87 个 cyl / cone（84 + 3）、21 个 rod（2.8.2），其余 48 + 52 个的轴向极值恰落在棱柱顶点上、两版相同；参考比本版小，每面偏差 $\le R(1 - \cos 15°)$；cone 顶点处参考另可大 $\le 10^{-4}$（小环） |
+| 2.1.8、2.2.9 | 圆截面 sweep / pipe 的 `tight` | 每环取 8 个点（$0°, 36°, 90°, 126°, 180°, 216°, 270°, 306°$）的盒 | 全部 20 个环点 | 2 个节点（`feed1`），偏差 $4.3 \times 10^{-6}$；一般 $\le r(1 - \cos 27°) \approx 0.109\,r$，参考 ⊆ 本版 |
+| 2.1.8、2.2.7 | 非轴对齐或 `angle` $< 360$ 的 revolve 的 `tight` | 外接 12 边棱柱 $R_{\max} \times [y_{\min}, y_{\max}]$ 的盒 | 轮廓各点的圆 / 弧极值 | 1 个节点（rotation 的 `radar.dish`，参考大 1.94）；参考值可由本版按该棱柱重算核对 |
+| 2.5.4 | 布尔容器的 `tight` | `null`（只对有 `geom` 的叶子算） | 操作数 $T_i$ 按运算组合 | 5 个节点 |
+| 2.2.3 | 圆锥（$r_2 = 0$ 的顶端）的凸块 | 半径 $10^{-4}$ 的 12 点小环（`frustumPoly` 只对顶环取 `max(r2, 1e-4)`） | 一个顶点 | rotation 涉及 cone 的 6 条事实，`gap` 差 $\le 10^{-4}$（6.8.3） |
+| 2.2.9 | 凹截面扫掠段的凸块 | 直接用截面环，不标 approx | 凸包，`approx=true` | 无（截面都是凸的） |
+| 2.1.6.2、2.2.5 | 凹轮廓 plate 的三角化与凸块 | `triangulate2` | 耳切 | 无（语料没有 plate） |
+| 2.1.11、2.2.5 | plate 条目的 `pts` | 未规整的输入点 | 规整后的轮廓 | 无 |
+| 2.1.11、2.2.6 | hull 条目的 `faces` | 增量凸包算法的三角形 | 面片按扇形规则三角化 | 无（语料没有 hull） |
+| 2.1.11、2.2.7 | revolve 条目的 `prof` | 平滑后不截断负半径、不规整（`profile=[(3,0); (0,1); (1,2)] smooth=true` 出现 $r = -0.0575$；相邻重复点保留） | 第 3 步截断为 0、第 5 步去重 | 无（语料全部 revolve 的 `prof` 最小 $r$ 都是 0、没有重复点） |
+| 2.5.5、2.1.11 | 布尔容器里的曲线 | 没有 `curves[]` 条目 | 有条目 | 无 |
+| 2.5.4、2.5.5 | 布尔容器的局部包围盒 | `Solver.box`：union / intersect 取全部子节点（含曲线）盒之并；subtract 取第一个**子节点**（可以是曲线）的盒 | intersect 取交；曲线不计；subtract 取第一个**操作数** | 无（5 个布尔容器都是 subtract、首个子节点是实体，两版相同） |
+| 2.4.1 | `B.top[u,w]` | 除 sphere、`axis=y` 圆台、revolve、mesh 外一律取盒顶；不检查范围；revolve 把两端半径都 $\ge \rho$ 的边算作候选 | 按真实表面（wedge 斜面、横放圆柱面、plate 轮廓、hull、台阶、网格）；竖直线没碰到实体报错；revolve 只算跨过 $\rho$ 的边 | 无（语料没有 `top[u,w]`） |
+| 2.4.2 | `B.side[θ,v]` | `axis=z` 时 $\theta = 90$ 指 $+x$（左手）；横放圆台的法线轴向分量朝宽端；revolve 的法线水平；不检查 $v$、$\theta$ 范围 | 右手（$90$ 指 $-x$）；法线朝窄端；revolve 取轮廓边的法线；范围报错 | 无（语料没有 `side[θ,v]`） |
+| 2.3.1 | 零长度折线段上的切线（`C[t]`、`dir=`、`along`） | `curveAt` 给零向量 | 取相邻非零段的方向 | 无（语料曲线没有重合的相邻点） |
+| 2.2.9、2.1.6.1 | 扫掠段凸块两个环面片的顶点序 | 起点环递减、终点环递增（`polyFrom` 不分法线正负） | 起点环递增、终点环递减（从外面看逆时针） | 无（顶点集与分离量相同） |
+
+**03-solving.md 的 3.11.5**（16 行）
+
+| 节 | 情形 / 项 | 原型 | 本版 | 理由 |
+|---|---|---|---|---|
+| 3.4.2 | `gap` 写在 $\nu = 0$ 的关系上 | 静默忽略（`local`） | 报错，节点退化 | 1.1.1：不得静默接受无效写法 |
+| 3.5.3 | `rot` 的轴是零向量 | 非正交矩阵（`axisAngle`） | 报错 | 结果无定义 |
+| 3.5.4 | `aimwith` 的值不是方向词 | 值不是名字（`aimwith=5`）时退回 `front`（`sym`）；是名字但不是方向词（`aimwith=foo`）时原型也报错 | 一律报错 | 类型规则 1.4.1 |
+| 3.3.4 | `against=B[u,v,w]` 的主法线为零（`B[0,0,0]`） | 不报错：$\nu = 0$，自动选面取 `left`，gap 无效（`relation`） | 报错，节点退化 | 1.4.4：against 必须带面锚点 |
+| 3.8.1 | `repeat` 没写 `n` | 缺省 1 个实例（`elaborate`） | 报错"缺少 n"，节点退化 | 1.4.5：必填（01-syntax.md 的 1.11 已列） |
+| 3.6.2 | 定位引用自己的祖先 | 经后置得到一个解（`ref` 只查自己与后代） | 报错 | 容器的盒由子节点决定，引用没有不循环的含义 |
+| 3.6.3 | 后置的判定 | 惰性求值的忙标记，依赖求值顺序 | 依赖图上的可达性，容器按节点顺序（父先于子） | 确定性（1.1.3）；语料结果相同 |
+| 3.6.5 | 循环依赖 | 只退化先碰到的节点、报一条错 | 环上全部节点退化，各报一条 | 错误局部化与确定性 |
+| 3.8.1 | `n` 非整数 / 负数 | 四舍五入 / 取 0（`elaborate`） | 报错 | 不猜 |
+| 3.8.4、3.8.6 | `along` 与 `step` / `center` 同写；`orient` 没有 `along`；`orient=true/false` | 忽略 / 当 yaw、none（`instLocal`） | 报错 | 互斥与枚举规则 |
+| 3.9.1 | 副本式节点写定位属性；`rotate … of=` 写 `n` | 忽略（`local` 的 `n.src` 分支、`rotationIn`） | 报错 | 1.4.4、1.4.5 |
+| 3.9.2 | `rotate` 容器式的 `n` 非整数 | 四舍五入（`buildCopies`） | 报错 | 不猜 |
+| 3.9.3 | `across=x/y/z` 与 `axis` 同写 | 忽略 axis（`mirrorIn`） | 报错 | 互斥 |
+| 3.9.5 | 方向规格为零向量 | `unit` 得零向量，继续算 | 报错 | 结果无定义 |
+| 3.3.8 | 多个定位关系 | `on` 优先、其余忽略（`relation`） | 报错（已在 3.3.8 列出） | 1.4.4 |
+| 3.9.7 | 后置节点被 mirror / rotate 复制时影子的 `late` | 假（标记不复制） | 取原件的（真） | 副本的包络等于原件的包络，影子同样不计入；只是输出字段，不改变任何量 |
+
+**04-derivation.md 的 4.8.5**（16 行）
+
+| 节 | 情形 / 项 | 原型 | 本版 | 理由 |
+|---|---|---|---|---|
+|  | 副本式节点的 `kind` | compileOnce 输出 `"<种类>→<原件种类>"`：`tower2` / `arm2` 是 `mirror→group` / `mirror→span`，`rampE` `mirror→span`，`street.h*.half2` `mirror→wedge`，`sat.wing2` `mirror→box`，`stepsE` `mirror→span`，`tower2`（curves）`mirror→revolve`，`gate2` `rotate→group` | 原件的种类：`truss`、`span`、`wedge`、`box`、`revolve`、`group`（1.6.7） | 1.6.7 已定：R 的种类是 A 的种类（含类型链）；组合串不是任何种类名，`where kind == …` 无法匹配 |
+|  | 副本式节点的 `types` | `null`（buildCopies 不复制 `types`，只在 `kind()` 里经 `n.src.types` 查） | 原件的类型链：spaceport 的 `tower2` 输出 `["truss"]` | 同上；`kind(truss)` 在原型里已经选中 tower2，输出应与之一致 |
+|  | 影子的 `kind`（原件是阵列实例） | shadow 建成 `group` 节点，输出 `group`（`tower2.legs.0`、`tower2.decks.0`） | `instance`（1.6.7：影子的种类 = 原件的） | 影子应与原件同种类，否则 `kind(instance)` 漏掉副本里的实例 |
+|  | 影子的 `kind`（原件是副本组） | `group`（`gate2.halves.mirrored`） | `mirror`（原件副本组的种类） | 同上 |
+|  | copy 节点的 `file` / `line` | 源语句的（`hangar2` 带 spaceport.s3d:68） | copy 语句的（spaceport_edit.s3d:13）（4.3.2 第 7 条） | 节点的名字与位置来自 copy 语句；05-layers.md 的 5.2.5 把 copy 语句自己的属性归 copy 语句 |
+|  | `hangar2.roof` 的材质条目 | `{color:"#4a5560"}` | steel 改色（name steel、metal 0.6、rough 0.4、color #4a5560） | 10.3.2（已在 10.6 列出） |
+|  | copy 节点在兄弟中的位置与匿名段计数 | 追加在兄弟之后、不计入匿名计数（expandCopies） | 占 copy 语句的位置并计入计数（4.3.5） | 1.6.1 已定；语料里 copy 都是块末语句，参考输出不变 |
+|  | copy 的元数据 | copy 语句有元数据时整体替换（expandCopies） | 逐键合并（8.3.5） | 8.3.5 已定；语料无影响 |
+|  | 副本式节点 R 的标签 | 只有 R 自己写的（buildCopies；`#w` 选不中 `mirror w2 of=w`） | $A$ 的 ∪ 自己的（1.6.7、4.4.5） | 副本是原件的跟随体，按标签选原件时副本应一同选中；语料里副本式节点都不带标签、原件带标签的副本式节点没有 |
+|  | 皮肤节点的 `file` | `null` | 变体语句的文件（4.7、5.2.5） | 不允许没有文件归属的输出（5.2.5） |
+|  | `defs` 的形状 | compile 输出 `[...defs.keys()]`：模板名的字符串数组（semantics：`["house","chimney_house","planks","townhouse"]`；spaceport 系：`["truss","shed"]` / `["truss","shed","ribbed"]`；rotation：`["turbine"]`） | 对象条目 `{name, line, file, params, base, meta}` 的数组（4.2.7），`name` 的序列与原型数组相同 | 8.4.3 要求每个条目带 `meta`；9.4.3 按 `name` 序列对拍，其余字段只在两份实现之间比 |
+|  | copy 块里与 over 块里嵌套的 over / drop 的先后 | 展开该块时追加到修改队列末尾（expandCopies / applyOpinions），晚于全部最外层修改：`copy b of=a { over c size=2,2,2 }` 后再 `over b.c size=3,3,3`，b.c 是 2 | 位置 = copy / over 语句的位置（4.1.2），b.c 是 3 | 4.1.2 的全序；语料里块内修改之后没有再改同一节点的最外层修改 |
+|  | copy 语句上既不是 P 组也不是模板参数的键 | 静默写进新语句并生效（expandCopies：`copy b of=a size=2,2,2` 得到 2 × 2 × 2） | 报错"copy 没有属性 k"，该 copy 无效（4.3.3、1.3.14） | 不猜；语料无 |
+|  | copy 的原件在另一条 copy 的子树里（`copy c3 of=g.c1` 写在生成 g.c1 的 copy 之前） | 只在 `of` 首段是待展开 copy 的名字时推迟，否则报"copy 找不到原对象"（expandCopies） | 按 4.3.5 的轮次推迟并展开 | 展开时机不影响结果；语料无 |
+|  | 皮肤模板体里的 over / drop / copy | 挂载时已过修改与 copy 阶段，登记后静默丢失（compileOnce） | 在皮肤子树内施加 / 立即展开（4.7 第 6 条） | 皮肤体与模板体同义（7.8.5）；语料的三个皮肤模板没有这些语句 |
+|  | 变体的自动传参 `w h d` 在基类型里声明 | 只看最终定义自己的参数表 `def.params`，不传（compileOnce） | 按合并后的参数表传（4.7 第 3 条、7.8.3） | 参数表含派生链（4.2.5）；语料的皮肤模板都不是派生的 |
+
+**05-layers.md 的 5.5.4**（17 行）
+
+| 节 | 情形 / 项 | 原型 | 本版 | 理由 |
+|---|---|---|---|---|
+| 5.2.3 | 同一文件被 import 两次 | loadProgram 只有加载链 `stack`，不在链上的已加载文件再次 import 时静默重复内联 | 报错"文件 X 已经 import 过"，不导入 | 重复内联必然造成同级重名并压掉中间的定义；1.8 节、1.6.6 已定（D19） |
+| 5.2.3 | 循环 import | loadProgram 的链不含根文件；a → b → a 时 a 的语句被读入两次才报错 | 根文件始终在链上，第一次重复出现即报错，不重复任何语句 | 5.1.3 等价原则：不得有语句被内联两次 |
+| 5.2.2 | import 路径 | joinPath 保留开头多出的 `..`、接受 `\` | `..` 越出根目录报错；`\` 报错 | 1.8 节已定 |
+| 5.1.4 | 被 import 文件的 `lang` | loadProgram 不检查 `lang`；文件头行本身在原型里报"未知的类型 “~lang=2”"（makeStmt 的通用分支把 `~lang=2` 当作种类名建成语句，报错在 elaborate；9.1.2），不论在哪个文件 | 不是 2 时报"不支持的语言版本"，该文件不编译 | 8.1.5（D7） |
+| 5.2.5 | 错误与节点的 `file` | 根文件的解析错误、style / variant / 几何 over 的选择器错误、事实提供者错误、皮肤节点 `skin` 的 `file` 为 `null` | 一律带文件 | 1.10.1：不允许没有文件归属的错误与输出 |
+| 5.2.5 | copy 节点的 `file` / `line` | expandCopies 用源语句的（`hangar2` → spaceport.s3d:68） | copy 语句的（spaceport_edit.s3d:13） | 4.3.2 第 7 条 |
+| 5.3.2 | 跨文件的最外层同名节点 | elaborate 不检查，产生两个同路径的节点 | 报错"同级重名 X"，后出现的语句无效 | 1.6.6（D18） |
+| 5.3.3 | `def X : X` 而 X 尚无定义 | elaborate 报错但仍登记为只有扩展体的定义 | 报错且不登记 | 1.1.4 第 4 条：出错的定义不产生效果 |
+| 5.3.4 | 块内、模板体内的 `material` | elaborate 的 `one` 静默忽略 | 报错"material 只能写在最外层" | 10.1.1（D6） |
+| 5.3.5 | 同名 `pattern` | 两条都输出、匹配取最后一条 | 只保留最后一条 | 与 concept 一致（5.3.1） |
+| 5.3.5 | concept / pattern / 最外层 let 异种同名 | pattern 静默压过同名 concept（semantic.setLazy 覆盖） | 报错"名字 X 已经用作 …"，后出现的语句无效 | 1.3.9 |
+| 5.4.2 | 几何时机的选择器读 `w h d x y z top bottom` | applyOpinions 不报错；evalAst 的 `where` 分支在求解器上按需求盒并缓存，之后的修改对已缓存的盒不再生效（`over all() where h > 2 size=2,2,2` 无效果且无错误） | 报错"几何时机的选择器只能用静态量（…）"，语句无效 | 1.7.4 已定（D10）；原型的结果依赖缓存状态，没有可判定的定义 |
+| 5.4.2 | 几何时机的选择器用关系谓词 | applyOpinions 报"over 改的是几何，在求解之前生效，不能按空间事实选择（只改外观的 over 可以）" | 报"X() 依赖求解后的空间事实，不能用来决定位置 / 几何" | 1.5.6 的文案；含义相同 |
+| 5.4.2 | 几何时机的选择器写概念名 / 未知名字 | applyOpinions 经 evalAst 把未解析的名字当字符串，报"需要集合（对象、#标签、kind(…)、列表…），得到 X" | 概念或模式名 → 时机错误；否则"找不到对象 X" | 1.6.5：找不到的名字报错而不是退化成字符串 |
+| 5.4.2 | 几何时机的 `where mat == X` | evalAst 的 `where` 帧没有 `mat`，`mat` 被当作找不到的名字 → 空集 | 静态量，可用 | 1.7.3、10.5.3（D3） |
+| 5.4.2 | 外观时机的 `over` 选择集为空 | compileOnce 的样式与变体循环不报 | 报错"X 没有选中任何对象"，语句无效 | 1.7.1 按语句种类规定（over / drop 两个时机都报，7.7.4）；style / variant 仍不报 |
+| 5.4.2 | `where` 里的 `name ~ /re/`、元数据键 `~ /re/` | 词法器不认识 `~`（"无法识别的字符 ~"） | 合法的静态量 | 1.7.3（D3） |
+
+**06-facts.md 的 6.8.5**（10 行）
+
+| 节 | 情形 / 项 | 原型 | 本版 | 理由 |
+|---|---|---|---|---|
+| 6.2.2、6.5.1 | 一方是布尔容器的事实 | 不标 approx（`localParts` 对没有 `geom` 的节点返回 `approx: false`） | `approx: true` | 2.5.6：代理盒是近似；语料 19 条 |
+| 6.5.4 | $B$ 的唯一凸块是近似的（revolve、mesh、布尔容器、凹截面扫掠段） | 不判 `inside`（`insideTest` 要求 `convex`），得 `intersects` / `touching` | 判 `inside` 并标 approx | 与 2.5.6 对布尔容器的要求一致；近似几何的统一规则；示例 1 条（`radar.feed`）；exports 预计 308 条（下文） |
+| 6.5.3 | mesh 外包络贴面 | `touching`（`boxy` 要求精确） | `against`，approx | 同上；示例无；exports 预计 37 条（下文） |
+| 6.6.1 | `gap` 的精度 | 四舍五入到 4 位小数（`toFixed(4)`） | 完整双精度 | 小单位场景（stud）下 4 位不够；确定性按逐位 |
+| 6.6.1 | `approx` 字段 | 只在为真时出现 | 总是输出布尔 | 形状固定 |
+| 6.2.3、6.4.3、6.5.3 | 对象盒 / 块盒恰好相距 $\varepsilon$ 的对；`against` 轴对齐判定的元素恰差 $\varepsilon_{\text{dir}}$ | `broadPairs` 对 $y$ / $z$ 用 `> -margin`（排除恰好相等）、对 $x$ 用 `>=`（保留），`gapBetween` 用 `< -eps` 跳过（保留恰好相等），三处不一致；`isAxisAligned` 用严格的 `< 1e-6` | 三处统一为重叠量 $\ge -\varepsilon$ 保留；轴对齐用 $\le \varepsilon_{\text{dir}}$（与 6.5.2 第 1 条、2.1.4 一致） | 边界只按一条不等式；语料无（6.8.4 的 `exact` / `ax2`） |
+| 6.4.2 | 同心球（两个球的球心重合） | 没有候选轴，`gap` 为 $-\infty$，JSON 输出 `null` | `gap` $= -(r_A + r_B)$，是数 | `gap` 必须是数（6.6.1）；语料无（6.8.4） |
+| 6.6.4、6.7.3 | 不推导事实时调用关系谓词 | 静默得到空集 | 空集并警告 | 1.1.1：不得静默 |
+| 6.3.2 | 请求了不存在的提供者 | 报错并用缺省（`compileOnce`） | 相同 | — |
+| 6.3.2 | 提供者出错 | 只丢该提供者的事实（`deriveFacts` 的 `onError`） | 相同 | — |
+
+**07-semantics.md 的 7.9.4**（26 行）
+
+| 节 | 情形 / 项 | 原型 | 本版 | 理由 |
+|---|---|---|---|---|
+| 7.2.3 | 集合的成员顺序 | evalAst 的 `or` 按操作数拼接（`[...A, ...B]`）、relSet 按索引插入顺序：`lamp` 的成员是 4 根 pole 后 4 个 bulb，`tree` 是 12 trunk 后 12 crown | 节点顺序：`lamps.0.pole lamps.0.bulb …` | 1.5.5 已定（D15）；两个概念的成员集合相同 |
+| 7.2.3 | 带锚点 / 偏移的引用当集合 | asSet 取其节点、丢掉锚点 | 报错"X 不是集合（锚点与偏移不能当集合）" | 写了锚点说明要的不是集合 |
+| 7.2.4 | 关系谓词的第二个参数 | relSet 接受任何数（`on(ground, 0)` = 索引里有 on 项的全部节点；1.5 等价于 2） | 必须是整数 ≥ 1，否则报错 | 1.5.6 已定 |
+| 7.2.5、7.8.4 | 皮肤对语义语句的可见性 | `all()` / `kind()` / `#tag` 不含皮肤（allNodes 过滤 skin，相同）；但第二遍的语义语句在有皮肤的树上求值，`descendants()`、`children()`、通配、直接路径 `x.skin` 能选到皮肤（07/t2.s3d：`concept desc = descendants(g)` 含 `g.skin`、`g.skin.base`，皮肤节点带 `concepts` 标注，`check count(descendants(g)) == 1` 不通过） | 没有任何语义语句在皮肤存在后求值：这些构件只得到非皮肤节点，皮肤的 `concepts` 恒为 `[]` | 7.1.1 的保证；消除 10.4.3 / 10.5.3 的分支 |
+| 7.3.1 | `where` 的 `kind` 对副本式节点与影子 | evalAst 取 `m.template ?? K(m)`：原件是模板实例时得到 `group`（07/t4.s3d：`mirror m of=a`，a 是 `hut` 实例，`all() where kind == hut` 只有 a，`kind(hut)` 却有 a 与 m） | 原件的种类（1.6.7）：`hut`，与 `kind(hut)` 一致 | 1.6.7 已定；`kind()` 与 `where kind` 不应给出不同答案 |
+| 7.4.2 | `concept N : U` 的 U | makeStmt 把 U 当普通路径求值，可以是对象（`concept E : ground = where …` 得到 {ground}） | U 必须是概念名，否则报错、语句无效 | `parent` 字段的含义；层级是概念之间的 |
+| 7.4.4 | `nodes[].concepts` 的标注 | compileOnce 不去重、模式内按绑定顺序 | 去重；模式按输出顺序、角色按声明顺序，再概念 | 可判定；语料无影响 |
+| 7.5.1 | 同一角色两条 `in` | matchPattern 的 `domains.set` 让后一条覆盖前一条（makePattern 只收集约束） | 报错"角色 X 的 in 约束重复"，pattern 无效 | 覆盖没有理由 |
+| 7.5.1 | 关系词 `intersects` | makePattern 的关系词表不含它（当作布尔表达式解析而失败） | 七个谓词名都是关系词 | 1.3.10 已定 |
+| 7.5.2 | 域引用了未绑定的角色 | 匹配时报"需要集合（…），得到 y"（未绑定的名字退化成字符串） | 登记时静态报错 | 1.6.5：找不到的名字不退化成字符串；错误更早 |
+| 7.5.3 | 布尔约束的值 | asBool：非空集合与非零数为真 | 必须是布尔 | 1.5.5 |
+| 7.5.6 | 匹配超过 500 | 静默截断 | 截断并警告 | 截断的结果不是真值 |
+| 7.5.8 | 失败文案 | 集合角色规则那条错误把约束的行号写进文案（"第 31 行：…"），其余失败文案不带 | 文案不含行号（行在 `line` 字段） | 1.10.1 |
+| 7.5.8 | 失败的模式的 `roles` | `roles: []`（compileOnce 的 catch 分支；07/t5.s3d） | `roles` 照常（签名顺序，集合角色带 `*`） | 签名是静态的，失败不改变它 |
+| 7.6.1 | check 的结果是数或字符串 | asBool：非零数、`"true"` 为真 | 报错"check 的结果需要真假值或集合"，`ok: false` | 没有确定含义 |
+| 7.6.2 | check 的求值错误 | 只写进 `checks[].error`，不进 `errors[]` | 两处都记 | 1.1.4 第 4 条 |
+| 7.1.4 | `factsSkipped` 为真时调用关系谓词 | compileOnce `buildRelations([])`：谓词得到空集，不警告 | 空集，并按 6.9 每条语句记一条警告"空间事实未推导，X() 为空集" | 空集不是概念 / 模式的真值，依赖它的 check 会误判 |
+| 7.8.3 | variant 写明的参数值的词法环境 | compileOnce 用全局帧（`new Env(elab.globals)`） | 语义帧（概念名、模式名可见） | 与选择器一致；全局帧里能写的表达式值相同 |
+| 7.8.1 | `use` 的模板不存在 | compileOnce 挂载时对每个宿主报错，宿主不隐藏 | 登记时报一次，语句无效 | 静态可判定 |
+| 7.8.1 | variant 的键不是参数 | 挂载时报"模板 X 没有参数 k"，仍挂载（宿主已隐藏） | 语句无效 | 1.3.13、1.1.4 第 4 条 |
+| 7.8.1 | 必填参数未给 | 挂载时报"模板 X 缺少参数 q"，宿主隐藏、皮肤零盒（物体消失） | 语句无效，宿主不隐藏 | 错误不应使物体消失 |
+| 7.8.1 | variant 上的 `at` / `pin` | 静默覆盖为 `at=宿主底面 pin=bottom` | 报错"变体的位置由外包络决定"，语句无效 | 1.3.13 已定 |
+| 7.8.2 | `members` 的顺序 | 路径字符串排序 | 节点顺序 | 1.5.5；语料每条至多一个成员 |
+| 7.8.6 | 宿主是布尔容器的操作数 | 操作数被标 hidden 但仍参与布尔并渲染；皮肤不渲染、不出条目 | 该成员不挂载，报错 | 原型行为不是任何可取的定义 |
+| 7.8.9 | 无效 variant 的输出条目 | 没有条目 | 有条目，`members: []` 带 `error` | 与 concept / pattern 一致 |
+| 7.1.1 | 编译遍数 | compile 编译两遍（第二遍重算一切，语义语句在有皮肤的树上求值） | 一遍、两阶段；除上面"皮肤对语义语句的可见性"一行外结果相同 | 皮肤对阶段一不可见 |
+
+**08-metadata.md 的 8.6.2**（12 行）
+
+| 节 | 情形 / 项 | 原型 | 本版 | 语料 |
+|---|---|---|---|---|
+|  | 顶层 `meta` | compile 不输出 | `meta: { "lang": 2, … }` 总是存在（8.4.3） | 全部文件；9.4.5 的 N12 给参考输出补 `{ "lang": 2 }` |
+|  | 顶层 `files` | compile 不输出 | 已加载文件的数组，每条 `{file, meta, import}`（8.4.3） | 全部文件；N12 按参与编译的文件补（语料没有文件头，每条的 `meta` 是 `{ "lang": 2 }`；import 语句都没有元数据，`import.meta` 是 `{}`） |
+|  | `concepts[]`、`patterns[]`、`checks[]`、`variants[]`、`defs[]`、`materials` 条目的 `meta` | 不输出（`defs` 是模板名数组） | 每个条目带 `meta`，缺省 `{}`（8.4.3） | 全部条目；N12 补 `{}`（`defs` 的形状按 4.8.5） |
+|  | copy 语句带元数据 | expandCopies 整体替换：`meta: s.meta?.size ? s.meta : A.stmt.meta` | 逐键合并，copy 自己的覆盖同名键（8.3.5） | 无（语料的 copy 语句没有元数据） |
+|  | 元数据值引用对象、`#tag`、`where`、求解后才可用的函数 | staticMeta 用带节点的上下文求值：裸名字与 `#tag` 退化成字符串（`~src=ground` 得 `"ground"`，`~t=#x` 得 `"#x"`）；`all()` 等报"all() 只能在求解阶段使用"、锚点报"找不到对象 ground.top"，且该语句的**全部**元数据丢失（`~a=1 ~s=all()` 得 `{}`） | 报错"元数据不能引用对象 X"等，只有出错的键不存在、节点不退化（8.1.3、8.1.6） | 无（exports 的值全是数与字符串） |
+|  | 同一语句里同键两次 | `makeStmt` 的 `Map.set`：后写的覆盖先写的（`~fit=0.5 ~fit=0.9` 得 `fit: 0.9`），不报错 | 报错"重复的元数据 k"，该键不存在（8.1.4） | 无 |
+|  | 值 `true` / `false` | 退化成字符串 `"true"` / `"false"`（原型没有布尔字面量） | 布尔，输出 JSON `true` / `false`（8.1.3、8.4.2） | 无 |
+|  | 列表值的输出 | `evalAst` 的 list 分支：`{ "list": [1, 2] }` | 数组 `[1, 2]`（8.4.2；与向量不区分） | 无 |
+|  | copy 的原件是阵列实例 | expandCopies 新建 `group` 时不写 `meta`：copy 语句自己的元数据丢失（`copy r2 of=row.1 ~note="inst"` 得 `{}`） | R 的元数据 = copy 语句自己的（8.3.5） | 无 |
+|  | 元数据对 `let`、`def`、`import`、`concept` 等语句 | 各有不同的失败方式（09-compat.md 的 9.2.1） | 对所有语句合法，非节点语句只保存不作用（8.1.2、8.3.8） | 无 |
+|  | 警告"元数据键 X 与 where 字段同名…"、"lang 只在文件头有意义"、"没有节点带元数据 X" | 无 | 8.1.4、8.2.2 | 无（9.3.4） |
+|  | 文件头 `~lang=2` | 报错"未知的类型 “~lang=2”" | 文件元数据（8.1.5） | 无（语料没有文件头） |
+
 
 ## 9.4 对拍容差与比较规则
 
@@ -586,7 +790,7 @@ exports 里 `~fit` / `~src` 元数据的值全是数与字符串（8.1.3 不报�
 按 9.5.1 第 3 条的脚本，exports 里本版预期与参考不同的事实共 345 条：`intersects` → `inside` 308 条（basics.L0 1、curves.L0 1、l2fb 13、rotation.L0 249、spaceport.L0 11、spaceport.L1 11、spaceport_edit.L0 11、spaceport_edit.L1 11），`touching` → `against` 37 条（basics.L0 1、curves.L0 2、l2fb 4、spaceport.L0 6、spaceport.L1 8、spaceport_edit.L0 8、spaceport_edit.L1 8）。全部涉及 mesh（逆向把 revolve、sweep、布尔体写成了引用源网格的 `mesh`，其外包络是近似凸块），`gap` 与 `approx: true` 不变，只有 `rel`（与 `against` 的 `text`）变。两点说明：
 
 - 这是**预测**，不是定义：脚本按 6.5.3 / 6.5.4 用参考输出的盒推算，对 box / wedge / mesh 作 $A$ 的情形精确，对其他实体保守（可能漏报）。M1 用实现跑出结果后按 9.4.5 N8 逐条核对。
-- 数量集中在 rotation.L0（249 / 709）：过山车的 110 根枕木与 20 根立柱落在三条轨道 mesh 的外包络盒里。这是 6.5.4 允许近似 $B$ 的直接后果——细长的 mesh 外包络会"包住"途经它的一切。事实带 `approx: true`，读事实的一方据此决定信不信；本章只记录影响，不重开 6.5.4 的决定。
+- 数量集中在 rotation.L0（249 / 709）：过山车的枕木（`coaster_ties.*.tie`，247 条事实）与 `radar` 的 2 条落在三条轨道 mesh 的外包络盒里；立柱（`coaster_legs.*.col`）不受影响（6.8.5 同一口径）。这是 6.5.4 允许近似 $B$ 的直接后果——细长的 mesh 外包络会"包住"途经它的一切。事实带 `approx: true`，读事实的一方据此决定信不信；本章只记录影响，不重开 6.5.4 的决定。
 
 示例（corpus/examples）里预期改变的事实只有 1 条（rotation 的 `radar.feed`），由 6.8.3 的独立实现确认，不是预测。
 
