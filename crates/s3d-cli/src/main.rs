@@ -1,5 +1,6 @@
 //! `s3d` 命令行（M1）：compile 输出 JSON；verify 对参考输出对拍（9.4）。
 
+mod sha256;
 mod verify;
 
 use s3d_lang::compile::{compile, CompileOptions};
@@ -13,6 +14,45 @@ fn abs_path(p: &str) -> String {
         std::env::current_dir().unwrap().join(path)
     };
     abs.to_string_lossy().replace('\\', "/")
+}
+
+/// 把一个文件与它 import 链上的文件打成 wasm 入口的 JSON 包（按文件名索引）
+fn make_bundle(file: &str) -> String {
+    use serde_json::{json, Map, Value as J};
+    let mut files = Map::new();
+    fn visit(p: &Path, files: &mut Map<String, J>) {
+        let name = p
+            .file_name()
+            .map(|s| s.to_string_lossy().to_string())
+            .unwrap_or_default();
+        if files.contains_key(&name) {
+            return;
+        }
+        let text = match std::fs::read_to_string(p) {
+            Ok(t) => t,
+            Err(_) => return,
+        };
+        files.insert(name, J::String(text.clone()));
+        for line in text.lines() {
+            let t = line.trim_start();
+            if let Some(rest) = t.strip_prefix("import") {
+                let rest = rest.trim_start();
+                if let Some(q) = rest.strip_prefix('"') {
+                    if let Some(end) = q.find('"') {
+                        let rel = &q[..end];
+                        let dir = p.parent().unwrap_or(Path::new("."));
+                        visit(&dir.join(rel), files);
+                    }
+                }
+            }
+        }
+    }
+    visit(Path::new(file), &mut files);
+    let main = Path::new(file)
+        .file_name()
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or_default();
+    json!({ "main": main, "files": J::Object(files) }).to_string()
 }
 
 fn main() {
@@ -63,6 +103,18 @@ fn main() {
             }
             println!("failures: {}", rep.failures);
             std::process::exit(if rep.failures == 0 { 0 } else { 1 });
+        }
+        Some("hash") if args.len() >= 2 => {
+            // 三处哈希对拍的 native 一侧：与 wasm 走同一个 compile_bundle，打印 `sha256  文件名`
+            for file in &args[1..] {
+                let bundle = make_bundle(file);
+                let out = s3d_wasm::compile_bundle(&bundle);
+                let name = Path::new(file)
+                    .file_name()
+                    .map(|s| s.to_string_lossy().to_string())
+                    .unwrap_or(file.clone());
+                println!("{}  {}", sha256::sha256_hex(out.as_bytes()), name);
+            }
         }
         Some("eval") if args.len() >= 3 => {
             // 真值评测：s3d eval <原始.s3d> <逆向.s3d> [--lib <semantics.s3d>]

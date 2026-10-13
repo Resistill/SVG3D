@@ -160,6 +160,7 @@ dependencies = [
  "s3d-geom",
  "s3d-lang",
  "s3d-score",
+ "s3d-wasm",
  "serde_json",
 ]
 
@@ -189,6 +190,14 @@ version = "0.1.0"
 dependencies = [
  "indexmap",
  "regex",
+ "s3d-lang",
+ "serde_json",
+]
+
+[[package]]
+name = "s3d-wasm"
+version = "0.1.0"
+dependencies = [
  "s3d-lang",
  "serde_json",
 ]

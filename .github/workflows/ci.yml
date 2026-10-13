@@ -20,7 +20,51 @@ jobs:
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: test
         run: cargo test --workspace
-      - name: wasm build（s3d-geom、s3d-lang 必须能出 wasm，不开 simd128）
-        run: cargo build --release --target wasm32-unknown-unknown -p s3d-geom -p s3d-lang
+      - name: wasm build（s3d-geom、s3d-lang、s3d-wasm 必须能出 wasm，不开 simd128）
+        run: cargo build --release --target wasm32-unknown-unknown -p s3d-geom -p s3d-lang -p s3d-wasm
       - name: spec cross references
         run: python3 spec/tools/check-refs.py
+      - name: verify（17 个参考输出，9.4 的规则）
+        run: |
+          cargo build --release -p s3d-cli
+          set -e
+          for f in corpus/examples/*.s3d; do b=$(basename $f .s3d); target/release/s3d verify $f corpus/reference/examples/$b.compile.json | tail -1; done
+          for f in corpus/exports/*.s3d; do b=$(basename $f .s3d); r=corpus/reference/exports/$b.compile.json; [ -f $r ] && target/release/s3d verify $f $r | tail -1; done
+      - name: hashes（Linux 原生 + wasm）
+        run: |
+          target/release/s3d hash corpus/examples/*.s3d corpus/exports/*.s3d > hashes-linux.txt
+          node tools/wasm-hash.mjs target/wasm32-unknown-unknown/release/s3d_wasm.wasm corpus/examples/*.s3d corpus/exports/*.s3d > hashes-wasm.txt
+          diff hashes-linux.txt hashes-wasm.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hashes-linux
+          path: |
+            hashes-linux.txt
+            hashes-wasm.txt
+  hash-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.97.0
+      - uses: Swatinem/rust-cache@v2
+      - name: hashes（Windows 原生）
+        shell: bash
+        run: |
+          cargo build --release -p s3d-cli
+          target/release/s3d.exe hash corpus/examples/*.s3d corpus/exports/*.s3d > hashes-windows.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hashes-windows
+          path: hashes-windows.txt
+  three-way:
+    needs: [check, hash-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+      - name: 三处哈希相同（PLAN 第 9 节 M1 验收）
+        run: |
+          diff hashes-linux/hashes-linux.txt hashes-windows/hashes-windows.txt
+          diff hashes-linux/hashes-linux.txt hashes-linux/hashes-wasm.txt
+          echo "three-way hashes identical:"; cat hashes-linux/hashes-linux.txt
