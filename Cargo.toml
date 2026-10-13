@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/s3d-geom", "crates/s3d-lang", "crates/s3d-cli"]
+members = ["crates/s3d-geom", "crates/s3d-lang", "crates/s3d-score", "crates/s3d-cli"]
 
 [workspace.package]
 version = "0.1.0"

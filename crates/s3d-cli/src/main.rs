@@ -64,6 +64,48 @@ fn main() {
             println!("failures: {}", rep.failures);
             std::process::exit(if rep.failures == 0 { 0 } else { 1 });
         }
+        Some("eval") if args.len() >= 3 => {
+            // 真值评测：s3d eval <原始.s3d> <逆向.s3d> [--lib <semantics.s3d>]
+            let orig = &args[1];
+            let recon = &args[2];
+            let lib_path = args
+                .iter()
+                .position(|a| a == "--lib")
+                .and_then(|i| args.get(i + 1))
+                .cloned()
+                .unwrap_or_else(|| {
+                    Path::new(orig)
+                        .parent()
+                        .unwrap_or(Path::new("."))
+                        .join("lib/semantics.s3d")
+                        .to_string_lossy()
+                        .to_string()
+                });
+            let lib = std::fs::read_to_string(&lib_path).unwrap_or_default();
+            let ot = std::fs::read_to_string(orig).expect("读不到原始文件");
+            let rt = std::fs::read_to_string(recon).expect("读不到逆向文件");
+            let name = |p: &str| {
+                Path::new(p)
+                    .file_name()
+                    .map(|s| s.to_string_lossy().to_string())
+                    .unwrap_or(p.to_string())
+            };
+            let r = s3d_score::eval::evaluate(
+                s3d_score::eval::Side {
+                    text: &ot,
+                    identity: &abs_path(orig),
+                    display: &name(orig),
+                },
+                s3d_score::eval::Side {
+                    text: &rt,
+                    identity: &abs_path(recon),
+                    display: &name(recon),
+                },
+                &lib,
+                &read,
+            );
+            println!("{}", serde_json::to_string_pretty(&r).unwrap());
+        }
         Some("parts") if args.len() >= 3 => {
             let file = &args[1];
             let text = std::fs::read_to_string(file).expect("读不到源文件");

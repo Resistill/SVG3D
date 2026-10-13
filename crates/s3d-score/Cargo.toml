@@ -1,0 +1,13 @@
+[package]
+name = "s3d-score"
+description = "SVG3D 评分：M1 先有真值评测 eval（原型 tools/eval.mjs 的移植）；M2 加自评分数"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+s3d-lang = { path = "../s3d-lang" }
+indexmap = { workspace = true }
+serde_json = { workspace = true }
+regex = { workspace = true }
