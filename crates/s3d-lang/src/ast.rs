@@ -289,3 +289,16 @@ pub fn is_keyword(s: &str) -> bool {
 pub fn is_builtin_kind(s: &str) -> bool {
     BUILTIN_KINDS.contains(&s)
 }
+
+/// 文件头 `lang` 检查（1.3.1）：缺省或数字 2 合法；其他值报"不支持的语言版本"。
+pub fn parse_header_lang(header: &[Prop]) -> Result<(), String> {
+    for p in header {
+        if p.key == "lang" {
+            match &p.value.kind {
+                ExprKind::Number(n) if *n == 2.0 => {}
+                _ => return Err("不支持的语言版本（文件头 ~lang 只能是 2）".to_string()),
+            }
+        }
+    }
+    Ok(())
+}
