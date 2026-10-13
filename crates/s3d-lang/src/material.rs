@@ -70,6 +70,11 @@ pub fn parse_color(lit: &str) -> Option<(String, Option<u8>)> {
     Some((format!("#{:02x}{:02x}{:02x}", r, g, b), a))
 }
 
+/// 颜色值：(规范 #rrggbb, 可选 alpha)
+pub type ColorVal = (String, Option<u8>);
+/// 一个样式动作：(mat, color)
+pub type StyleAction = (Option<String>, Option<ColorVal>);
+
 /// 节点的自有外观属性（10.3 开头的术语）：(mat 名, (颜色, alpha))
 #[derive(Clone, Debug, Default)]
 pub struct OwnAppearance {
@@ -365,7 +370,7 @@ impl Compiler {
 
     /// 作用于 n 的样式序列（10.3.3）：每项 (mat, color)，按语句顺序。
     /// 样式动作由语义层登记在 `style_actions`（选择集的成员集合）；副本与影子并上原件的。
-    pub fn styles_for(&mut self, n: NodeId) -> Vec<(Option<String>, Option<(String, Option<u8>)>)> {
+    pub fn styles_for(&mut self, n: NodeId) -> Vec<StyleAction> {
         if self.style_actions.is_empty() {
             return Vec::new();
         }

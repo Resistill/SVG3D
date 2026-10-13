@@ -96,9 +96,9 @@ impl Compiler {
             if self.scene.nodes[c].late || self.scene.nodes[c].degenerate {
                 continue;
             }
-            let t = if crate::ast::SOLID_KINDS.contains(&ck.as_str()) {
-                self.scene.nodes[c].tight
-            } else if matches!(ck.as_str(), "union" | "subtract" | "intersect") {
+            let t = if crate::ast::SOLID_KINDS.contains(&ck.as_str())
+                || matches!(ck.as_str(), "union" | "subtract" | "intersect")
+            {
                 self.scene.nodes[c].tight
             } else {
                 self.subtree_solid_tight(c)

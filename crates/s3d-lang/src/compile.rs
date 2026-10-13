@@ -97,7 +97,7 @@ pub struct Compiler {
     pub mat_errors_reported: Vec<NodeId>,
     pub color_errors_reported: Vec<NodeId>,
     /// 样式动作（7.7、10.3.3）：(选择集, mat, color)，按语句顺序
-    pub style_actions: Vec<(Vec<NodeId>, Option<String>, Option<(String, Option<u8>)>)>,
+    pub style_actions: Vec<(Vec<NodeId>, Option<String>, Option<crate::material::ColorVal>)>,
 }
 
 impl Compiler {
