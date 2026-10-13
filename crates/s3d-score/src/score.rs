@@ -301,6 +301,8 @@ struct ReconRes {
     area: f64,
     vol: f64,
     rv: f64,
+    /// 错填比例：内部采样点里离源表面超过 δ 又不在源实体里的
+    wrong: f64,
 }
 
 #[derive(Clone)]
@@ -477,6 +479,8 @@ struct Per {
     mean_err: f64,
     max_err: f64,
     src: Vec<String>,
+    vol: f64,
+    vol_wrong: f64,
 }
 
 fn round(x: f64, digits: i32) -> f64 {
@@ -976,12 +980,12 @@ pub fn score(input: &Input, cache: Option<&mut ScoreCache>) -> J {
             } else {
                 interior_samples(&o.tris, k.delta, seed_of(&o.path), 24)
             };
-            let (vol, rv) = match inner {
-                Some((vol, pts)) => (
-                    vol,
-                    volume_stats(&pts, shared.src_bvh.all.as_ref(), k.delta, k.d_max).0,
-                ),
-                None => (0.0, 0.0),
+            let (vol, rv, wrong) = match inner {
+                Some((vol, pts)) => {
+                    let (rv, wrong) = volume_stats(&pts, shared.src_bvh.all.as_ref(), k.delta, k.d_max);
+                    (vol, rv, wrong)
+                }
+                None => (0.0, 0.0, 0.0),
             };
             let x = ReconRes {
                 r,
@@ -990,6 +994,7 @@ pub fn score(input: &Input, cache: Option<&mut ScoreCache>) -> J {
                 area: o.tris.iter().map(tri_area).sum(),
                 vol,
                 rv,
+                wrong,
             };
             recon_res.insert(keys[j].clone(), x.clone());
             x
@@ -1015,6 +1020,8 @@ pub fn score(input: &Input, cache: Option<&mut ScoreCache>) -> J {
         p.r_recon += c;
         p.mean_err = p.mean_err.max(x.mean);
         p.max_err = p.max_err.max(x.max);
+        p.vol = x.vol;
+        p.vol_wrong = x.wrong;
         if x.rv > 0.0 {
             let cv = k.c_res * math::log2(1.0 + g.1 / (k.delta * k.delta * k.delta)) * (x.vol / g.1) * x.rv;
             r_vol += cv;
@@ -1155,6 +1162,7 @@ pub fn score(input: &Input, cache: Option<&mut ScoreCache>) -> J {
                 "path": p.path, "stmt": round(p.stmt, 2), "mesh": round(p.mesh, 2), "rSrc": round(p.r_src, 3),
                 "rRecon": round(p.r_recon, 3), "rVol": round(p.r_vol, 3), "meanErr": round(p.mean_err * u, 5),
                 "maxErr": round(p.max_err * u, 5), "src": p.src,
+                "vol": round(p.vol, 4), "volWrong": round(p.vol_wrong, 4),
                 "total": round(p.stmt + p.mesh + p.r_src + p.r_recon + p.r_vol, 3),
             })
         })
