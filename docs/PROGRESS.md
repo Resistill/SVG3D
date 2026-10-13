@@ -38,3 +38,11 @@
 - M0 结束，开 M1（`s3d-geom`、`s3d-lang`、事实、语义、eval、CLI compile；验收见 PLAN 9 节）。
 
 ## M1 内核 + 编译器
+
+### 2026-10-13：M1.0–M1.3 几何与派生对上参考输出
+
+- 工作区：`s3d-geom`（f64 + libm，AABB、变换、实体局部盒、曲线、扫掠、二维多边形）、`s3d-lang`（词法、语法、登记、展开、copy、over / drop / 换形、副本树、求解、JSON 输出）、`s3d-cli`（`compile`、`verify`）。工具链 1.97.0，clippy 守确定性清单，CI 跑 fmt / clippy / test / wasm 构建。
+- 对参考输出（`s3d verify`，world / box 按 9.4.2 的容差）：basics 18/18、rotation 615/615、spaceport 193/193、curves 94/94、spaceport_edit 217/217 节点全部一致，错误 0；semantics、spaceport_blueprint 只缺变体皮肤子树（阶段 8，M1.4）。
+- 过程中按规范修正的实现点：`pin=origin` 不读自身盒（3.6.1；原先把 coaster.legs 误判后置）；revolve 的轮廓按 2.2.7 第 1–6 步处理（smooth 的过冲进包围盒）；sweep / pipe 的环点、倒圆、框架按 2.2.9 / 2.3.7。
+- 已知偏差（记入 `docs/spec-open-items.md` 第 4 节）：模板体里 copy 块内的修改与同一体里稍后的 over 的相对顺序。
+- 成本：本段全部由主会话手写，没有再开子 agent。
