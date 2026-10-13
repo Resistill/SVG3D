@@ -4,12 +4,15 @@ use crate::ast::*;
 use crate::diag::Diagnostics;
 use crate::lexer::{lex, Seg, Tok, Token};
 
-struct ParseError {
-    line: u32,
-    msg: String,
+pub struct ParseError {
+    pub line: u32,
+    pub msg: String,
 }
 
 type PResult<T> = Result<T, ParseError>;
+
+/// （标签, 属性, 元数据）
+type Items = (Vec<(String, u32)>, Vec<Prop>, Vec<Prop>);
 
 fn perr<T>(line: u32, msg: impl Into<String>) -> PResult<T> {
     Err(ParseError {
@@ -270,7 +273,7 @@ impl<'a> Parser<'a> {
     }
 
     /// `{ tag | prop | meta }`；`allow_tags` 为假时井号记号报错
-    fn parse_items(&mut self, allow_tags: bool) -> PResult<(Vec<(String, u32)>, Vec<Prop>, Vec<Prop>)> {
+    fn parse_items(&mut self, allow_tags: bool) -> PResult<Items> {
         let mut tags = Vec::new();
         let mut props = Vec::new();
         let mut metas = Vec::new();
