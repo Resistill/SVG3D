@@ -143,45 +143,28 @@ impl Curve {
         (p, tan.unwrap_or(Vec3::X))
     }
 
+    /// 解析曲线（arc / helix）在每个采样点的单位切线 R̂T(t_i)；其他曲线没有
+    pub fn analytic_tangents(&self) -> Option<Vec<Vec3>> {
+        let a = self.analytic.as_ref()?;
+        let n = self.pts.len();
+        Some(
+            (0..n)
+                .map(|i| {
+                    let ti = if self.closed {
+                        i as f64 / n as f64
+                    } else {
+                        i as f64 / (n as f64 - 1.0)
+                    };
+                    a.tangent(ti)
+                })
+                .collect(),
+        )
+    }
+
     /// 2.3.7 扫掠框架：每个点的 (切线, side, up)
     pub fn frames(&self) -> Result<Vec<(Vec3, Vec3, Vec3)>, usize> {
-        let n = self.pts.len();
-        let mut out = Vec::with_capacity(n);
-        let mut side_prev = Vec3::Z;
-        for i in 0..n {
-            let t = if let Some(a) = &self.analytic {
-                let ti = if self.closed {
-                    i as f64 / n as f64
-                } else {
-                    i as f64 / (n as f64 - 1.0)
-                };
-                a.tangent(ti)
-            } else {
-                let d = if self.closed {
-                    self.pts[(i + 1) % n] - self.pts[(i + n - 1) % n]
-                } else if i == 0 {
-                    self.pts[1] - self.pts[0]
-                } else if i == n - 1 {
-                    self.pts[n - 1] - self.pts[n - 2]
-                } else {
-                    self.pts[i + 1] - self.pts[i - 1]
-                };
-                match math::unit(d, 1e-9) {
-                    Some(u) => u,
-                    None => return Err(i),
-                }
-            };
-            let sigma = Vec3::new(-t.z, 0.0, t.x);
-            let side = if math::length(sigma) < 1e-4 {
-                side_prev
-            } else {
-                math::unit(sigma, 0.0).unwrap()
-            };
-            let up = math::unit(side.cross(t), 0.0).unwrap_or(Vec3::Y);
-            side_prev = side;
-            out.push((t, side, up));
-        }
-        Ok(out)
+        let ts = self.analytic_tangents();
+        crate::sweep::frames(&self.pts, self.closed, ts.as_deref())
     }
 }
 
@@ -256,43 +239,7 @@ pub fn bezier(ctrl: &[Vec3]) -> Curve {
 
 /// spline（2.3.6、2.1.6.5）：均匀 Catmull-Rom，每段 12 个样本
 pub fn spline(ctrl: &[Vec3], closed: bool) -> Curve {
-    let n = ctrl.len();
-    let m = 12;
-    if !closed && n == 2 {
-        return Curve::new(ctrl.to_vec(), false, None);
-    }
-    let cr = |p0: Vec3, p1: Vec3, p2: Vec3, p3: Vec3, t: f64| -> Vec3 {
-        (p1 * 2.0
-            + (p2 - p0) * t
-            + (p0 * 2.0 - p1 * 5.0 + p2 * 4.0 - p3) * (t * t)
-            + (-p0 + p1 * 3.0 - p2 * 3.0 + p3) * (t * t * t))
-            * 0.5
-    };
-    let mut pts = Vec::new();
-    if closed {
-        for i in 0..n {
-            let (p0, p1, p2, p3) = (
-                ctrl[(i + n - 1) % n],
-                ctrl[i],
-                ctrl[(i + 1) % n],
-                ctrl[(i + 2) % n],
-            );
-            for j in 0..m {
-                pts.push(cr(p0, p1, p2, p3, j as f64 / m as f64));
-            }
-        }
-    } else {
-        for i in 0..n - 1 {
-            let p0 = if i == 0 { ctrl[0] } else { ctrl[i - 1] };
-            let p3 = if i + 2 >= n { ctrl[n - 1] } else { ctrl[i + 2] };
-            let (p1, p2) = (ctrl[i], ctrl[i + 1]);
-            for j in 0..m {
-                pts.push(cr(p0, p1, p2, p3, j as f64 / m as f64));
-            }
-        }
-        pts.push(ctrl[n - 1]);
-    }
-    Curve::new(pts, closed, None)
+    Curve::new(crate::sweep::catmull_rom(ctrl, closed, 12), closed, None)
 }
 
 #[cfg(test)]

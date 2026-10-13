@@ -5,7 +5,9 @@
 pub mod aabb;
 pub mod curve;
 pub mod math;
+pub mod poly2;
 pub mod solid;
+pub mod sweep;
 pub mod transform;
 
 pub use aabb::Aabb;

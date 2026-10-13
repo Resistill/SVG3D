@@ -301,12 +301,29 @@ impl Compiler {
                 let pts = self.prop_points_const(n, "points")?;
                 Solid::Hull { points: pts }
             }
+            "sweep" | "pipe" => self.sweep_solid(n, &kind)?,
             "revolve" => {
                 let prof = self.prop_pairs(n, "profile")?;
+                if prof.len() < 2 {
+                    return self.fail(
+                        n,
+                        format!("{}：revolve 的 profile 写成 [(半径,高); (半径,高); …]", path),
+                    );
+                }
                 let angle = self.prop_num(n, "angle", 360.0)?;
+                if !(angle > 0.0 && angle <= 360.0) {
+                    return self.fail(n, format!("{} 的 angle 要大于 0、不超过 360", path));
+                }
                 let smooth = self.prop_bool(n, "smooth", false)?;
+                let (q, changed) = match s3d_geom::sweep::revolve_profile(&prof, smooth) {
+                    Ok(x) => x,
+                    Err(m) => return self.fail(n, format!("{}：{}", path, m)),
+                };
+                if changed {
+                    self.node_warning(n, format!("{} 的 profile 有重合的点，已去掉", path));
+                }
                 Solid::Revolve {
-                    profile: prof,
+                    profile: q,
                     angle,
                     smooth,
                 }
@@ -315,6 +332,172 @@ impl Compiler {
         };
         self.scene.nodes[n].geom = Some(solid.clone());
         Ok(Some(solid))
+    }
+
+    /// sweep / pipe（2.2.9 / 2.2.10）：路径点列、截面、环点
+    fn sweep_solid(&mut self, n: NodeId, kind: &str) -> Result<Solid, SolveErr> {
+        use s3d_geom::sweep::{self, Profile, SweepErr};
+        use s3d_geom::SpanPin;
+        let path = self.scene.path(n);
+        let p = self.scene.nodes[n].parent;
+        let has = |me: &Self, k: &str| me.scene.nodes[n].props.contains_key(k);
+        // —— 截面 ——
+        let profile = if kind == "pipe" {
+            let r = self.prop_num(n, "r", 0.3)?;
+            if r <= 0.0 {
+                return self.fail(n, format!("{} 的 r 要大于 0", path));
+            }
+            Profile::Circle { r }
+        } else {
+            let lit = self.prop_literal(n, "profile");
+            let shape: u8 = match lit.as_deref() {
+                Some("circle") => 0,
+                Some("rect") => 1,
+                _ if !has(self, "profile") => {
+                    if has(self, "section") {
+                        1
+                    } else {
+                        0
+                    }
+                }
+                _ => 2,
+            };
+            match shape {
+                0 => {
+                    if has(self, "section") || has(self, "pin") {
+                        return self.fail(n, format!("{}：section 与 pin 只能和 rect 截面一起写", path));
+                    }
+                    let r = self.prop_num(n, "r", 0.3)?;
+                    if r <= 0.0 {
+                        return self.fail(n, format!("{} 的 r 要大于 0", path));
+                    }
+                    Profile::Circle { r }
+                }
+                1 => {
+                    if has(self, "r") {
+                        return self.fail(n, format!("{}：r 只能和圆截面一起写", path));
+                    }
+                    let sec = self.section(n, [1.0, 0.2])?;
+                    let pin = match self.prop_literal(n, "pin").as_deref() {
+                        None | Some("center") => SpanPin::Center,
+                        Some("bottom") => SpanPin::Bottom,
+                        Some("top") => SpanPin::Top,
+                        Some(_) => {
+                            return self.fail(n, format!("{} 的 pin 只能是 bottom / top / center", path))
+                        }
+                    };
+                    Profile::Rect {
+                        w: sec[0],
+                        t: sec[1],
+                        pin,
+                    }
+                }
+                _ => {
+                    if has(self, "r") {
+                        return self.fail(n, format!("{}：r 只能和圆截面一起写", path));
+                    }
+                    if has(self, "section") || has(self, "pin") {
+                        return self.fail(n, format!("{}：section 与 pin 只能和 rect 截面一起写", path));
+                    }
+                    let v = self.prop_value(n, "profile")?;
+                    let items = match v {
+                        Some(Value::List(items)) => items,
+                        Some(Value::Vector(ref vv)) if vv.len() == 2 => vec![v.clone().unwrap()],
+                        _ => {
+                            return self.fail(
+                                n,
+                                format!("{} 的 profile 只能是 circle / rect / 多边形列表", path),
+                            )
+                        }
+                    };
+                    let mut pts = Vec::new();
+                    for it in items {
+                        match it {
+                            Value::Vector(vv) if vv.len() == 2 => pts.push([vv[0], vv[1]]),
+                            _ => {
+                                return self.fail(
+                                    n,
+                                    format!("{} 的 profile 只能是 circle / rect / 多边形列表", path),
+                                )
+                            }
+                        }
+                    }
+                    if pts.len() < 3 {
+                        return self.fail(
+                            n,
+                            format!("{} 的 profile 多边形写成 [(u,v); (u,v); …]，至少 3 个点", path),
+                        );
+                    }
+                    Profile::Polygon(pts)
+                }
+            }
+        };
+        let (ring, changed) = match sweep::profile_ring(&profile) {
+            Ok(x) => x,
+            Err(m) => return self.fail(n, format!("{}：{}", path, m)),
+        };
+        if changed {
+            self.node_warning(n, format!("{} 的 profile 有重合的点，已去掉", path));
+        }
+        // —— 路径 ——
+        let smooth = self.prop_bool(n, "smooth", false)?;
+        let pv = match self.prop_value(n, "path")? {
+            Some(v) => v,
+            None => return self.fail(n, format!("{} 缺少 path", path)),
+        };
+        let (pts, closed, tangents): (Vec<Vec3>, bool, Option<Vec<Vec3>>) = match pv {
+            Value::Ref(r)
+                if r.anchor.is_none()
+                    && crate::ast::CURVE_KINDS.contains(&self.scene.nodes[r.node].kind.as_str()) =>
+            {
+                if has(self, "smooth") {
+                    return self.fail(n, format!("{}：smooth 只对点列表路径有效", path));
+                }
+                let curve = match self.curve_of(r.node)? {
+                    Some(c) => c,
+                    None => return self.fail(n, format!("{} 的 path 需要曲线或点列表", path)),
+                };
+                let rel = self.rel_transform(r.node, p)?;
+                let pts: Vec<Vec3> = curve.pts.iter().map(|q| rel.apply(*q) + r.offset).collect();
+                let tangents = curve
+                    .analytic_tangents()
+                    .map(|ts| ts.iter().map(|t| rel.r * *t).collect());
+                (pts, curve.closed, tangents)
+            }
+            Value::List(items) => {
+                let mut ctrl = Vec::with_capacity(items.len());
+                for it in &items {
+                    let (q, _) = self.point_in_frame(it, p, n, "path")?;
+                    ctrl.push(q);
+                }
+                if ctrl.len() < 2 {
+                    return self.fail(
+                        n,
+                        format!("{} 的 path 至少需要两个点，如 path=[A.top; B.top]", path),
+                    );
+                }
+                let pts = if smooth {
+                    sweep::catmull_rom(&ctrl, false, 10)
+                } else {
+                    sweep::fillet_path(&ctrl, sweep::fillet_radius(&profile))
+                };
+                (pts, false, None)
+            }
+            _ => return self.fail(n, format!("{} 的 path 需要曲线或点列表", path)),
+        };
+        let rings = match sweep::rings(&pts, closed, tangents.as_deref(), &ring) {
+            Ok(r) => r,
+            Err(SweepErr::Coincident) => return self.fail(n, format!("{}：path 有重合的相邻点", path)),
+            Err(SweepErr::Degenerate(i)) => {
+                return self.fail(n, format!("{}：路径在第 {} 个点退化", path, i))
+            }
+        };
+        Ok(Solid::Sweep {
+            rings,
+            m: ring.len(),
+            closed,
+            profile: ring,
+        })
     }
 
     fn prop_bool(&mut self, n: NodeId, key: &str, default: bool) -> Result<bool, SolveErr> {
@@ -459,10 +642,6 @@ impl Compiler {
                         Some(c) => c.local_box(),
                         None => Aabb::ZERO,
                     });
-                }
-                "sweep" | "pipe" => {
-                    // 扫掠几何（2.2.9）尚未实现，先用零盒
-                    return Ok(Aabb::ZERO);
                 }
                 "group" => {
                     if let Some(env) = self.prop_value(n, "envelope")? {
@@ -799,9 +978,12 @@ impl Compiler {
             r
         };
         // 定位点：只在需要时读自己的盒（3.6.1：π 是 origin 时 L(n) 不依赖 X(n)）
-        let needs_box = self.scene.nodes[n].props.contains_key("pin")
-            || !rel.pin_origin
-            || self.scene.nodes[n].props.contains_key("align");
+        let pin_is_origin = self.scene.nodes[n]
+            .props
+            .get("pin")
+            .map(|pv| self.literal_name(&pv.expr).as_deref() == Some("origin"))
+            .unwrap_or(rel.pin_origin);
+        let needs_box = !pin_is_origin || self.scene.nodes[n].props.contains_key("align");
         let (c, h) = if needs_box {
             let lb = self.lbox(n)?;
             (lb.center(), lb.half())

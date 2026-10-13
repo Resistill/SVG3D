@@ -131,6 +131,12 @@ pub fn length(v: Vec3) -> f64 {
     sqrt(v.x * v.x + v.y * v.y + v.z * v.z)
 }
 
+/// 二维向量长度
+#[inline]
+pub fn length2(v: Vec2) -> f64 {
+    sqrt(v.x * v.x + v.y * v.y)
+}
+
 /// 单位化；零向量（长度 < eps）返回 None。
 pub fn unit(v: Vec3, eps: f64) -> Option<Vec3> {
     let l = length(v);

@@ -71,8 +71,14 @@ pub enum Solid {
     },
     /// 2.2.11：外部网格的外包络（size）与 pivot
     Mesh { size: Vec3, pivot: Vec3, src: String },
-    /// 2.2.9 / 2.2.10：扫掠（点集由路径与截面决定；盒由全部环点给出）
-    Sweep { points: Vec<Vec3> },
+    /// 2.2.9 / 2.2.10：扫掠。rings 是全部环点 ρ_{i,k}（i 外层、k 内层，共 n·m 个），
+    /// profile 是正向截面 Π，closed 随路径
+    Sweep {
+        rings: Vec<Vec3>,
+        m: usize,
+        closed: bool,
+        profile: Vec<[f64; 2]>,
+    },
 }
 
 impl Solid {
@@ -129,7 +135,7 @@ impl Solid {
                     Vec3::new(h_span / 2.0, tau0.max(tau_last), w / 2.0),
                 )
             }
-            Solid::Sweep { points } => Aabb::of_points(points.iter().copied()).unwrap_or(Aabb::ZERO),
+            Solid::Sweep { rings, .. } => Aabb::of_points(rings.iter().copied()).unwrap_or(Aabb::ZERO),
         }
     }
 }
