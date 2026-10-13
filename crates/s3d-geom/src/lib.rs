@@ -4,8 +4,10 @@
 
 pub mod aabb;
 pub mod math;
+pub mod solid;
 pub mod transform;
 
 pub use aabb::Aabb;
 pub use math::{Mat3, Vec2, Vec3};
+pub use solid::{Axis, Solid, SpanPin};
 pub use transform::Transform;

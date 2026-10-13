@@ -1,0 +1,1032 @@
+//! 阶段 2–6（spec/04 4.1.1）：登记、展开、copy、修改、副本树定稿。
+//! 本文件先实现登记与展开（含模板实例、repeat 实例）；copy / over / drop / 副本树在后续步骤补齐。
+
+use crate::ast::{is_builtin_kind, is_keyword, Expr, Param, Prop, Stmt, StmtKind, CURVE_KINDS, SOLID_KINDS};
+use crate::compile::{Compiler, Ctx, TemplateDef, Timing};
+use crate::env::{Binding, FrameId, FrameKind, LazyState};
+use crate::scene::{props_from, Node, NodeId, PropVal, Role, ROOT};
+use crate::value::Value;
+use indexmap::IndexMap;
+use std::rc::Rc;
+
+/// 几何时机的一条修改（over / drop）
+#[derive(Clone, Debug)]
+pub struct Modification {
+    pub stmt: Rc<Stmt>,
+    pub frame: FrameId,
+    /// 选择器的搜索起点（写它的块的节点）
+    pub start: NodeId,
+    /// 作用范围（块内的 over 只作用于该块的后代；最外层为 ROOT）
+    pub scope: NodeId,
+    /// 展开位置（4.1.2）
+    pub pos: Vec<u64>,
+}
+
+#[derive(Clone, Debug)]
+pub struct PendingCopy {
+    pub stmt: Rc<Stmt>,
+    pub frame: FrameId,
+    pub parent: NodeId,
+    /// 在父节点子节点列表里占住的位置
+    pub slot: usize,
+    pub pos: Vec<u64>,
+    pub depth: u32,
+}
+
+pub const P_GROUP: [&str; 15] = [
+    "at", "on", "under", "against", "inside", "pin", "gap", "offset", "align", "alignto", "turn", "tilt",
+    "roll", "rot", "aim",
+];
+pub const P_GROUP_ALL: [&str; 18] = [
+    "at", "on", "under", "against", "inside", "pin", "gap", "offset", "align", "alignto", "turn", "tilt",
+    "roll", "rot", "aim", "aimwith", "mat", "color",
+];
+
+/// 软保留名（1.6.9）：后缀保留词与其他
+const SUFFIX_RESERVED: [&str; 25] = [
+    "top", "up", "bottom", "down", "left", "west", "right", "east", "front", "south", "back", "north",
+    "center", "w", "h", "d", "x", "y", "z", "start", "mid", "end", "side", "surface", "origin",
+];
+const OTHER_SOFT: [&str; 60] = [
+    "box",
+    "wedge",
+    "plate",
+    "hull",
+    "mesh",
+    "cyl",
+    "cone",
+    "sphere",
+    "revolve",
+    "span",
+    "sweep",
+    "pipe",
+    "line",
+    "bezier",
+    "spline",
+    "arc",
+    "helix",
+    "group",
+    "union",
+    "subtract",
+    "intersect",
+    "repeat",
+    "mirror",
+    "rotate",
+    "copy",
+    "def",
+    "let",
+    "import",
+    "material",
+    "over",
+    "drop",
+    "concept",
+    "pattern",
+    "check",
+    "style",
+    "variant",
+    "all",
+    "count",
+    "children",
+    "descendants",
+    "sin",
+    "cos",
+    "tan",
+    "asin",
+    "acos",
+    "atan",
+    "atan2",
+    "sqrt",
+    "abs",
+    "min",
+    "max",
+    "floor",
+    "ceil",
+    "round",
+    "pow",
+    "metre",
+    "on",
+    "supports",
+    "against",
+    "inside",
+];
+const HARD_FOR_NODES: [&str; 11] = [
+    "it", "kind", "name", "mat", "idx", "i", "j", "k", "mirrored", "skin", "instance",
+];
+
+fn is_hard_reserved_name(s: &str) -> bool {
+    is_keyword(s) || HARD_FOR_NODES.contains(&s) || is_rotate_seg(s)
+}
+
+fn is_rotate_seg(s: &str) -> bool {
+    s.len() >= 2 && s.starts_with('r') && s[1..].chars().all(|c| c.is_ascii_digit())
+}
+
+impl Compiler {
+    // ====== 阶段 2：登记 ======
+    pub fn register(&mut self) {
+        let stmts: Vec<Stmt> = self.prog.stmts.clone();
+        for (i, s) in stmts.iter().enumerate() {
+            match &s.kind {
+                StmtKind::Def {
+                    name, params, base, ..
+                } => self.register_def(s, name, params, base.as_ref(), i),
+                StmtKind::Material { name, props, metas } => {
+                    if is_keyword(name) {
+                        self.stmt_error(s.file_index, s.line, format!("关键字 {} 用错了位置", name));
+                        continue;
+                    }
+                    let first_index = self.materials.get(name).map(|m| m.first_index).unwrap_or(i);
+                    self.materials.insert(
+                        name.clone(),
+                        crate::compile::MaterialDef {
+                            name: name.clone(),
+                            props: props.clone(),
+                            metas: metas.clone(),
+                            line: s.line,
+                            file_index: s.file_index,
+                            first_index,
+                        },
+                    );
+                }
+                StmtKind::Let { name, value, .. } => {
+                    if self.check_let_name(name, s) {
+                        let gf = self.global_frame;
+                        self.env.bind(
+                            gf,
+                            name,
+                            Binding::Lazy {
+                                expr: value.clone(),
+                                frame: gf,
+                                start: ROOT,
+                                line: s.line,
+                                file_index: s.file_index,
+                                state: LazyState::Unevaluated,
+                            },
+                        );
+                    }
+                }
+                StmtKind::Concept { .. }
+                | StmtKind::Pattern { .. }
+                | StmtKind::Check { .. }
+                | StmtKind::Style { .. }
+                | StmtKind::Variant { .. } => self.semantic_stmts.push(s.clone()),
+                _ => {}
+            }
+        }
+    }
+
+    fn check_let_name(&mut self, name: &str, s: &Stmt) -> bool {
+        if is_keyword(name)
+            || name == "metre"
+            || HARD_FOR_NODES.contains(&name)
+            || is_builtin_kind(name)
+            || OTHER_SOFT.contains(&name)
+            || (SUFFIX_RESERVED.contains(&name) && !matches!(name, "w" | "h" | "d" | "x" | "y" | "z"))
+        {
+            self.stmt_error(
+                s.file_index,
+                s.line,
+                format!("{} 是保留名，不能用作 let 名", name),
+            );
+            return false;
+        }
+        true
+    }
+
+    fn register_def(
+        &mut self,
+        s: &Stmt,
+        name: &str,
+        params: &[Param],
+        base: Option<&(String, Vec<Prop>)>,
+        index: usize,
+    ) {
+        if is_builtin_kind(name) {
+            self.stmt_error(s.file_index, s.line, "模板不能与内置种类同名");
+            return;
+        }
+        if is_keyword(name)
+            || HARD_FOR_NODES.contains(&name)
+            || OTHER_SOFT.contains(&name)
+            || SUFFIX_RESERVED.contains(&name)
+        {
+            self.stmt_error(s.file_index, s.line, format!("{} 是保留名，不能用作模板名", name));
+            return;
+        }
+        let mut seen: Vec<&str> = Vec::new();
+        for p in params {
+            if is_keyword(&p.name) || (HARD_FOR_NODES.contains(&p.name.as_str())) {
+                self.stmt_error(
+                    s.file_index,
+                    p.line,
+                    format!("{} 是保留名，不能用作参数名", p.name),
+                );
+                return;
+            }
+            if P_GROUP_ALL.contains(&p.name.as_str()) || p.name == "use" {
+                self.stmt_error(s.file_index, p.line, format!("参数名与属性名重名：{}", p.name));
+                return;
+            }
+            if seen.contains(&p.name.as_str()) {
+                self.stmt_error(s.file_index, p.line, format!("重复的参数 {}", p.name));
+                return;
+            }
+            seen.push(&p.name);
+        }
+        if let Some((bname, overrides)) = base {
+            for o in overrides {
+                if params.iter().any(|p| p.name == o.key) {
+                    self.stmt_error(
+                        s.file_index,
+                        o.line,
+                        format!("参数 {} 既被覆盖又被重新声明", o.key),
+                    );
+                    return;
+                }
+            }
+            if bname == name {
+                // 就地扩展：捕获当前定义
+                match self.defs.get(name).cloned() {
+                    Some(cur) => {
+                        let first_index = cur.first_index;
+                        self.defs.insert(
+                            name.to_string(),
+                            TemplateDef {
+                                name: name.to_string(),
+                                stmt: s.clone(),
+                                extends: Some(Box::new(cur)),
+                                first_index,
+                            },
+                        );
+                    }
+                    None => {
+                        self.stmt_error(s.file_index, s.line, format!("要扩展的类型 {} 还没有定义", name))
+                    }
+                }
+                return;
+            }
+        }
+        let first_index = self.defs.get(name).map(|d| d.first_index).unwrap_or(index);
+        self.defs.insert(
+            name.to_string(),
+            TemplateDef {
+                name: name.to_string(),
+                stmt: s.clone(),
+                extends: None,
+                first_index,
+            },
+        );
+    }
+
+    // ====== 阶段 3：展开 ======
+    pub fn expand_all(&mut self) {
+        let stmts: Vec<Stmt> = self.prog.stmts.clone();
+        let gf = self.global_frame;
+        // 最外层：全局帧已含 let；最外层语句的块帧就是全局帧
+        self.expand_block(&stmts, ROOT, gf, 0, &[]);
+    }
+
+    /// 展开一个块里的语句（块帧已建好并含 let）
+    fn expand_block(
+        &mut self,
+        stmts: &[Stmt],
+        parent: NodeId,
+        frame: FrameId,
+        depth: u32,
+        pos_prefix: &[u64],
+    ) {
+        for (i, s) in stmts.iter().enumerate() {
+            let mut pos = pos_prefix.to_vec();
+            if pos_prefix.is_empty() {
+                pos = vec![s.file_index as u64, s.line as u64, i as u64];
+            }
+            self.expand_stmt(s, parent, frame, depth, &pos);
+        }
+    }
+
+    /// 新建块帧并登记块内 let（同名报错"重复定义 X"）
+    fn block_frame(
+        &mut self,
+        stmts: &[Stmt],
+        parent_frame: FrameId,
+        kind: FrameKind,
+        start: NodeId,
+    ) -> FrameId {
+        let f = self.env.new_frame(kind, Some(parent_frame));
+        self.bind_lets(stmts, f, start);
+        f
+    }
+
+    fn bind_lets(&mut self, stmts: &[Stmt], f: FrameId, start: NodeId) {
+        for s in stmts {
+            if let StmtKind::Let { name, value, .. } = &s.kind {
+                if !self.check_let_name(name, s) {
+                    continue;
+                }
+                if self.env.has(f, name) {
+                    self.stmt_error(s.file_index, s.line, format!("重复定义 {}", name));
+                    continue;
+                }
+                self.env.bind(
+                    f,
+                    name,
+                    Binding::Lazy {
+                        expr: value.clone(),
+                        frame: f,
+                        start,
+                        line: s.line,
+                        file_index: s.file_index,
+                        state: LazyState::Unevaluated,
+                    },
+                );
+            }
+        }
+    }
+
+    fn expand_stmt(&mut self, s: &Stmt, parent: NodeId, frame: FrameId, depth: u32, pos: &[u64]) {
+        if depth > 32 {
+            self.stmt_error(s.file_index, s.line, "展开层数超过 32（模板递归？）");
+            return;
+        }
+        match &s.kind {
+            StmtKind::Generic { .. } => {
+                self.expand_generic(s, parent, frame, depth, pos);
+            }
+            StmtKind::Let { .. } => {}
+            StmtKind::Copy { .. } => {
+                // 占位：先在父节点下占一个序号（1.6.1 第 2 条），阶段 4 展开
+                let slot = self.scene.nodes[parent].children.len();
+                self.scene.nodes[parent].created += 1;
+                self.copies.push(PendingCopy {
+                    stmt: Rc::new(s.clone()),
+                    frame,
+                    parent,
+                    slot,
+                    pos: pos.to_vec(),
+                    depth,
+                });
+            }
+            StmtKind::Over { .. } | StmtKind::Drop { .. } => {
+                let scope = parent;
+                self.modifications.push(Modification {
+                    stmt: Rc::new(s.clone()),
+                    frame,
+                    start: parent,
+                    scope,
+                    pos: pos.to_vec(),
+                });
+            }
+            StmtKind::Def { .. }
+            | StmtKind::Material { .. }
+            | StmtKind::Import { .. }
+            | StmtKind::Concept { .. }
+            | StmtKind::Pattern { .. }
+            | StmtKind::Check { .. }
+            | StmtKind::Style { .. }
+            | StmtKind::Variant { .. } => {
+                if parent != ROOT {
+                    let what = match &s.kind {
+                        StmtKind::Def { .. } => "def",
+                        StmtKind::Material { .. } => "material",
+                        StmtKind::Import { .. } => "import",
+                        StmtKind::Concept { .. } => "concept",
+                        StmtKind::Pattern { .. } => "pattern",
+                        StmtKind::Check { .. } => "check",
+                        StmtKind::Style { .. } => "style",
+                        _ => "variant",
+                    };
+                    self.stmt_error(s.file_index, s.line, format!("{} 只能写在最外层", what));
+                }
+            }
+        }
+    }
+
+    /// 元数据求值（展开时；1.9、8.1）
+    fn eval_metas(&mut self, metas: &[Prop], frame: FrameId, s: &Stmt) -> IndexMap<String, Value> {
+        let mut out = IndexMap::new();
+        for m in metas {
+            if out.contains_key(&m.key) {
+                self.stmt_error(s.file_index, m.line, format!("重复的元数据 {}", m.key));
+                continue;
+            }
+            let ctx = Ctx {
+                frame,
+                start: ROOT,
+                timing: Timing::Expand,
+            };
+            match self.eval(&m.value, ctx) {
+                Ok(v) => {
+                    out.insert(m.key.clone(), v);
+                }
+                Err(e) => self.stmt_error(s.file_index, m.line, format!("元数据 {}：{}", m.key, e.0)),
+            }
+        }
+        out
+    }
+
+    fn new_node(
+        &mut self,
+        s: &Stmt,
+        kind: &str,
+        name: Option<&str>,
+        tags: &[(String, u32)],
+        props: &[Prop],
+        metas: &[Prop],
+        parent: NodeId,
+        frame: FrameId,
+    ) -> NodeId {
+        let meta = self.eval_metas(metas, frame, s);
+        let mut tag_names: Vec<String> = Vec::new();
+        let mut dup = false;
+        for (t, line) in tags {
+            if tag_names.contains(t) {
+                self.stmt_error(s.file_index, *line, format!("重复的标签 #{}", t));
+                dup = true;
+            } else {
+                tag_names.push(t.clone());
+            }
+        }
+        let mut seen: Vec<&str> = Vec::new();
+        for p in props {
+            if seen.contains(&p.key.as_str()) {
+                self.stmt_error(s.file_index, p.line, format!("重复的属性 {}", p.key));
+                dup = true;
+            }
+            seen.push(&p.key);
+        }
+        let node = Node {
+            seg: name.unwrap_or("").to_string(),
+            name: name.unwrap_or("").to_string(),
+            kind: kind.to_string(),
+            types: vec![],
+            role: Role::Normal,
+            parent,
+            children: vec![],
+            created: 0,
+            props: props_from(props, frame, parent, s.file_index),
+            tags: tag_names,
+            meta,
+            file_index: s.file_index,
+            line: s.line,
+            frame,
+            stmt_frame: frame,
+            degenerate: dup,
+            hidden: false,
+            late: false,
+            local: None,
+            lbox: None,
+            world: None,
+            wbox: None,
+            tight: None,
+            geom: None,
+            src_stmt: Some(Rc::new(s.clone())),
+        };
+        let id = self.scene.add(parent, node);
+        if let Some(n) = name {
+            if SUFFIX_RESERVED.contains(&n) {
+                self.node_warning(
+                    id,
+                    format!("节点名 {} 与保留名相同，作为路径的后续段时不能按名字引用", n),
+                );
+            } else if OTHER_SOFT.contains(&n) {
+                self.node_warning(id, format!("节点名 {} 与保留名相同", n));
+            }
+        }
+        id
+    }
+
+    fn expand_generic(
+        &mut self,
+        s: &Stmt,
+        parent: NodeId,
+        frame: FrameId,
+        depth: u32,
+        pos: &[u64],
+    ) -> Option<NodeId> {
+        let (kind, name, tags, props, metas, block) = match &s.kind {
+            StmtKind::Generic {
+                kind,
+                name,
+                tags,
+                props,
+                metas,
+                block,
+            } => (kind, name, tags, props, metas, block),
+            _ => unreachable!(),
+        };
+        if let Some(n) = name {
+            if is_hard_reserved_name(n) {
+                self.stmt_error(s.file_index, s.line, format!("{} 是保留名，不能用作节点名", n));
+                return None;
+            }
+        }
+        let kind_s = kind.as_str();
+        if SOLID_KINDS.contains(&kind_s) || CURVE_KINDS.contains(&kind_s) {
+            let id = self.new_node(s, kind_s, name.as_deref(), tags, props, metas, parent, frame);
+            self.check_prop_keys(id, kind_s);
+            return Some(id);
+        }
+        match kind_s {
+            "group" | "union" | "subtract" | "intersect" => {
+                let id = self.new_node(s, kind_s, name.as_deref(), tags, props, metas, parent, frame);
+                self.check_prop_keys(id, kind_s);
+                let body = block.clone().unwrap_or_default();
+                let bf = self.block_frame(&body, frame, FrameKind::Block, id);
+                self.scene.nodes[id].frame = bf;
+                self.expand_block(&body, id, bf, depth, pos);
+                Some(id)
+            }
+            "repeat" => {
+                let id = self.new_node(s, "repeat", name.as_deref(), tags, props, metas, parent, frame);
+                self.check_prop_keys(id, "repeat");
+                self.expand_repeat(s, id, frame, depth, pos);
+                Some(id)
+            }
+            "mirror" | "rotate" => {
+                let has_of = props.iter().any(|p| p.key == "of");
+                let id = self.new_node(s, kind_s, name.as_deref(), tags, props, metas, parent, frame);
+                if has_of {
+                    // 副本式：原件在阶段 6 解析；种类随原件
+                    self.scene.nodes[id].role = Role::TwinOf { original: ROOT };
+                    self.check_prop_keys(
+                        id,
+                        if kind_s == "mirror" {
+                            "mirror_of"
+                        } else {
+                            "rotate_of"
+                        },
+                    );
+                } else {
+                    self.check_prop_keys(id, kind_s);
+                    let body = block.clone().unwrap_or_default();
+                    let bf = self.block_frame(&body, frame, FrameKind::Block, id);
+                    self.scene.nodes[id].frame = bf;
+                    self.expand_block(&body, id, bf, depth, pos);
+                }
+                Some(id)
+            }
+            _ => self.expand_instance(
+                s,
+                kind_s,
+                name.as_deref(),
+                tags,
+                props,
+                metas,
+                parent,
+                frame,
+                depth,
+                pos,
+            ),
+        }
+    }
+
+    /// 检查属性键是否被该种类接受（1.4.4、1.4.5）；不接受的报错并退化
+    pub fn check_prop_keys(&mut self, id: NodeId, kind: &str) {
+        let keys: Vec<String> = self.scene.nodes[id].props.keys().cloned().collect();
+        for k in keys {
+            if !accepts_prop(kind, &k) {
+                let msg = format!("{} 没有属性 {}", kind.trim_end_matches("_of"), k);
+                self.degenerate(id, msg);
+            }
+        }
+        // 互斥：五个定位关系至多一个
+        let rel: Vec<&str> = ["at", "on", "under", "against", "inside"]
+            .iter()
+            .copied()
+            .filter(|k| self.scene.nodes[id].props.contains_key(*k))
+            .collect();
+        if rel.len() > 1 {
+            self.degenerate(id, "定位关系只能写一个");
+        }
+        let has = |c: &Compiler, k: &str| c.scene.nodes[id].props.contains_key(k);
+        if has(self, "alignto") && !has(self, "align") {
+            self.degenerate(id, "alignto 需要 align");
+        }
+        if has(self, "aimwith") && !has(self, "aim") {
+            self.degenerate(id, "aimwith 需要 aim");
+        }
+        if kind == "repeat" {
+            if has(self, "along") && (has(self, "step") || has(self, "center")) {
+                self.degenerate(id, "along 与 step / center 不能同时写");
+            }
+            if has(self, "orient") && !has(self, "along") {
+                self.degenerate(id, "orient 只能和 along 一起写");
+            }
+        }
+    }
+
+    // —— 模板实例（4.2.3–4.2.6）——
+    #[allow(clippy::too_many_arguments)]
+    fn expand_instance(
+        &mut self,
+        s: &Stmt,
+        tname: &str,
+        name: Option<&str>,
+        tags: &[(String, u32)],
+        props: &[Prop],
+        metas: &[Prop],
+        parent: NodeId,
+        frame: FrameId,
+        depth: u32,
+        pos: &[u64],
+    ) -> Option<NodeId> {
+        if !self.defs.contains_key(tname) {
+            self.stmt_error(s.file_index, s.line, format!("未知的语句种类 {}", tname));
+            return None;
+        }
+        let id = self.new_node(s, tname, name, tags, props, metas, parent, frame);
+        // 派生链（最派生在前）
+        let chain = match self.derivation_chain(tname) {
+            Ok(c) => c,
+            Err((file_index, line, msg)) => {
+                let file = self.file_display(file_index);
+                let path = self.scene.path(id);
+                self.diags.error(file_index, &file, line, Some(&path), msg);
+                self.scene.nodes[id].degenerate = true;
+                return Some(id);
+            }
+        };
+        let mut types: Vec<String> = Vec::new();
+        for d in &chain {
+            if !types.contains(&d.name) {
+                types.push(d.name.clone());
+            }
+        }
+        self.scene.nodes[id].types = types;
+        // 参数表：从链尾到链头
+        let mut params: IndexMap<String, (Option<Expr>, u32, u32)> = IndexMap::new(); // name → (默认值, line, file)
+        let mut chain_err: Option<(u32, u32, String)> = None;
+        for d in chain.iter().rev() {
+            let (dparams, base) = match &d.stmt.kind {
+                StmtKind::Def { params, base, .. } => (params, base),
+                _ => unreachable!(),
+            };
+            if let Some((_, overrides)) = base {
+                for o in overrides {
+                    if !params.contains_key(&o.key) {
+                        chain_err = Some((
+                            d.stmt.file_index,
+                            d.stmt.line,
+                            format!("{} 覆盖了基类型没有的参数 {}", d.name, o.key),
+                        ));
+                        break;
+                    }
+                    params.insert(
+                        o.key.clone(),
+                        (Some(o.value.clone()), d.stmt.line, d.stmt.file_index),
+                    );
+                }
+            }
+            if chain_err.is_some() {
+                break;
+            }
+            for p in dparams {
+                params.insert(
+                    p.name.clone(),
+                    (p.default.clone(), d.stmt.line, d.stmt.file_index),
+                );
+            }
+        }
+        if let Some((fi, line, msg)) = chain_err {
+            let file = self.file_display(fi);
+            let path = self.scene.path(id);
+            self.diags.error(fi, &file, line, Some(&path), msg);
+            self.scene.nodes[id].degenerate = true;
+            return Some(id);
+        }
+        // 模板体帧：父帧是全局帧
+        let gf = self.global_frame;
+        let body_frame = self.env.new_frame(FrameKind::TemplateBody, Some(gf));
+        self.scene.nodes[id].frame = body_frame;
+        let mut missing = false;
+        let mut unknown_keys: Vec<String> = Vec::new();
+        for p in props {
+            if !P_GROUP_ALL.contains(&p.key.as_str()) && !params.contains_key(&p.key) {
+                unknown_keys.push(p.key.clone());
+            }
+        }
+        for k in unknown_keys {
+            let msg = format!("模板 {} 没有参数 {}", tname, k);
+            self.degenerate(id, msg);
+            self.scene.nodes[id].props.shift_remove(&k);
+        }
+        for (pname, (default, dline, dfile)) in &params {
+            let written = props.iter().find(|p| p.key == *pname);
+            let binding = match (written, default) {
+                (Some(w), _) => Binding::Lazy {
+                    expr: w.value.clone(),
+                    frame,
+                    start: parent,
+                    line: w.line,
+                    file_index: s.file_index,
+                    state: LazyState::Unevaluated,
+                },
+                (None, Some(d)) => Binding::Lazy {
+                    expr: d.clone(),
+                    frame: body_frame,
+                    start: parent,
+                    line: *dline,
+                    file_index: *dfile,
+                    state: LazyState::Unevaluated,
+                },
+                (None, None) => {
+                    let msg = format!("模板 {} 缺少参数 {}", tname, pname);
+                    self.degenerate(id, msg);
+                    missing = true;
+                    continue;
+                }
+            };
+            self.env.bind(body_frame, pname, binding);
+            // 参数不是节点的属性
+            self.scene.nodes[id].props.shift_remove(pname);
+        }
+        if missing {
+            return Some(id);
+        }
+        // 体：先最基础的
+        let bodies: Vec<Vec<Stmt>> = chain
+            .iter()
+            .rev()
+            .map(|d| match &d.stmt.kind {
+                StmtKind::Def { body, .. } => body.clone(),
+                _ => unreachable!(),
+            })
+            .collect();
+        for body in &bodies {
+            self.bind_lets(body, body_frame, id);
+        }
+        for body in &bodies {
+            self.expand_block(body, id, body_frame, depth + 1, pos);
+        }
+        Some(id)
+    }
+
+    /// 派生链：最派生在前（4.2.5、4.2.6）
+    fn derivation_chain(&self, tname: &str) -> Result<Vec<TemplateDef>, (u32, u32, String)> {
+        let mut out: Vec<TemplateDef> = Vec::new();
+        let mut cur = self.defs.get(tname).cloned();
+        let mut seen: Vec<String> = Vec::new();
+        let mut guard = 0;
+        while let Some(d) = cur {
+            guard += 1;
+            if guard > 32 {
+                return Err((
+                    d.stmt.file_index,
+                    d.stmt.line,
+                    format!("类型 {} 的派生链形成了循环", tname),
+                ));
+            }
+            let base_name = match &d.stmt.kind {
+                StmtKind::Def { base, .. } => base.as_ref().map(|(b, _)| b.clone()),
+                _ => None,
+            };
+            let key = format!("{}@{}:{}", d.name, d.stmt.file_index, d.stmt.line);
+            if seen.contains(&key) {
+                return Err((
+                    d.stmt.file_index,
+                    d.stmt.line,
+                    format!("类型 {} 的派生链形成了循环", tname),
+                ));
+            }
+            seen.push(key);
+            let ext = d.extends.clone();
+            let (fi, line, dname) = (d.stmt.file_index, d.stmt.line, d.name.clone());
+            out.push(d);
+            cur = match ext {
+                Some(e) => Some(*e),
+                None => match base_name {
+                    None => None,
+                    Some(b) if b == dname => None,
+                    Some(b) => match self.defs.get(&b) {
+                        Some(bd) => Some(bd.clone()),
+                        None => return Err((fi, line, format!("{} 的基类型 {} 没有定义", dname, b))),
+                    },
+                },
+            };
+        }
+        Ok(out)
+    }
+
+    // —— repeat（3.8）——
+    fn expand_repeat(&mut self, s: &Stmt, id: NodeId, frame: FrameId, depth: u32, pos: &[u64]) {
+        let body = match &s.kind {
+            StmtKind::Generic { block, .. } => block.clone().unwrap_or_default(),
+            _ => unreachable!(),
+        };
+        // n 是常量，展开时求值
+        let n_prop = self.scene.nodes[id].props.get("n").cloned();
+        let (ni, nj, nk) = match n_prop {
+            None => {
+                self.degenerate(id, format!("{} 缺少 n", self.scene.path(id)));
+                return;
+            }
+            Some(pv) => {
+                let ctx = Ctx {
+                    frame: pv.frame,
+                    start: ROOT,
+                    timing: Timing::Expand,
+                };
+                let v = match self.eval(&pv.expr, ctx) {
+                    Ok(v) => v,
+                    Err(e) => {
+                        self.degenerate(id, format!("repeat 的 n 必须是常量：{}", e.0));
+                        return;
+                    }
+                };
+                let to_int = |x: f64| -> Option<u32> {
+                    let r = x.round();
+                    if (x - r).abs() <= 1e-9 && r >= 1.0 && r <= 5000.0 {
+                        Some(r as u32)
+                    } else {
+                        None
+                    }
+                };
+                let dims = match v {
+                    Value::Num(x) => to_int(x).map(|a| (a, 1, 1)),
+                    Value::Vector(ref vv) if vv.len() == 3 => {
+                        match (to_int(vv[0]), to_int(vv[1]), to_int(vv[2])) {
+                            (Some(a), Some(b), Some(c)) => Some((a, b, c)),
+                            _ => None,
+                        }
+                    }
+                    _ => None,
+                };
+                match dims {
+                    Some(d) => d,
+                    None => {
+                        self.degenerate(id, format!("{} 的 n 需要正整数或三个正整数", self.scene.path(id)));
+                        return;
+                    }
+                }
+            }
+        };
+        let total = ni as u64 * nj as u64 * nk as u64;
+        if total > 5000 {
+            self.degenerate(id, format!("{} 的实例数超过 5000", self.scene.path(id)));
+            return;
+        }
+        for k in 0..nk {
+            for j in 0..nj {
+                for i in 0..ni {
+                    let idx = i + ni * (j + nj * k);
+                    let inst_frame = self.env.new_frame(FrameKind::Instance, Some(frame));
+                    for (nm, v) in [("i", i), ("j", j), ("k", k), ("idx", idx)] {
+                        self.env
+                            .bind(inst_frame, nm, Binding::Value(Value::Num(v as f64)));
+                    }
+                    let inst = Node {
+                        seg: idx.to_string(),
+                        name: idx.to_string(),
+                        kind: "instance".to_string(),
+                        types: vec![],
+                        role: Role::Instance { i, j, k, idx },
+                        parent: id,
+                        children: vec![],
+                        created: 0,
+                        props: IndexMap::new(),
+                        tags: vec![],
+                        meta: IndexMap::new(),
+                        file_index: s.file_index,
+                        line: s.line,
+                        frame: inst_frame,
+                        stmt_frame: inst_frame,
+                        degenerate: false,
+                        hidden: false,
+                        late: false,
+                        local: None,
+                        lbox: None,
+                        world: None,
+                        wbox: None,
+                        tight: None,
+                        geom: None,
+                        src_stmt: None,
+                    };
+                    let inst_id = self.scene.add(id, inst);
+                    let bf = self.block_frame(&body, inst_frame, FrameKind::Block, inst_id);
+                    self.scene.nodes[inst_id].frame = bf;
+                    self.expand_block(&body, inst_id, bf, depth, pos);
+                }
+            }
+        }
+    }
+
+    // ====== 阶段 4–6（后续补齐）======
+    pub fn finish_tree(&mut self) {
+        self.expand_copies();
+        self.apply_modifications();
+        self.build_twins();
+        self.check_sibling_names();
+        self.rebuild_order();
+    }
+
+    fn expand_copies(&mut self) {
+        let pending: Vec<PendingCopy> = std::mem::take(&mut self.copies);
+        for c in pending {
+            self.stmt_error(c.stmt.file_index, c.stmt.line, "copy 尚未实现");
+        }
+    }
+
+    fn apply_modifications(&mut self) {
+        let mods: Vec<Modification> = std::mem::take(&mut self.modifications);
+        for m in mods {
+            self.stmt_error(m.stmt.file_index, m.stmt.line, "over / drop 尚未实现");
+        }
+    }
+
+    fn build_twins(&mut self) {
+        let ids: Vec<NodeId> = (1..self.scene.nodes.len())
+            .filter(|&n| {
+                matches!(self.scene.nodes[n].role, Role::TwinOf { .. })
+                    || (matches!(self.scene.nodes[n].kind.as_str(), "mirror" | "rotate")
+                        && matches!(self.scene.nodes[n].role, Role::Normal))
+            })
+            .collect();
+        for n in ids {
+            self.node_error(n, "mirror / rotate 尚未实现");
+            self.scene.nodes[n].degenerate = true;
+        }
+    }
+
+    /// 同级重名（1.6.6）：后出现的报错并移除
+    fn check_sibling_names(&mut self) {
+        let n = self.scene.nodes.len();
+        for p in 0..n {
+            let kids = self.scene.nodes[p].children.clone();
+            let mut seen: Vec<String> = Vec::new();
+            let mut remove: Vec<NodeId> = Vec::new();
+            for c in kids {
+                let seg = self.scene.nodes[c].seg.clone();
+                if seg.is_empty() {
+                    continue;
+                }
+                if seen.contains(&seg) {
+                    self.node_error(c, format!("同级重名 {}", seg));
+                    remove.push(c);
+                } else {
+                    seen.push(seg);
+                }
+            }
+            if !remove.is_empty() {
+                self.scene.nodes[p].children.retain(|c| !remove.contains(c));
+            }
+        }
+    }
+}
+
+/// 某种类是否接受某属性（1.4.4、1.4.5）
+pub fn accepts_prop(kind: &str, key: &str) -> bool {
+    let p_all = P_GROUP_ALL.contains(&key);
+    let own: &[&str] = match kind {
+        "box" | "wedge" => &["size"],
+        "plate" => &["points", "h"],
+        "hull" => &["points"],
+        "mesh" => &["src", "size", "pivot"],
+        "cyl" => &["r", "h", "axis"],
+        "cone" => &["r", "r2", "h", "axis"],
+        "sphere" => &["r"],
+        "revolve" => &["profile", "angle", "smooth"],
+        "span" => {
+            return matches!(
+                key,
+                "from" | "to" | "drop" | "dir" | "section" | "pin" | "r" | "steps" | "mat" | "color"
+            )
+        }
+        "sweep" => {
+            return matches!(
+                key,
+                "path" | "profile" | "r" | "section" | "pin" | "smooth" | "mat" | "color"
+            )
+        }
+        "pipe" => return matches!(key, "path" | "r" | "smooth" | "mat" | "color"),
+        "line" | "bezier" => return key == "path",
+        "spline" => return matches!(key, "path" | "closed"),
+        "arc" => {
+            return matches!(key, "r" | "angle" | "rise" | "plane")
+                || (p_all && !matches!(key, "mat" | "color"))
+        }
+        "helix" => {
+            return matches!(key, "r" | "pitch" | "turns") || (p_all && !matches!(key, "mat" | "color"))
+        }
+        "group" => &["envelope"],
+        "union" | "subtract" | "intersect" => &[],
+        "repeat" => {
+            return matches!(key, "n" | "step" | "turn" | "center" | "along" | "orient")
+                || (p_all && !matches!(key, "tilt" | "roll" | "rot" | "aim" | "aimwith" | "turn"))
+        }
+        "mirror" => &["across", "axis"],
+        "rotate" => &["n", "about", "axis", "angle"],
+        "mirror_of" => return matches!(key, "of" | "across" | "axis" | "mat" | "color"),
+        "rotate_of" => return matches!(key, "of" | "about" | "axis" | "angle" | "mat" | "color"),
+        _ => &[],
+    };
+    own.contains(&key) || p_all
+}
+
+/// 属性值的求值上下文
+pub fn prop_ctx(pv: &PropVal, timing: Timing) -> Ctx {
+    Ctx {
+        frame: pv.frame,
+        start: pv.start,
+        timing,
+    }
+}
