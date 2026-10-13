@@ -1,0 +1,26 @@
+name: ci
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.97.0
+          targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: fmt
+        run: cargo fmt --all --check
+      - name: clippy（含确定性禁用表 clippy.toml）
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: test
+        run: cargo test --workspace
+      - name: wasm build（s3d-geom、s3d-lang 必须能出 wasm，不开 simd128）
+        run: cargo build --release --target wasm32-unknown-unknown -p s3d-geom -p s3d-lang
+      - name: spec cross references
+        run: python3 spec/tools/check-refs.py

@@ -1,0 +1,5 @@
+# 固定工具链：三处（Windows 原生、Linux 原生、wasm）哈希对拍要求同一编译器版本
+[toolchain]
+channel = "1.97.0"
+targets = ["wasm32-unknown-unknown"]
+components = ["rustfmt", "clippy"]

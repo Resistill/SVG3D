@@ -1,0 +1,12 @@
+[package]
+name = "s3d-geom"
+description = "SVG3D 几何内核：实体与曲线的局部几何、包围盒、凸块与分离量、采样（spec/02、06）"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+glam = { workspace = true }
+libm = { workspace = true }
+earcutr = { workspace = true }

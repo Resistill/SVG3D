@@ -1,0 +1,15 @@
+[package]
+name = "s3d-cli"
+description = "SVG3D 命令行（M1：compile；M4 起并入 s3d-tool 的命令表）"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "s3d"
+path = "src/main.rs"
+
+[dependencies]
+s3d-lang = { path = "../s3d-lang" }
+serde_json = { workspace = true }

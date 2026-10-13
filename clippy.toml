@@ -1,0 +1,29 @@
+# 原则 18（确定性）的落地：禁用 std 的超越函数，一律走 s3d_geom::math 里的 libm 封装；
+# 容器不用 HashMap / HashSet（迭代顺序不定），用 BTreeMap / IndexMap / 排序过的 Vec。
+disallowed-methods = [
+  { path = "f64::sin", reason = "用 s3d_geom::math::sin（libm）" },
+  { path = "f64::cos", reason = "用 s3d_geom::math::cos（libm）" },
+  { path = "f64::tan", reason = "用 s3d_geom::math::tan（libm）" },
+  { path = "f64::asin", reason = "用 s3d_geom::math::asin（libm）" },
+  { path = "f64::acos", reason = "用 s3d_geom::math::acos（libm）" },
+  { path = "f64::atan", reason = "用 s3d_geom::math::atan（libm）" },
+  { path = "f64::atan2", reason = "用 s3d_geom::math::atan2（libm）" },
+  { path = "f64::sin_cos", reason = "用 s3d_geom::math::sin / cos（libm）" },
+  { path = "f64::exp", reason = "用 s3d_geom::math::exp（libm）" },
+  { path = "f64::exp2", reason = "用 s3d_geom::math::exp2（libm）" },
+  { path = "f64::ln", reason = "用 s3d_geom::math::ln（libm）" },
+  { path = "f64::log", reason = "用 s3d_geom::math::ln（libm）" },
+  { path = "f64::log2", reason = "用 s3d_geom::math::log2（libm）" },
+  { path = "f64::log10", reason = "用 s3d_geom::math::log10（libm）" },
+  { path = "f64::powf", reason = "用 s3d_geom::math::pow（libm）" },
+  { path = "f64::powi", reason = "用 s3d_geom::math::powi（逐次相乘）" },
+  { path = "f64::hypot", reason = "用 s3d_geom::math::hypot（libm）" },
+  { path = "f64::cbrt", reason = "用 s3d_geom::math::cbrt（libm）" },
+  { path = "f64::mul_add", reason = "不用 FMA：结果随平台变" },
+  { path = "f32::sin", reason = "几何只用 f64" },
+  { path = "f32::cos", reason = "几何只用 f64" },
+]
+disallowed-types = [
+  { path = "std::collections::HashMap", reason = "迭代顺序不定，用 BTreeMap 或 indexmap::IndexMap" },
+  { path = "std::collections::HashSet", reason = "迭代顺序不定，用 BTreeSet 或 indexmap::IndexSet" },
+]
