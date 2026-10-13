@@ -409,7 +409,7 @@ impl Compiler {
         if b.parts.len() != 1 {
             return false;
         }
-        if !(a.vol < KAPPA_IN * b.vol) {
+        if a.vol >= KAPPA_IN * b.vol {
             return false;
         }
         match &b.parts[0].shape {
