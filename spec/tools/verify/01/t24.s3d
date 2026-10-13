@@ -1,0 +1,5 @@
+box a size=1,1,1
+box b size=1,1,1 at=5,0,0 alignto=a
+box c size=1,1,1 at=5,0,0 aimwith=top
+span s from=(0,0,0) to=(1,0,0) drop=a
+span s2 from=(0,3,0) to=(1,3,0) dir=(0,1,0)

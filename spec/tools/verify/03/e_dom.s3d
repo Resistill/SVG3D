@@ -1,0 +1,10 @@
+box s size=2,2,2
+box c2 size=1,1,1 at=s[0.0000000001,0,0] gap=1
+box c3 size=1,1,1 at=s[0.000001,0,0] gap=1
+box u size=1,1,1 under=s
+box z size=1,1,1 gap=3
+box w1 size=1,1,1 at=5,0,0 #wall
+group g turn=45 at=0,0,10 { box x size=1,1,1 on=#wall }
+box t1 size=1,1,1 on=s align=x alignto=#wall
+mirror m of=c3 across=s[0,0,0]
+rotate r2 of=c3 about=s.top angle=-90

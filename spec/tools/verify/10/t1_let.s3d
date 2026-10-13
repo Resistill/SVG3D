@@ -1,0 +1,7 @@
+let rr = 0.8
+material white color=#ffffff rough=rr
+material plain color=#cfcabe default=false
+material red color=#ff0000 shine=1 metal=2
+box g size=10,1,10 mat=white
+box h size=1,1,1 on=g
+box i size=1,1,1 on=g mat=red

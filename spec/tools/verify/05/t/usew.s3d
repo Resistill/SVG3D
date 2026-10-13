@@ -1,0 +1,3 @@
+def skin1(w=1,h=1,d=1) { box k size=w,h,d }
+box a size=1,2,1
+over a use=skin1 w=3

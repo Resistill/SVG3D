@@ -1,0 +1,3 @@
+box w1 size=1,1,1 at=5,0,40 #wall
+let ws = #wall
+box x size=1,1,1 at=ws.start

@@ -1,0 +1,3 @@
+box a size=1,1,1
+check   count(kind(box))   >  0
+check "m" count( kind(box) ,  1 ) > 0

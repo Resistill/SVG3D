@@ -1,0 +1,11 @@
+box ground size=20,1,20 pin=top
+def sk(w=1,h=1,d=1) { box base size=w,h,d }
+group g on=ground { box a size=2,2,2 }
+box lone size=1,1,1 on=ground at=5,0,0
+variant g use=sk
+concept desc = descendants(g)
+concept kids = children(g)
+concept wild = g.*
+concept direct = g.skin
+concept gw = all() where w > 1.5 and h > 1.5
+check "c" count(descendants(g)) == 1

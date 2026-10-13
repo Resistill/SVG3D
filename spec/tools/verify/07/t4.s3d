@@ -1,0 +1,7 @@
+box ground size=20,1,20 pin=top
+def hut(w=2) { box body size=w,2,w }
+hut a on=ground
+mirror m of=a across=x at=4,0,0
+concept huts = all() where kind == hut
+concept huts2 = kind(hut)
+concept names = all() where name == m

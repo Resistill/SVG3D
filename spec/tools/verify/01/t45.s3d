@@ -1,0 +1,5 @@
+box a size=1,1,1
+box b size=1,1,1 on=a pin=foo
+cyl c r=1 h=1 axis=foo at=4,0,0
+span s from=(0,0,0) to=(1,0,0) pin=foo
+box e size=1,1,1 at=7,0,0 turn=a

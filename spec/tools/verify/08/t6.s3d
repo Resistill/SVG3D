@@ -1,0 +1,15 @@
+box ground size=20,1,20
+def hut(w=4) { box body size=w,1,w ~ww=w ~k="b" }
+hut h1 on=ground ~src="n1" ~fit=0.9
+hut h2 w=6 on=ground at=5,0,0 ~src="n2"
+copy h3 of=h1 at=-5,0,0 ~note="dup"
+copy h4 of=h1 at=-5,0,5
+over h1 w=8
+copy h5 of=h1 at=-5,0,-5
+mirror m1 of=h2 across=x
+rotate rr of=h2 n=2 about=ground
+over m1.body ~x=1 size=2,2,2
+over h2 ~why="q" w=7
+group gg { box inner size=1,1,1 ~fit=0.3 }
+over gg : group ~z=1 { box j size=1,1,1 }
+over inner : cyl r=1 h=1

@@ -1,0 +1,14 @@
+box floor size=40,1,24 pin=top
+box a size=2,1,2 turn=30 at=5,0,0
+mirror a2 of=a across=z
+box b size=1,1,1 on=a2
+wedge w size=2,1,2 against=a2.right
+mirror a3 of=a across=z turn=90 at=0,0,9
+rotate a4 of=a about=floor n=3 angle=90
+arc c r=5 at=0,0,-20 pin=origin
+repeat r n=4 along=c on=floor { box i size=0.5,0.5,0.5 }
+repeat r2 n=3 along=c step=1,0,0 center=true orient=true { box i size=0.5,0.5,0.5 }
+rotate rr n=2.6 { box s size=1,1,1 at=3,0,0 }
+box m size=2,1,2 at=0,0,30 aim=0,10,30 aimwith=top-left
+group g at=0,0,40 pin=origin { box p size=1,1,1 at=g.origin }
+group g5 on=floor { box p size=1,1,1 size=1,1,1 }

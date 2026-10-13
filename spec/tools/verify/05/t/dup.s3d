@@ -1,0 +1,3 @@
+box a size=1,1,1
+box a size=2,2,2
+box c size=1,1,1 on=a

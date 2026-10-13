@@ -1,0 +1,2 @@
+def hut : hut { box flag size=0.2,2,0.2 }
+hut h1 at=0,0,0

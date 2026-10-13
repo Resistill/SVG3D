@@ -1,0 +1,27 @@
+box floor size=40,1,40 pin=top
+box tilted size=2,2,2 on=floor tilt=10
+box upside size=2,2,2 on=floor at=5,0,0 roll=180
+sphere s1 r=1 at=10,0,0
+sphere s2 r=1 at=12,0,0
+box bigbox size=6,6,6 at=20,0,0
+sphere inner r=1 inside=bigbox
+sphere bigsph r=4 at=30,0,0
+box innerbox size=1,1,1 inside=bigsph
+box sunk size=2,2,2 on=floor gap=-0.1 at=0,0,10
+box spaced size=2,2,2 on=floor gap=0.015 at=5,0,10
+box wall size=0.2,3,4 on=floor at=10,0,10
+box nearwall size=1,1,1 on=floor against=wall.right gap=0.01
+box farwall size=1,1,1 on=floor against=wall.left gap=0.03
+mesh m src="x.glb#a" size=1,1,1 on=floor against=wall.front
+subtract crate at=0,0,20 { box shell size=5,4,5; box hollow size=4.4,4,4.4 at=shell.bottom pin=bottom offset=0,0.3,0 }
+box incrate size=1,1,1 at=crate.hollow.bottom pin=bottom offset=1.7,0,0
+box hang size=2,2,2 at=0,5,30
+box hang2 size=2,2,2 at=1,7,30
+wedge ramp size=3,2,3 on=floor at=10,0,30
+box onramp size=1,1,1 at=ramp.right pin=left
+cyl post r=0.5 h=3 on=floor at=20,0,30
+box plank size=3,0.2,1 on=post
+cyl flat r=1 h=0.5 axis=x on=floor at=25,0,30
+box onflat size=0.5,0.5,0.5 on=flat
+box thin1 size=1,0.005,1 on=floor at=30,0,30
+box thin2 size=1,0.005,1 on=thin1

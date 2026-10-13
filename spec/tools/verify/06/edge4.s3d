@@ -1,0 +1,7 @@
+box ground size=100,1,100 pin=top
+box up1 size=1,0.015,1 at=0,0.005,0
+box low2 size=1,0.005,1 at=0,0,0
+sphere ca r=1 at=20,0,0 pin=center
+sphere cb r=2 at=20,0,0 pin=center
+sphere cc r=1 at=40,0,0 pin=center
+sphere cd r=1 at=40,0,0 pin=center

@@ -1,0 +1,24 @@
+material stone color=#999999
+material wood color=#8a5a3c
+box ground size=40,1,40 pin=top
+group g on=ground { box a size=2,2,2; box b size=2,2,2 at=4,0,0 #inner }
+repeat row n=2 step=5,0,0 at=0,0,10 { box t size=1,1,1 }
+box lone size=2,2,2 at=0,0,-10 #lone
+box lone2 size=2,2,2 at=5,0,-10 #lone2
+box lone3 size=2,2,2 at=10,0,-10 #lone3 mat=stone
+mirror lone3m of=lone3 across=x
+def fancy(w=1, h=1, d=1) { box inner size=w*0.5,h*2,d*0.5 }
+def need(q) { box inner size=q,1,1 }
+def wd(w=1) { box inner size=w,1,1 }
+variant g use=fancy
+variant #inner use=fancy
+variant row use=fancy
+variant lone use=fancy
+variant lone use=wd
+variant lone2 use=need
+variant lone3 use=fancy mat=wood
+variant kind(sphere) use=fancy
+over lone2 use=nodef
+style lone3m color=#ff0000
+check "all count" count(all())
+check "inner" count(descendants(g))

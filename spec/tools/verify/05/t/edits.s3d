@@ -1,0 +1,3 @@
+import "base.s3d"
+over h1 w=8
+drop h2

@@ -1,0 +1,9 @@
+material a color=#111111 metal=0.6 rough=0.4
+material b color=#222222
+material c color=#333333
+box floor size=40,1,40 pin=top
+group g on=floor mat=a { box roof size=4,1,4 color=#00ff00 }
+def sk(w=1,h=1,d=1) { box base size=w,h*0.5,d; box cap size=w,h*0.5,d on=base mat=c; box tip size=0.2,0.2,0.2 on=cap color=#0000ff }
+variant g.roof use=sk
+style g mat=b
+style kind(box) color=#ff00ff

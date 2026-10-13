@@ -1,0 +1,8 @@
+def hut(w=4) {
+  box body size=w,3,w
+  wedge roof size=w,1.5,w on=body
+}
+box ground size=40,1,40
+hut h1 at=0,0,0
+hut h2 at=10,0,0
+cyl lamp r=0.2 h=3 on=ground

@@ -1,0 +1,2 @@
+box floor size=40,1,24 pin=top
+box a size=1,2,3 on=floor

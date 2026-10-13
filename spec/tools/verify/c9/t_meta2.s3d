@@ -1,0 +1,2 @@
+import "t_lang.s3d" ~k=1
+box z size=1,1,1 at=5,0,0

@@ -1,0 +1,6 @@
+box ground size=20,1,20 pin=top
+def sk(w=1,h=1,d=1) { box base size=w*2,h*2,d*2 }
+group g on=ground { box a size=2,2,2 }
+box onit size=1,1,1 on=g
+variant g use=sk
+concept big = all() where h > 3

@@ -1,0 +1,9 @@
+box ground size=10,1,10
+box d size=1,1,1 on=ground ~a=1 ~s=all()
+box e size=1,1,1 on=ground ~a=1 ~s=all() where w > 1
+box f size=1,1,1 on=ground ~w=7 ~m=metre ~fit=0.5
+box g size=1,1,1 on=ground ~fit=2
+concept c1 = all() where w > 5
+concept c2 = all() where fit == 0.5
+concept c3 = all() where fit != 1
+concept c4 = all() where fit + 1

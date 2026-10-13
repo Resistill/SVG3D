@@ -1,0 +1,4 @@
+def h() { box b size=1,1,1 }
+h at=1,0,0
+h at=3,0,0
+box x size=1,1,1 on=b

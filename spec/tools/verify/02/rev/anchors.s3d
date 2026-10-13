@@ -1,0 +1,22 @@
+cyl cz r=1 h=4 axis=z
+box mz size=0.1,0.1,0.1 at=cz.side[90,0.5] pin=center
+cyl cx r=1 h=4 axis=x
+box mx size=0.1,0.1,0.1 at=cx.side[90,0.5] pin=center
+cone kx r=2 r2=1 h=4 axis=x at=0,0,10
+box nx size=0.1,0.1,0.1 against=kx.side[0,0.5]
+cone ky r=2 r2=1 h=4 at=0,0,20
+box ny size=0.1,0.1,0.1 against=ky.side[0,0.5]
+cone kz r=2 r2=1 h=4 axis=z at=0,0,30
+box nz size=0.1,0.1,0.1 against=kz.side[0,0.5]
+wedge wd size=4,2,4 at=20,0,0
+box tw size=0.1,0.1,0.1 at=wd.top[0,0] pin=center
+box bb size=4,2,4 at=30,0,0
+box tb size=0.1,0.1,0.1 at=bb.top[3,0] pin=center
+sphere sp r=2 at=40,0,0
+box ts size=0.1,0.1,0.1 at=sp.top[1.5,0] pin=center
+cyl hc r=1 h=4 axis=x at=50,0,0
+box th size=0.1,0.1,0.1 at=hc.top[0,0] pin=center
+revolve basin profile=[(0,0); (5,0); (5.2,0.9); (4.7,0.9); (4.6,0.35); (0,0.35)] at=70,0,0
+box tr size=0.1,0.1,0.1 at=basin.top[0.2,0] pin=center
+revolve rv profile=[(0,0); (2,0); (3,3); (0,3)] at=90,0,0
+box sr size=0.1,0.1,0.1 against=rv.side[0,0.5]

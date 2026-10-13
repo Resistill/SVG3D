@@ -1,0 +1,5 @@
+material a color=#111111
+box g size=10,1,10 mat=a
+box h size=1,1,1 on=g mat=nope
+box i size=1,1,1 on=g mat=a.b
+box j size=1,1,1 on=g mat="a"

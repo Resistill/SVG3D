@@ -1,0 +1,9 @@
+box ground size=40,1,40 pin=top
+group g on=ground {
+  box a size=1,3,1
+  over a mat=plain
+}
+material plain color=#cccccc
+over g { over a color=#ff0000 }
+over #none size=1,1,1
+drop #none

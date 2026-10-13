@@ -1,0 +1,5 @@
+group g1 { box x size=1,1,1 }
+group g2 { box x size=1,1,1 }
+over x size=2,2,2
+mirror m of=g1 across=g2 axis=x
+over m.x size=3,3,3

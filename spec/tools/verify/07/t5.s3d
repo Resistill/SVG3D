@@ -1,0 +1,7 @@
+box ground size=20,1,20 pin=top
+box a size=1,1,1 on=ground
+pattern p(x, y) { x in nothing_here
+ y in kind(box) }
+pattern q(x) { x in kind(box)
+ x on zzz }
+check "k" count(p) == 0

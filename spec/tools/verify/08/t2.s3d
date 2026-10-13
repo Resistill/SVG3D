@@ -1,0 +1,6 @@
+box ground size=10,1,10
+box a size=1,1,1 on=ground ~src=ground ~w=3
+box b size=1,1,1 on=ground ~t=#x
+box c size=1,1,1 on=ground ~q=nothere
+box d size=1,1,1 on=ground ~s=all()
+box e size=1,1,1 on=ground ~s=ground.top

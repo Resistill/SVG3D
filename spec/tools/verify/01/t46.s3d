@@ -1,0 +1,4 @@
+box x size=1,1,1 at=9,0,0
+cyl c r=1 h=2 axis=x at=3,0,0
+mirror m of=c across=x
+box b size=1,1,1 on=c pin=x

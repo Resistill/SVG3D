@@ -1,0 +1,4 @@
+let tall = kind(box) where h > 1.5
+box a size=1,2,1
+box b size=1,1,1 on=tall
+box c size=1,1,1 on=kind(box) where h > 1.5

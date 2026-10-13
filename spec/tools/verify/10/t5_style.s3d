@@ -1,0 +1,9 @@
+material a color=#111111 metal=0.6 rough=0.4
+material b color=#222222
+box floor size=40,1,40 pin=top
+group g on=floor mat=a { box p size=1,1,1; box q size=1,1,1 at=3,0,0 color=#00ff00; box r size=1,1,1 at=6,0,0 mat=b color=#00ff00 }
+mirror g2 of=g across=z
+style g.p mat=b
+style g color=#123456
+style g2.q mat=b
+style g color=#654321 mat=a

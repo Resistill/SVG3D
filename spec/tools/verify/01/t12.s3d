@@ -1,0 +1,6 @@
+repeat r n=2 step=1,0,0 { box a size=1,1,1 }
+mirror m across=x { box q size=1,1,1 at=2,0,0 }
+check "g" kind(group)
+check "km" kind(mirror)
+check "ki" kind(instance)
+check "where" all() where kind == "group"

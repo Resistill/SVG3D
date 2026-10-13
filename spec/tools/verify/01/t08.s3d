@@ -1,0 +1,5 @@
+material m color=#ff0000
+box a size=1,1,1
+box b size=1,1,1 at=3,0,0
+over a: cyl r=1 h=1
+style a | b mat=m

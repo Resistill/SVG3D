@@ -1,0 +1,4 @@
+material steel color=#888888
+box a size=1,1,1 mat=steel
+box b size=1,1,1
+over kind(box) where mat == steel size=3,3,3

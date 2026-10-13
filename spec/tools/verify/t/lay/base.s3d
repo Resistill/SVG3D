@@ -1,0 +1,6 @@
+box ground size=40,1,40 pin=top
+def hut(w=4) { box body size=w,3,w
+  wedge roof size=w,1.5,w on=body }
+hut h1 on=ground
+hut h2 on=ground[0.3,1,0]
+sphere lamp r=0.3 on=h1.roof

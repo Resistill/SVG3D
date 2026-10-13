@@ -1,0 +1,2 @@
+box s size=2,2,2 at=0,0,20
+box k size=1,1,1 at=(s.top+(1,0,0)).y,0,0

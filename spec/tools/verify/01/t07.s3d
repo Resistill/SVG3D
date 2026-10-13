@@ -1,0 +1,3 @@
+def h() { box b size=1,1,1 }
+h x { box c size=1,1,1 }
+h y

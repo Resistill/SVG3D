@@ -1,0 +1,7 @@
+box ground size=40,1,40 pin=top
+box a size=1,1,1 on=ground
+copy b of=a at=5,0,0 { over it size=2,2,2 }
+over b size=3,3,3
+group g { box c size=1,1,1 }
+over g { over c size=2,2,2 }
+over g.c size=3,3,3

@@ -1,0 +1,9 @@
+material a color=#111111 metal=0.6 rough=0.4
+material rust color=#8a4a2a rough=0.9
+box floor size=40,1,40 pin=top
+group tower on=floor mat=a { group legs { box leg size=0.6,4,0.6; box leg2 size=0.6,4,0.6 at=2,0,0 color=#00ff00 } }
+mirror tower2 of=tower across=x
+over tower2.legs mat=rust turn=0
+over tower2.legs.leg2 mat=rust turn=0
+mirror tower3 of=tower across=z
+over tower3.legs.leg mat=rust turn=0

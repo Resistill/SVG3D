@@ -1,0 +1,2 @@
+import "base.s3d"
+style kind(box) color=#ff0000

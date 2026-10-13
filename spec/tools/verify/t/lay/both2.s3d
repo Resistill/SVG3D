@@ -1,0 +1,4 @@
+import "edits.s3d"
+material wood color=#8a5a3c
+style kind(wedge) mat=wood
+over all() where h > 2.9 color=#ff0000

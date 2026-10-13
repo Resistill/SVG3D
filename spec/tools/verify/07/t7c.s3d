@@ -1,0 +1,8 @@
+box ground size=200,1,200 pin=top
+repeat r n=60 step=3,0,0 on=ground { box b size=1,1,1 }
+pattern p(x, y, z) { x in kind(box) where h < 2
+ y in kind(box) where h < 2
+ z in kind(box) where h < 2
+ count(kind(sphere)) > 0 }
+concept c = p.x
+check "k" count(p) > 0

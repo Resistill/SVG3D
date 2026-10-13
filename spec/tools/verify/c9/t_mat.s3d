@@ -1,0 +1,4 @@
+material steel color=#7f8b96
+box ab size=1,1,1 mat=steel
+box cd size=1,1,1 at=3,0,0
+over all() where mat == steel color=#ff0000

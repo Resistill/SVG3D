@@ -1,0 +1,4 @@
+box floor size=40,1,24 pin=top
+box w1 size=1,1,1 at=5,0,0 #wall
+box z size=g.h.w,1,1 at=10,0,0
+group g on=floor { group h { box a on=#wall } box b }

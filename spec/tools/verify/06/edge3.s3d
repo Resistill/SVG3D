@@ -1,0 +1,16 @@
+box ground size=100,1,100 pin=top
+box upside size=2,2,2 roll=180 pin=top on=ground
+box thin size=1,0.005,1 at=upside.bottom pin=bottom
+box t1 size=1,0.01,1 at=10,0,0
+box t2 size=1,0.03,1 on=t1
+box lat1 size=1,1,1 at=20,0,0
+box lat2 size=1,1,1 at=21.02,0,0
+box z1 size=1,1,1 at=30,0,0
+box z2 size=1,1,1 at=30,0,1.02
+cyl cy r=1 h=2 at=-20,0,0
+box oncy size=0.5,0.5,0.5 on=cy
+box w size=0.2,3,4 at=-10,0,-20
+box shifted size=1,1,1 against=w.right offset=0,0,2.1
+box shifted2 size=1,1,1 against=w.right offset=0,0,1.99
+box hi size=1,1,1 at=-30,5,0
+box hi2 size=1,1,1 at=-30,5.02,0

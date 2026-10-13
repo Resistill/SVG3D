@@ -1,0 +1,11 @@
+material steel color=#7f8b96 default=false
+material rust color=#884422 extra=5
+group g {
+  material inner color=#ff0000
+  box a size=1,1,1
+  box a size=2,2,2 at=5,0,0
+}
+box z size=1,1,1 color=#wall
+box s size=1,1,1 mat="steel" at=10,0,0
+over z
+check "c" count(kind(box))

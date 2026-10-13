@@ -1,0 +1,4 @@
+box ab size=1,1,1
+cyl cd r=1 h=1 at=3,0,0
+concept c = kind("box")
+check "k" count(kind("box")) == 1

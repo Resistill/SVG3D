@@ -1,0 +1,8 @@
+group gg at=30,0,0 { box inner size=1,1,1 }
+over gg : box size=2,2,2
+def shed(w=4) { box body size=w,3,w }
+def big(h=5) : shed(w=6) { box top size=1,h,1 on=body }
+big h2 h=7 at=0,0,30
+over h2 : shed
+box a size=1,1,1
+copy b2 of=a size=2,2,2 at=9,0,0

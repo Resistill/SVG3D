@@ -1,0 +1,5 @@
+box ground size=100,1,100 pin=top
+box exact size=1,1,1 at=0,0.02,0
+box exact2 size=1,1,1 at=10,0.019,0
+box ax1 size=1,1,1 at=20,0,0
+box ax2 size=1,1,1 at=21.02,0,0

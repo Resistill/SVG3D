@@ -1,0 +1,3 @@
+group g { import "base.s3d" }
+import "base.s3d" { box z size=1,1,1 }
+import

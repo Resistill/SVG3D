@@ -1,0 +1,4 @@
+material a color=#111111
+material b color=#222222 default=true
+material a color=#333333 default=true
+box floor size=40,1,40 pin=top

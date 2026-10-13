@@ -1,0 +1,7 @@
+box a size=1,1,1 at=2,0,0
+mirror m of=a across=a axis=x
+over m mat=steel
+material steel color=#888888
+copy c of=m at=9,0,0
+repeat row n=3 step=4,0,0 { box t size=1,1,1 }
+copy inst of=row.2 at=0,0,9

@@ -1,0 +1,3 @@
+def sk(w=1,h=1,d=1) { box base size=w,h,d; over base size=1,1,1; copy base2 of=base at=0,0,3 }
+box slab size=4,2,4
+over slab use=sk w=9

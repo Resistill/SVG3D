@@ -1,0 +1,1 @@
+repeat r n=(2,2,2,2) step=1,1,1 { box q }

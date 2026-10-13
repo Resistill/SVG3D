@@ -1,0 +1,4 @@
+group g { material steel color=#ff0000 }
+let c = 0.5
+material plain color=#cfcabe rough=c
+box a size=1,1,1 mat=steel

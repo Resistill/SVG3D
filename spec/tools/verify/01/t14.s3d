@@ -1,0 +1,3 @@
+box a #w size=1,1,1 at=2,0,0
+mirror r of=a across=x
+check "t" #w

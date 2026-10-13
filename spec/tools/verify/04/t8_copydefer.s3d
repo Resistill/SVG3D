@@ -1,0 +1,2 @@
+group g { box a size=1,1,1; copy c2 of=c1 at=5,0,0; copy c1 of=a at=3,0,0 }
+copy c3 of=g.c1 at=8,0,0

@@ -1,0 +1,4 @@
+material a color=#111111
+material b color=#222222
+def t(mat=a) { box core size=1,1,1 mat=mat }
+t x mat=b

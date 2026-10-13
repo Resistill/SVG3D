@@ -1,0 +1,4 @@
+box a size=4,4,4
+box b size=1,1,1 on=a pin=top-center
+box c size=1,1,1 on=a pin=left-right
+box d size=1,1,1 on=a pin=top-left-front-back

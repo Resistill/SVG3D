@@ -1,0 +1,4 @@
+def h() { box body size=1,1,1 }
+h at=3,0,0
+group g { box body size=1,1,1 at=6,0,0 }
+box x size=1,1,1 on=body

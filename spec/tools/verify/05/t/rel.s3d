@@ -1,0 +1,3 @@
+box pad size=10,1,10
+box a size=1,1,1 on=pad
+over on(pad) size=2,2,2

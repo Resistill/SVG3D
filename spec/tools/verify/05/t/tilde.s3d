@@ -1,0 +1,2 @@
+box tank1 size=1,1,1
+over kind(box) where name ~ /^t/ size=2,2,2

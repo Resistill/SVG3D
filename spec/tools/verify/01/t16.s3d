@@ -1,0 +1,3 @@
+box a size=round(-2.5)+4,round(2.5),round(0.5)+1
+check "v" (1,2) == (1,2)
+check "s" "a" == "a"

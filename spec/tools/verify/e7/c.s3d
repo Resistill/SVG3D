@@ -1,0 +1,22 @@
+box ground size=40,1,40 pin=top
+box lone size=2,2,2 at=0,0,-10 #lone
+box lone2 size=2,2,2 at=5,0,-10 #lone2
+box lone4 size=2,2,2 at=15,0,-10
+wedge cap size=1,1,1 on=lone
+def need(q) { box inner size=q,1,1 }
+def wd(w=1) { box inner size=w,1,1 }
+variant lone2 use=need
+variant lone use=wd zz=1
+variant lone4 use=wd at=0,0,0
+pattern P(x, y) {
+  x in kind(box)
+  y in kind(wedge)
+  y on x
+}
+concept px = P.x
+concept pz = P.z
+concept pall = P
+concept pc = P & kind(box)
+check "zero" 0
+check "cnt" count(P)
+check "pset" P

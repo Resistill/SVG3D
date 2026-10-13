@@ -1,0 +1,9 @@
+box ground size=20,1,20 pin=top
+box a size=1,1,1 on=ground
+box b size=1,1,1 on=ground at=3,0,0
+box c size=1,1,1 on=a
+pattern p(x, y) { x in kind(box)
+ y in kind(box)
+ kind(box) on ground }
+pattern q(x) { x in kind(box) where h < 2
+ ground supports kind(box) }

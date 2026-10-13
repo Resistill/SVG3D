@@ -1,0 +1,5 @@
+box a size=1,1,1
+box b size=1,1,1 at=3,0,0
+mirror m of=(a,b) across=x
+mirror m2 of=a.top across=x
+mirror m3 of=kind(box) across=x

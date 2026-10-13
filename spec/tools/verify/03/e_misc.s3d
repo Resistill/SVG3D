@@ -1,0 +1,12 @@
+box a size=2,1,2 turn=30 at=5,0,0
+mirror a2 of=a across=z
+box b on=a2
+box s size=2,2,2 at=0,0,20
+box c0 size=1,1,1 against=s[0,0,0]
+box p5 size=1,1,1 pin=0.5 at=0,0,30
+box o1 size=1,1,1 at=s.origin gap=1
+let ws = #wall
+box w1 size=1,1,1 at=5,0,40 #wall
+box w2 size=1,1,1 at=9,0,40 #wall
+arc cl r=4 at=0,0,60 pin=origin
+repeat one n=1 along=cl { box q size=0.5,0.5,0.5 }

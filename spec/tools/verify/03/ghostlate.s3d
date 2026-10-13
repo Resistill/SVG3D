@@ -1,0 +1,7 @@
+box ground size=40,1,40 pin=top
+sphere sat r=1 at=30,20,0
+group radar on=ground[-0.5,1,0] {
+  cyl base r=1 h=2
+  box dish size=2,1,2 on=base aim=sat
+}
+mirror radar2 of=radar across=ground axis=x

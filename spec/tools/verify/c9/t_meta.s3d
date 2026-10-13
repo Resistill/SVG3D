@@ -1,0 +1,12 @@
+material steel color=#7f8b96 ~k=1
+let n = 2 ~k=1
+def t(w=1) ~k=1 { box b size=w,1,1 }
+t x ~k=1
+box ab size=1,1,1 mat=steel ~k=1
+over ab size=2,2,2 ~k=1
+drop x ~k=1
+concept c = kind(box) ~k=1
+pattern p(a) ~k=1 { a in kind(box) }
+check "c" count(kind(box)) > 0 ~k=1
+style c mat=steel ~k=1
+variant c use=t ~k=1

@@ -1,0 +1,4 @@
+box ground size=20,1,20
+repeat row n=2 step=3,0,0 on=ground { box leg size=1,1,1 ~fit=idx }
+copy r2 of=row.1 at=0,0,5 ~note="inst"
+over row n=3

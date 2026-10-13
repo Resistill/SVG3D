@@ -1,0 +1,8 @@
+let fit = 7
+box ground size=10,1,10 ~fit=0.5
+box fit size=1,1,1 on=ground ~fit=2
+box b size=1,1,1 on=ground at=3,0,0
+concept c1 = all() where fit > 1
+concept c2 = all() where fit > 6
+concept c3 = all() where src ~ /x/
+concept c4 = all() where fit == 0.5

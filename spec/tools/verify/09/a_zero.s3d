@@ -1,0 +1,5 @@
+box a size=1,1,1
+box b size=1,1,1 at=3,0,0
+mirror m of=a across=(5,0,0) axis=(0,0,0)
+rotate r of=b axis=(0,0,0) angle=90
+box c size=1,1,1 at=9,0,0 rot=(0,0,0,45)

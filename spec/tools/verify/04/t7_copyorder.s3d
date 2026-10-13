@@ -1,0 +1,8 @@
+group a { box c size=1,1,1 }
+copy b of=a at=5,0,0 { over c size=2,2,2 }
+over b.c size=3,3,3
+def t { box a size=1,1,1; over a size=2,2,2 }
+over x.a size=3,3,3
+t x at=10,0,0
+t y at=20,0,0
+over y.a size=3,3,3

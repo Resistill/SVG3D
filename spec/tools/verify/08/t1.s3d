@@ -1,0 +1,11 @@
+let unit = 0.5
+box ground size=10,1,10 ~fit=0.5 ~fit=0.9 ~v=1,2 ~l=[1;2] ~neg=-0 ~u=unit*2 ~b=true ~big=1e21 ~f=0.1
+repeat posts n=2 step=3,0,0 on=ground ~src="posts" {
+  cyl p r=0.2 h=3 ~i=idx
+}
+def hut(w=4) ~src="lib" { box body size=w,1,w ~ww=w }
+hut h1 on=ground ~src="n1"
+hut h2 w=6 on=ground at=5,0,0 ~src="n2"
+copy h3 of=h1 at=-5,0,0 ~note="dup"
+copy h4 of=h1 at=-5,0,5
+over h1 w=8

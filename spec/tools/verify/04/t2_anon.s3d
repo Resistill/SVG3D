@@ -1,0 +1,1 @@
+group g { box p size=1,1,1; copy q of=p at=3,0,0; box size=1,1,1 at=6,0,0 }

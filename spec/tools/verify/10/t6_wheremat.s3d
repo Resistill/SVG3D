@@ -1,0 +1,7 @@
+material a color=#111111
+material b color=#222222
+box floor size=40,1,40 pin=top mat=a
+box h size=1,1,1 on=floor mat=b
+box i size=1,1,1 on=floor at=3,0,0
+drop all() where mat == b
+over all() where mat == a color=#ff0000

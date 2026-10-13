@@ -1,0 +1,6 @@
+box a size=1,1,1
+cyl c r=1 h=1 at=3,0,0
+check "o" kind(box) or kind(cyl)
+check "w" all() where 1
+check "k0" kind()
+check "mm" min() == 0

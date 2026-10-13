@@ -1,0 +1,11 @@
+let k = 3 ~u="count"
+import "nothing.s3d" ~layer="x"
+def t(w=1) ~a=1 { box b size=w,w,w }
+box ground size=10,1,10 ~fit=1
+material steel color=#7f8b96 ~src="m"
+t t1 on=ground
+over ground ~why="x" size=12,1,12
+drop t1 ~why="y"
+concept c = all() ~a=1
+check "x" count(all()) > 0 ~a=1
+style all() color=#fff ~a=1

@@ -1,0 +1,5 @@
+box ground size=100,1,100 pin=top
+box up1 size=1,0.013,1 at=0,0.005,0
+box low2 size=1,0.005,1 at=0,0,0
+box up3 size=1,0.013,1 at=10,0.005,0
+box low4 size=1,0.005,1 at=9.9,0,0

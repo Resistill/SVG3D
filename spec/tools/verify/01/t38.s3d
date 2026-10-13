@@ -1,0 +1,4 @@
+group g { box a size=1,1,1
+ box size=1,1,1 at=2,0,0 }
+drop g.a
+over g { box size=1,1,1 at=4,0,0 }

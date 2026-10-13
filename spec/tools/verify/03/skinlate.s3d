@@ -1,0 +1,17 @@
+def cap(w=1,h=1,d=1) { box lid size=w,0.2,d }
+box floor size=40,1,24 pin=top
+subtract s at=-10,0,0 {
+  box b size=2,2,2
+  cyl hole r=0.5 h=3
+}
+union u at=-20,0,0 {
+  box b size=2,2,2
+  box c size=1,1,1
+}
+intersect i at=-30,0,0 {
+  box b size=2,2,2
+  box c size=1,1,1
+}
+variant s use=cap
+variant u use=cap
+variant i use=cap

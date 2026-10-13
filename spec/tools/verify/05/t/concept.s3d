@@ -1,0 +1,4 @@
+box a size=1,1,1
+concept tank = kind(box)
+over tank size=1,1,1
+over nothere size=1,1,1

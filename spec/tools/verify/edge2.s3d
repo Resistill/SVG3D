@@ -1,0 +1,19 @@
+box ground size=60,1,60 pin=top
+box flip size=2,2,2 roll=180 pin=top on=ground
+box wall size=0.2,3,4 on=ground[0.7,1,0.5]
+mesh m src="x.glb#a" size=1,1,1 against=wall.front
+revolve vase profile=[(0,0); (2,0); (2.5,3); (0.5,4)] at=10,0,10
+box tiny size=0.3,0.3,0.3 at=10,1,10
+sphere big r=3 at=20,0,20
+sphere small r=0.5 on=big
+box exact size=1,1,1 on=ground gap=0.02 at=-20,0,-20
+group rocket { cyl stage1 r=2 h=10 on=ground[0.2,1,0.2]; cyl stage2 r=1.5 h=5 on=stage1 }
+box pad size=6,0.5,6 at=-20,0,20
+box leg1 size=0.5,2,0.5 on=pad[0.2,1,0.5]
+box leg2 size=0.5,2,0.5 on=pad[0.8,1,0.5]
+box table size=5,0.2,2 on=leg1 align=left
+concept lifted = on(ground)
+concept sup = supports(all())
+concept touch2 = touching(all(), 2)
+concept cont = contains(all())
+concept twoleg = on(kind(box), 2)

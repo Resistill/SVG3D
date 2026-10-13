@@ -1,0 +1,6 @@
+box a size=1,1,1
+box b size=2,2,2
+pattern slab(x) { x in kind(box) }
+concept slab = kind(box) where w > 1.5
+check "slab" count(slab) == 1
+pattern slab(y) { y in kind(box) where w > 1.5 }

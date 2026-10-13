@@ -1,0 +1,49 @@
+material stone color=#999999
+box ground size=40,1,40 pin=top
+box a size=1,1,1 on=ground #post
+box b size=1,1,1 at=5,3,0 #post
+cyl c r=0.3 h=2 on=ground
+wedge cap size=1,1,1 on=a
+concept A = B | #post
+concept B = A & kind(box)
+concept C = A | c
+concept D = kind(box)
+concept E : ground = where h > 0
+concept F : nothing = where h > 0
+concept G = kind(cyl) & on(ground, 1.5)
+concept H = on(ground, 0)
+concept J = kind(box) & on(#post)
+check "number result" count(#post)
+check "string" "true"
+check "err" foo(1)
+check "set" #post - on(ground)
+check "pattern count" count(P)
+check "bool" count(#post) == 2
+pattern P(x, y) {
+  x in #post
+  y in kind(wedge)
+  y on x
+}
+pattern Q(x, ys*, zs*) {
+  x in #post
+  ys in kind(wedge)
+  zs in kind(cyl)
+  ys on zs
+}
+pattern R2(x, y) {
+  x in #post
+  y in #post
+  x on y
+}
+pattern Sx(x, y) {
+  x in y | #post
+  y in kind(wedge)
+}
+pattern Tx(x, ys*) {
+  x in #post
+  ys in kind(wedge) & on(zz)
+}
+style nothing_sel mat=stone
+style #post mat=nomat
+style #post color=#abc shine=1
+style c

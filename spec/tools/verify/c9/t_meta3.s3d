@@ -1,0 +1,12 @@
+material steel color=#7f8b96 ~k=1
+box ab size=1,1,1 mat=steel
+group g ~k=2 { box c size=1,1,1 }
+repeat rr n=2 step=3,0,0 ~k=3 { box d size=1,1,1 }
+mirror m of=ab across=x ~k=4
+rotate ro n=2 ~k=5 { box e size=1,1,1 at=4,0,0 }
+copy cp of=g at=9,0,0 ~k=6
+span sp from=(0,0,0) to=(1,1,1) r=0.1 ~k=7
+concept c = kind(box)
+def t(w=1) { box b size=w,1,1 }
+style c mat=steel ~k=8
+variant c use=t ~k=9

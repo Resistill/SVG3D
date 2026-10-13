@@ -1,0 +1,19 @@
+box floor size=40,1,24 pin=top
+box a size=2,1,2 turn=90 offset=1,0,0
+group g turn=90 at=10,0,0 pin=origin { box b size=2,1,2 offset=1,0,0 }
+box c size=2,1,2 under=floor
+box d size=2,1,2 on=floor turn=30 align=x
+box e size=2,1,2 on=floor turn=30 align=z,back
+box f size=2,1,2 on=floor pin=0,1,0
+box h size=2,1,2 against=floor.right pin=top
+sphere s r=1 inside=g gap=5
+box k size=2,1,2 on=floor gap=0
+box m size=2,1,2 aim=0,10,0 offset=3,0,0
+box n size=2,1,2 aim=0,10,0
+box p size=2,1,2 rot=(0,0,0,30)
+mirror a2 of=a across=x axis=z
+box q size=2,2,2 at=20,0,20
+mirror q2 of=q across=floor.right axis=z
+mirror q3 of=q across=floor.right
+mirror q4 of=q across=floor
+box r size=2,1,2 under=floor pin=center

@@ -1,0 +1,2 @@
+box ab size=2,1,1
+repeat rr n=count(kind(box)) step=3,0,0 { box d size=1,1,1 }

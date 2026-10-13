@@ -1,0 +1,4 @@
+box box size=1,1,1
+box c size=1,1,1 at=3,0,0
+check "k" all() where kind == box
+check "k2" all() where kind == "box"

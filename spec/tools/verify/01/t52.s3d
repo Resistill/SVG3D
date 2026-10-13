@@ -1,0 +1,10 @@
+box a size=1,1,1
+box b size=1,1,1 on=a
+pattern p(x, y) {
+  x in kind(box)
+  kind(box) on y
+}
+pattern q(x, y) {
+  x in kind(box)
+  x on y.top
+}

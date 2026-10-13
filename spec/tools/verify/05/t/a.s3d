@@ -1,0 +1,3 @@
+box a1 size=1,1,1
+import "b.s3d"
+box a2 size=1,1,1

@@ -1,0 +1,4 @@
+def T(w=1) { box b size=w,1,1 }
+def U(h=1) { box b size=1,h,1 }
+T x
+over x : U w=3
