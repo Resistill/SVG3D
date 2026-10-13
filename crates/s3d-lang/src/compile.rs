@@ -52,11 +52,16 @@ pub struct MaterialDef {
 
 pub struct CompileOptions {
     pub metre: f64,
+    /// 是否推导空间事实（6.6.4）
+    pub facts: bool,
 }
 
 impl Default for CompileOptions {
     fn default() -> Self {
-        CompileOptions { metre: 1.0 }
+        CompileOptions {
+            metre: 1.0,
+            facts: true,
+        }
     }
 }
 
@@ -96,6 +101,13 @@ pub struct Compiler {
     pub material_table_built: bool,
     pub mat_errors_reported: Vec<NodeId>,
     pub color_errors_reported: Vec<NodeId>,
+    /// 空间事实（6.6）与关系索引（6.7.1）：rel_index[rel][x] = 对方节点列表
+    pub facts: Vec<crate::facts::Fact>,
+    pub rel_index: Vec<Vec<Vec<NodeId>>>,
+    pub facts_skipped: bool,
+    pub facts_done: bool,
+    /// 当前语义语句待记的"事实未推导"警告（语义层按语句去重后写入）
+    pub pending_facts_warning: Option<String>,
     /// 样式动作（7.7、10.3.3）：(选择集, mat, color)，按语句顺序
     pub style_actions: Vec<(Vec<NodeId>, Option<String>, Option<crate::material::ColorVal>)>,
 }
@@ -129,6 +141,11 @@ impl Compiler {
             material_table_built: false,
             mat_errors_reported: Vec::new(),
             color_errors_reported: Vec::new(),
+            facts: Vec::new(),
+            rel_index: Vec::new(),
+            facts_skipped: !opts.facts,
+            facts_done: false,
+            pending_facts_warning: None,
             style_actions: Vec::new(),
             busy_local: Vec::new(),
             busy_box: Vec::new(),

@@ -1,7 +1,7 @@
 //! 阶段 7 的求解（spec/03）：局部变换、局部盒、世界变换、世界盒。惰性求值 + 忙标记判定后置与循环（3.6）。
 
 use crate::ast::{Expr, ExprKind};
-use crate::compile::{Compiler, Ctx, Timing};
+use crate::compile::{Compiler, Timing};
 use crate::elaborate::prop_ctx;
 use crate::eval::{dir_vector, EResult, EvalErr};
 use crate::scene::{NodeId, Role, ROOT};
@@ -1011,10 +1011,6 @@ impl Compiler {
     pub fn top_bottom(&mut self, n: NodeId) -> (f64, f64) {
         let b = self.scene.nodes[n].tight.unwrap_or_else(|| self.require_wbox(n));
         (b.min.y, b.max.y)
-    }
-
-    pub fn relation_predicate(&mut self, name: &str, _args: &[Expr], _ctx: Ctx) -> EResult<Value> {
-        Err(EvalErr(format!("{}() 尚未实现", name)))
     }
 
     // ====== 一般规则（3.1.3）======

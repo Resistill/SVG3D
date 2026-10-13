@@ -12,4 +12,5 @@ path = "src/main.rs"
 
 [dependencies]
 s3d-lang = { path = "../s3d-lang" }
+s3d-geom = { path = "../s3d-geom" }
 serde_json = { workspace = true }

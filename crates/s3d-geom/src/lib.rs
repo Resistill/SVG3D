@@ -3,6 +3,7 @@
 //! 全部数值是 f64，超越函数走 libm（`math` 模块），原则 18 的确定性约束由 clippy.toml 守住。
 
 pub mod aabb;
+pub mod convex;
 pub mod curve;
 pub mod math;
 pub mod poly2;

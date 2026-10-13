@@ -64,6 +64,32 @@ fn main() {
             println!("failures: {}", rep.failures);
             std::process::exit(if rep.failures == 0 { 0 } else { 1 });
         }
+        Some("parts") if args.len() >= 3 => {
+            let file = &args[1];
+            let text = std::fs::read_to_string(file).expect("读不到源文件");
+            let display = Path::new(file)
+                .file_name()
+                .map(|s| s.to_string_lossy().to_string())
+                .unwrap_or(file.clone());
+            let mut out = compile(
+                &text,
+                &abs_path(file),
+                &display,
+                &read,
+                &CompileOptions::default(),
+            );
+            let parts = out.compiler.debug_parts(&args[2]);
+            println!(
+                "{}",
+                serde_json::to_string(
+                    &parts
+                        .iter()
+                        .map(|p| p.iter().map(|v| [v.x, v.y, v.z]).collect::<Vec<_>>())
+                        .collect::<Vec<_>>()
+                )
+                .unwrap()
+            );
+        }
         _ => {
             eprintln!("用法：s3d compile <文件.s3d>\n      s3d verify <文件.s3d> <参考.compile.json>");
             std::process::exit(2);

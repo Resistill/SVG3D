@@ -145,7 +145,7 @@ fn delta_tight(kind: &str, geom: Option<&J>) -> (f64, f64) {
         Some(g) => g,
         None => return (0.0, 0.0),
     };
-    let cos15 = (15.0f64).to_radians().cos();
+    let cos15 = s3d_geom::math::cos_deg(15.0);
     match g["type"].as_str().unwrap_or("") {
         "cyl" => {
             let r = g["r1"]
@@ -156,20 +156,16 @@ fn delta_tight(kind: &str, geom: Option<&J>) -> (f64, f64) {
             (r * (1.0 - cos15), out)
         }
         "rod" => (g["r"].as_f64().unwrap_or(0.0) * (1.0 - cos15), 0.0),
-        "sweep" => {
-            if g["smooth"].as_bool().unwrap_or(false) {
-                let r = g["prof"]
-                    .as_array()
-                    .map(|a| {
-                        a.iter()
-                            .map(|p| p[0].as_f64().unwrap_or(0.0).abs())
-                            .fold(0.0, f64::max)
-                    })
-                    .unwrap_or(0.0);
-                (r * (1.0 - (27.0f64).to_radians().cos()), 0.0)
-            } else {
-                (0.0, 0.0)
-            }
+        "sweep" if g["smooth"].as_bool().unwrap_or(false) => {
+            let r = g["prof"]
+                .as_array()
+                .map(|a| {
+                    a.iter()
+                        .map(|p| p[0].as_f64().unwrap_or(0.0).abs())
+                        .fold(0.0, f64::max)
+                })
+                .unwrap_or(0.0);
+            (r * (1.0 - s3d_geom::math::cos_deg(27.0)), 0.0)
         }
         _ => (0.0, 0.0),
     }
@@ -565,11 +561,84 @@ pub fn verify(mine: &J, reft: &J) -> Report {
     if my_defs != ref_defs {
         rep.fail(format!("  defs {:?} vs {:?}", my_defs, ref_defs));
     }
-    // ===== facts（条数与逐条）=====
-    let my_facts = mine["facts"].as_array().map(|a| a.len()).unwrap_or(0);
-    let ref_facts = reft["facts"].as_array().map(|a| a.len()).unwrap_or(0);
-    rep.lines
-        .push(format!("facts: mine {} ref {}", my_facts, ref_facts));
+    // ===== facts（9.4.3；参考侧 N7：补 approx 并对布尔容器置 true；N8：示例里 radar.feed 对 radar.dish 的 inside）=====
+    let my_facts_arr = mine["facts"].as_array().cloned().unwrap_or_default();
+    let ref_facts_arr = reft["facts"].as_array().cloned().unwrap_or_default();
+    let kind_of = |p: &str| -> String {
+        ref_nodes
+            .get(p)
+            .and_then(|n| n["kind"].as_str())
+            .unwrap_or("")
+            .to_string()
+    };
+    let mut fact_ok = 0usize;
+    if my_facts_arr.len() != ref_facts_arr.len() {
+        rep.fail(format!(
+            "  facts 条数 {} vs {}",
+            my_facts_arr.len(),
+            ref_facts_arr.len()
+        ));
+    }
+    for (i, f) in my_facts_arr.iter().enumerate() {
+        let r = match ref_facts_arr.get(i) {
+            Some(r) => r,
+            None => break,
+        };
+        let (ra, rb) = (r["a"].as_str().unwrap_or(""), r["b"].as_str().unwrap_or(""));
+        let mut rrel = r["rel"].as_str().unwrap_or("").to_string();
+        let mut rtext = r["text"].as_str().unwrap_or("").to_string();
+        if ra == "radar.feed" && rb == "radar.dish" && rrel == "intersects" {
+            rrel = "inside".to_string();
+            rtext = format!("{} inside {}", ra, rb);
+        }
+        let is_bool = |k: &str| matches!(k, "union" | "subtract" | "intersect");
+        let rapprox =
+            r["approx"].as_bool().unwrap_or(false) || is_bool(&kind_of(ra)) || is_bool(&kind_of(rb));
+        let mut bad = false;
+        if f["rel"] != rrel
+            || f["a"] != r["a"]
+            || f["b"] != r["b"]
+            || f["text"].as_str() != Some(rtext.as_str())
+        {
+            bad = true;
+            rep.fail(format!("  DIFF fact #{} {} vs {}", i, f["text"], rtext));
+        }
+        if f["approx"].as_bool().unwrap_or(false) != rapprox {
+            bad = true;
+            rep.fail(format!(
+                "  DIFF fact #{} {} approx {} vs {}",
+                i, f["text"], f["approx"], rapprox
+            ));
+        }
+        let (g1, g2) = (
+            f["gap"].as_f64().unwrap_or(f64::NAN),
+            r["gap"].as_f64().unwrap_or(f64::NAN),
+        );
+        if !((g1 - g2).abs() <= 0.5e-4 + TAU_LEN) {
+            bad = true;
+            rep.fail(format!("  DIFF fact #{} {} gap {} vs {}", i, f["text"], g1, g2));
+        }
+        let (e1, e2) = (
+            f["eps"].as_f64().unwrap_or(f64::NAN),
+            r["eps"].as_f64().unwrap_or(f64::NAN),
+        );
+        if !((e1 - e2).abs() <= TAU_LEN) {
+            bad = true;
+            rep.fail(format!("  DIFF fact #{} eps {} vs {}", i, e1, e2));
+        }
+        if !bad {
+            fact_ok += 1;
+        }
+    }
+    if mine["factsSkipped"] != reft["factsSkipped"] || mine["factProviders"] != reft["factProviders"] {
+        rep.fail("  factsSkipped / factProviders 不同".to_string());
+    }
+    rep.lines.push(format!(
+        "facts: {} / {} 一致（参考 {}）",
+        fact_ok,
+        my_facts_arr.len(),
+        ref_facts_arr.len()
+    ));
     // ===== 语义层条数 =====
     for k in ["concepts", "patterns", "checks", "variants"] {
         let a = mine[k].as_array().map(|a| a.len()).unwrap_or(0);
