@@ -92,6 +92,19 @@
 
   评分三处哈希 ✓（CI #23 起）；渲染两项（60 帧、无头渲染对拍）与 CPU compare 派便宜模型，M2 的这两项待其完成。
 
+### CPU 光栅与 compare（Opus 子 agent，日期 2026-10-13）
+
+- **做了什么**：`s3d-geom` 新增 `raster`（原型 `tools/raster.mjs` + `src/views.js` 按定义重写：7 个视角预设、包围盒取景（1.6 r、半径下限 2）、透视 / 正交（半视野 1.08 r）、`elev` 俯仰、`cut` 水平剖切（Sutherland–Hodgman + 1.5 像素剖面线）、z-buffer 平头着色与轮廓、模式 color / id / labels（编号点阵与去重叠放置）/ error（绿→红热图）、取景盒保留 4 位小数可原样传回）、`png`（自写 CRC32 / Adler32 与固定 Huffman + 贪心 LZ77 的 deflate，8 位 RGB、滤波 0，不加依赖）、`compare`（盒式模糊两遍一维；missing / extra 以源的模糊覆盖之和归一，diff 是模糊灰度差的像素平均；差异图红缺、蓝多、灰都有）。全程 f64、libm、单线程按输入顺序画与累加。CLI：`s3d render`（`--glb --view --mode --size --out --source --only --box --ortho --cut --elev --segments prototype --delta`；error 模式内部按默认常数先算一次 score，取逐物体 / 逐源部件的 meanErr / 4δ）与 `s3d compare`（`--glb --views --size --blur --meshes --only --box --out-dir --segments prototype`），stdout 形状同原型：`{meshes, only, blur, box, views: {<视角>: {missing, extra, diff, file}}}`，另加 `sources` / `objects` 计数。测试：光栅 / 剖切 / 取景 / 颜色单元测试，zlib 与 PNG 由 python3 的 zlib 解压逐字节核对；集成测试 `crates/s3d-cli/tests/compare.rs`（spaceport.L0 的 missing / extra < 0.05；compare 与三种 render 模式两次运行 stdout、PNG 逐字节相同）。
+- **读数**（默认 size 512、blur 8、视角 iso / iso2 / top；括号里是 `--segments prototype`，与原型对同一输入跑出的 compare.json 逐项相同）：
+
+| 场景 | iso missing / extra / diff | iso2 | top |
+|---|---|---|---|
+| spaceport.L0 | 0.0003 (0.0002) / 0 / 0.0038 | 0.0005 / 0 / 0.0078 | 0 / 0 / 0.0006 |
+| rotation.L0 | 0 / 0 / 0.0015 (0.0014) | 0 / 0 / 0.0021 | 0 / 0 / 0.0009 |
+
+  spaceport.L0 的 iso labels 图（512²，原型分段）与原型逐像素比，787k 个字节里 48 个不同（Float32 对 f64 的边缘像素）。耗时：两个场景的 compare 各约 0.3 s（release）。
+- **与原型的差别**：顶点、深度全程 f64（原型 Float32），边缘像素偶有出入；没有移植 focus / highlight（compare 用不到，界面另有 GPU 预览）；compare 的取景盒各视角都用取整到 4 位的源包围盒（原型第一个视角的源图用未取整的盒）；源部件的角色只用默认规则（没有工程的 roles.json，意图接入后改读意图；PLAN 第 5 节"没有意图时 compare 比全部部件"留到 M3 接意图时统一）；PNG 的 zlib 流是自写的固定 Huffman，字节与 node 的 deflateSync 不同，像素相同。
+
 ## M3a 意图的执行
 
 ### 2026-10-13：意图的数据形状、源侧决定、重绑

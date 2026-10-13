@@ -1,12 +1,13 @@
 //! `s3d` 命令行（M1）：compile 输出 JSON；verify 对参考输出对拍（9.4）。
 
+mod render;
 mod sha256;
 mod verify;
 
 use s3d_lang::compile::{compile, CompileOptions};
 use std::path::Path;
 
-fn abs_path(p: &str) -> String {
+pub(crate) fn abs_path(p: &str) -> String {
     let path = Path::new(p);
     let abs = if path.is_absolute() {
         path.to_path_buf()
@@ -636,6 +637,30 @@ fn main() {
                 );
             }
         }
+        Some(cmd @ ("render" | "compare")) => {
+            // 离屏渲染 / 源与重建的渲染对比（CPU 光栅，见 render.rs 的用法）
+            let usage = if cmd == "render" {
+                render::RENDER_USAGE
+            } else {
+                render::COMPARE_USAGE
+            };
+            if args.len() < 2 || args.iter().any(|a| a == "--help" || a == "-h") {
+                eprintln!("用法：{}", usage);
+                std::process::exit(2);
+            }
+            let r = if cmd == "render" {
+                render::render(&args)
+            } else {
+                render::compare_cmd(&args)
+            };
+            match r {
+                Ok(j) => println!("{}", serde_json::to_string_pretty(&j).unwrap()),
+                Err(e) => {
+                    eprintln!("{}", e);
+                    std::process::exit(1);
+                }
+            }
+        }
         Some("parts") if args.len() >= 3 => {
             let file = &args[1];
             let text = std::fs::read_to_string(file).expect("读不到源文件");
@@ -663,7 +688,11 @@ fn main() {
             );
         }
         _ => {
-            eprintln!("用法：s3d compile <文件.s3d>\n      s3d verify <文件.s3d> <参考.compile.json>");
+            eprintln!(
+                "用法：s3d compile <文件.s3d>\n      s3d verify <文件.s3d> <参考.compile.json>\n      {}\n      {}",
+                render::RENDER_USAGE,
+                render::COMPARE_USAGE
+            );
             std::process::exit(2);
         }
     }
