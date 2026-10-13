@@ -46,3 +46,11 @@
 - 过程中按规范修正的实现点：`pin=origin` 不读自身盒（3.6.1；原先把 coaster.legs 误判后置）；revolve 的轮廓按 2.2.7 第 1–6 步处理（smooth 的过冲进包围盒）；sweep / pipe 的环点、倒圆、框架按 2.2.9 / 2.3.7。
 - 已知偏差（记入 `docs/spec-open-items.md` 第 4 节）：模板体里 copy 块内的修改与同一体里稍后的 over 的相对顺序。
 - 成本：本段全部由主会话手写，没有再开子 agent。
+
+### 2026-10-13：M1.4 事实、语义层、材质、输出全部对上参考输出
+
+- 新增：凸块与分离量（`s3d-geom::convex`，第 2 章各实体的凸块 + 6.4）、紧包围盒（`tight`，2.1.8 / 2.5.4）、空间事实与关系索引（`s3d-lang::facts`，第 6 章）、材质表与有效材质（`material`，第 10 章）、语义层（`semantic`：concept / pattern / check / style / variant 与皮肤挂载，第 7 章 + 4.7）、完整的输出 JSON（items / curves / facts / concepts / patterns / checks / variants / defs / materials / files / meta）。
+- `s3d verify` 按 9.4 的规则与 9.4.5 的规范化（N1、N2、N5、N7、N8、N10、N11、N15、N16）对拍全部字段。结果：**17 个参考文件（7 个 examples + 10 个 exports）全部 0 失败**；N8 预期改变的事实恰为 9.5.3 预测的 345 条（已回填）；另有 12 条相邻换序属 9.4.4 的扫描序平局（舍入噪声）。
+- 规范修正：2.2.9 扫掠凸块的面片顶点序是定义的一部分（棱集按先出现去重，沿路径的四条棱只差微小角度；按原型的顶点序才能复现 rotation 的 12 条枕木 `gap`）。
+- 未做、留到后面：hull 条目的 `faces`（语料没有 hull，凸块已有面片但条目先输出空数组）；影子覆盖（4.4.4）在求解侧生效；皮肤里的 mirror / rotate 副本树（4.7 第 6 条；语料的皮肤里没有副本）。
+- 成本：本段全部由主会话手写（约 10 次修改—对拍循环），没有再开子 agent。

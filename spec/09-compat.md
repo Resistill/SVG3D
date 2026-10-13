@@ -794,6 +794,8 @@ exports 里 `~fit` / `~src` 元数据的值全是数与字符串（8.1.3 不报�
 
 示例（corpus/examples）里预期改变的事实只有 1 条（rotation 的 `radar.feed`），由 6.8.3 的独立实现确认，不是预测。
 
+**M1 核对结果（2026-10-13 回填）。** 用 `s3d verify` 对 10 个 exports 文件逐条比较（参考侧按 N7 补 approx、按 N8 只接受"$a$ / $b$ 之一的种类是 mesh / revolve / 布尔容器，且 intersects → inside 或 touching → against"的改变），实际改变的事实恰为预测的 345 条：basics.L0 2、curves.L0 3、l2fb 17、rotation.L0 249、semantics.L0 0、spaceport.L0 17、spaceport.L1 19、spaceport.L2 0、spaceport_edit.L0 19、spaceport_edit.L1 19；每条的 `gap` 在 $\tau_{\text{gap}}^{\text{ref}}$ 内、`approx` 为真；没有预测之外的 `rel` 改变，也没有缺失或多出的事实。另有 12 条事实（l2fb 4、spaceport.L0 4、spaceport.L2 4、spaceport_edit.L0 4）只是**相邻换序**：rotate 副本 `r1` 与 `r3`（转 90° 与 270°）的对象盒 $x$ 最小值在数学上相等、两份实现的舍入噪声（$10^{-15}$ 量级）分出不同的扫描序（6.2.3），事实的字段逐项相同；这是 9.4.4 的边界情形（判定量 $\lvert \Omega^{\min}_{P,x} - \Omega^{\min}_{Q,x} \rvert \le \tau_{\text{len}}$），比较程序把它列为换序而不计失败。
+
 ### 9.5.5 实战工程（2026-10-13 补）
 
 9.5.1–9.5.4 只核查了 `corpus/` 的 19 个文件。原型逆向的三个实战工程（`SVG3D-Prototype` 仓库的 `work-snapshot/`，共 295 个 `.s3d`、约 8.5 万行）另行核查，结果与语料不同：

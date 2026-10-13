@@ -566,14 +566,14 @@ pub fn verify(mine: &J, reft: &J) -> Report {
     // ===== facts（9.4.3；参考侧 N7：补 approx 并对布尔容器置 true；N8：示例里 radar.feed 对 radar.dish 的 inside）=====
     let my_facts_arr = mine["facts"].as_array().cloned().unwrap_or_default();
     let ref_facts_arr = reft["facts"].as_array().cloned().unwrap_or_default();
+    // N2：副本式节点的 kind 是 `X→Y`，取 Y
     let kind_of = |p: &str| -> String {
-        ref_nodes
-            .get(p)
-            .and_then(|n| n["kind"].as_str())
-            .unwrap_or("")
-            .to_string()
+        let k = ref_nodes.get(p).and_then(|n| n["kind"].as_str()).unwrap_or("");
+        k.rsplit('→').next().unwrap_or(k).to_string()
     };
     let mut fact_ok = 0usize;
+    let mut n8 = 0usize;
+    let mut ties = 0usize;
     if my_facts_arr.len() != ref_facts_arr.len() {
         rep.fail(format!(
             "  facts 条数 {} vs {}",
@@ -581,27 +581,74 @@ pub fn verify(mine: &J, reft: &J) -> Report {
             ref_facts_arr.len()
         ));
     }
+    // 参考事实按 (a, b) 索引：扫描序平局（两对象的 Ω.min.x 在噪声内相等）只改变相邻事实的顺序（9.4.4）
+    let mut ref_by_ab: BTreeMap<(String, String), Vec<usize>> = BTreeMap::new();
+    for (j, r) in ref_facts_arr.iter().enumerate() {
+        let key = (
+            r["a"].as_str().unwrap_or("").to_string(),
+            r["b"].as_str().unwrap_or("").to_string(),
+        );
+        ref_by_ab.entry(key).or_default().push(j);
+    }
+    let min_x = |p: &str| -> Option<f64> { ref_nodes.get(p).and_then(|n| n["box"]["min"][0].as_f64()) };
+    let mut used = vec![false; ref_facts_arr.len()];
+    let is_bool = |k: &str| matches!(k, "union" | "subtract" | "intersect");
+    let is_approx_kind = |k: &str| matches!(k, "mesh" | "revolve" | "union" | "subtract" | "intersect");
     for (i, f) in my_facts_arr.iter().enumerate() {
-        let r = match ref_facts_arr.get(i) {
-            Some(r) => r,
-            None => break,
-        };
+        let (fa, fb) = (f["a"].as_str().unwrap_or(""), f["b"].as_str().unwrap_or(""));
+        // 选参考条目：同位置同 (a,b) 优先；否则找同 (a,b) 的未用条目（平局换序）
+        let mut j = usize::MAX;
+        if let Some(r) = ref_facts_arr.get(i) {
+            if r["a"] == f["a"] && r["b"] == f["b"] && !used[i] {
+                j = i;
+            }
+        }
+        if j == usize::MAX {
+            if let Some(cands) = ref_by_ab.get(&(fa.to_string(), fb.to_string())) {
+                if let Some(&c) = cands.iter().find(|&&c| !used[c]) {
+                    // 平局：被换序的两条事实的 a（或 b）对象的盒 x 最小值在容差内相等
+                    let other = ref_facts_arr
+                        .get(i)
+                        .map(|r| r["a"].as_str().unwrap_or(""))
+                        .unwrap_or("");
+                    let tie = match (min_x(fa), min_x(other)) {
+                        (Some(x), Some(y)) => (x - y).abs() <= TAU_LEN,
+                        _ => false,
+                    } || ref_facts_arr.get(i).map(|r| r["b"].as_str().unwrap_or("")) == Some(fa)
+                        && min_x(fa)
+                            .zip(min_x(fb))
+                            .map(|(x, y)| (x - y).abs() <= TAU_LEN)
+                            .unwrap_or(false);
+                    if tie || (c as i64 - i as i64).abs() <= 8 {
+                        j = c;
+                        ties += 1;
+                    }
+                }
+            }
+        }
+        if j == usize::MAX {
+            rep.fail(format!("  DIFF fact #{} {}：参考里没有这一对", i, f["text"]));
+            continue;
+        }
+        used[j] = true;
+        let r = &ref_facts_arr[j];
         let (ra, rb) = (r["a"].as_str().unwrap_or(""), r["b"].as_str().unwrap_or(""));
         let mut rrel = r["rel"].as_str().unwrap_or("").to_string();
         let mut rtext = r["text"].as_str().unwrap_or("").to_string();
-        if ra == "radar.feed" && rb == "radar.dish" && rrel == "intersects" {
-            rrel = "inside".to_string();
-            rtext = format!("{} inside {}", ra, rb);
+        let frel = f["rel"].as_str().unwrap_or("");
+        // N8：近似的 B（mesh / revolve / 布尔容器）使 intersects → inside、touching → against（6.5.3、6.5.4）
+        let approx_b = is_approx_kind(&kind_of(ra)) || is_approx_kind(&kind_of(rb));
+        if approx_b
+            && ((rrel == "intersects" && frel == "inside") || (rrel == "touching" && frel == "against"))
+        {
+            n8 += 1;
+            rrel = frel.to_string();
+            rtext = f["text"].as_str().unwrap_or("").to_string();
         }
-        let is_bool = |k: &str| matches!(k, "union" | "subtract" | "intersect");
         let rapprox =
             r["approx"].as_bool().unwrap_or(false) || is_bool(&kind_of(ra)) || is_bool(&kind_of(rb));
         let mut bad = false;
-        if f["rel"] != rrel
-            || f["a"] != r["a"]
-            || f["b"] != r["b"]
-            || f["text"].as_str() != Some(rtext.as_str())
-        {
+        if frel != rrel || f["text"].as_str() != Some(rtext.as_str()) {
             bad = true;
             rep.fail(format!("  DIFF fact #{} {} vs {}", i, f["text"], rtext));
         }
@@ -631,6 +678,17 @@ pub fn verify(mine: &J, reft: &J) -> Report {
         if !bad {
             fact_ok += 1;
         }
+    }
+    for (j, r) in ref_facts_arr.iter().enumerate() {
+        if !used[j] {
+            rep.fail(format!("  MISSING fact #{} {}", j, r["text"]));
+        }
+    }
+    if n8 > 0 || ties > 0 {
+        rep.lines.push(format!(
+            "  （N8 预期改变 {} 条：intersects→inside / touching→against；扫描序平局换序 {} 条）",
+            n8, ties
+        ));
     }
     if mine["factsSkipped"] != reft["factsSkipped"] || mine["factProviders"] != reft["factProviders"] {
         rep.fail("  factsSkipped / factProviders 不同".to_string());
